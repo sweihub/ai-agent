@@ -1,0 +1,13 @@
+{
+  "name": "hello-plugin",
+  "version": "1.0.0",
+  "description": "A simple hello world plugin",
+  "author": {
+    "name": "Example Author",
+    "email": "author@example.com"
+  },
+  "commands": "commands",
+  "skills": "skills",
+  "hooks": {},
+  "output_styles": []
+}

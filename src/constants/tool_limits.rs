@@ -1,0 +1,6 @@
+pub const DEFAULT_MAX_RESULT_SIZE_CHARS: usize = 50_000;
+pub const MAX_TOOL_RESULT_TOKENS: usize = 100_000;
+pub const BYTES_PER_TOKEN: usize = 4;
+pub const MAX_TOOL_RESULT_BYTES: usize = MAX_TOOL_RESULT_TOKENS * BYTES_PER_TOKEN;
+pub const MAX_TOOL_RESULTS_PER_MESSAGE_CHARS: usize = 200_000;
+pub const TOOL_SUMMARY_MAX_LENGTH: usize = 50;

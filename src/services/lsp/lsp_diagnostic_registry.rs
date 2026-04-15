@@ -1,0 +1,1 @@
+// LSP diagnostic registry stub

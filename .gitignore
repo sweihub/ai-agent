@@ -1,0 +1,7 @@
+/target
+/.worktrees
+/docs
+.env
+.claude
+/.ai
+/QWEN.md

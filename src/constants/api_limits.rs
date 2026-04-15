@@ -1,0 +1,13 @@
+pub const API_IMAGE_MAX_BASE64_SIZE: usize = 5 * 1024 * 1024;
+pub const IMAGE_TARGET_RAW_SIZE: usize = (API_IMAGE_MAX_BASE64_SIZE * 3) / 4;
+pub const IMAGE_MAX_WIDTH: u32 = 2000;
+pub const IMAGE_MAX_HEIGHT: u32 = 2000;
+
+pub const PDF_TARGET_RAW_SIZE: usize = 20 * 1024 * 1024;
+pub const API_PDF_MAX_PAGES: u32 = 100;
+pub const PDF_EXTRACT_SIZE_THRESHOLD: usize = 3 * 1024 * 1024;
+pub const PDF_MAX_EXTRACT_SIZE: usize = 100 * 1024 * 1024;
+pub const PDF_MAX_PAGES_PER_READ: u32 = 20;
+pub const PDF_AT_MENTION_INLINE_THRESHOLD: u32 = 10;
+
+pub const API_MAX_MEDIA_PER_REQUEST: u32 = 100;

@@ -1,0 +1,13 @@
+//! Migrations module
+
+pub mod migrate_auto_updates_to_settings;
+pub mod migrate_bypass_permissions_accepted_to_settings;
+pub mod migrate_enable_all_project_mcp_servers_to_settings;
+pub mod migrate_fennec_to_opus;
+pub mod migrate_legacy_opus_to_current;
+pub mod migrate_opus_to_opus1m;
+pub mod migrate_repl_bridge_enabled_to_remote_control_at_startup;
+pub mod migrate_sonnet1m_to_sonnet45;
+pub mod migrate_sonnet45_to_sonnet46;
+pub mod reset_auto_mode_opt_in_for_default_offer;
+pub mod reset_pro_to_opus_default;
