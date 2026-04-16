@@ -1080,7 +1080,8 @@ impl QueryEngine {
         self.turn_count = 1;
 
         // Tool call loop - continue until no more tool calls
-        let mut max_tool_turns = 10;
+        // Use config.max_turns as the limit (0xffffffff = effectively unlimited)
+        let mut max_tool_turns = self.config.max_turns;
         while max_tool_turns > 0 {
             max_tool_turns -= 1;
 
