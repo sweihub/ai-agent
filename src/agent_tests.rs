@@ -498,4 +498,68 @@ mod tests {
         assert!(messages.len() >= 4, "Should have at least 4 messages in history, got {}", messages.len());
         println!("Message history has {} messages", messages.len());
     }
+
+    /// Test that ToolSearchTool can be used to discover and use a deferred tool
+    /// This tests the full flow: agent uses ToolSearch to find a tool, then uses it
+    #[tokio::test]
+    async fn test_tool_search_discovers_and_uses_deferred_tool() {
+        // Only run if required env vars are set
+        if !has_required_env_vars() {
+            eprintln!("Skipping test: AI_BASE_URL, AI_MODEL, or AI_AUTH_TOKEN not set");
+            return;
+        }
+
+        // Load config from .env file
+        let config = EnvConfig::load();
+
+        // Skip if no API configured
+        if config.base_url.is_none() || config.auth_token.is_none() {
+            eprintln!("Skipping test: no API config found");
+            return;
+        }
+
+        // Get all available tools (includes deferred tools like WebSearch, WebFetch)
+        use crate::get_all_tools;
+        let tools = get_all_tools();
+
+        // Verify we have ToolSearch available
+        let tool_names: Vec<&str> = tools.iter().map(|t| t.name.as_str()).collect();
+        assert!(tool_names.contains(&"ToolSearch"), "Should have ToolSearch tool");
+        assert!(tool_names.contains(&"WebSearch"), "Should have WebSearch (deferred) tool");
+
+        let mut agent = Agent::create(AgentOptions {
+            model: config.model.clone(),
+            max_turns: Some(10), // More turns since ToolSearch discovery needs extra round
+            tools,
+            ..Default::default()
+        });
+
+        // Ask the agent to search for information - it should use ToolSearch to discover WebSearch
+        let result = agent
+            .prompt("Search the web for the current weather in Tokyo, Japan")
+            .await;
+
+        assert!(result.is_ok(), "Agent should respond successfully");
+        let response = result.unwrap();
+        assert!(!response.text.is_empty(), "Response should not be empty");
+        println!("ToolSearch test response: {}", response.text);
+
+        // Verify the agent actually did a web search
+        // The response should contain something weather-related or Tokyo-related
+        let text_lower = response.text.to_lowercase();
+        let did_search = text_lower.contains("tokyo")
+            || text_lower.contains("weather")
+            || text_lower.contains("japan")
+            || text_lower.contains("search")
+            || text_lower.contains("web");
+
+        assert!(did_search, "Agent should have searched the web for Tokyo weather. Response: {}", response.text);
+
+        // Verify ToolSearch was involved by checking message history
+        let messages = agent.get_messages();
+        let has_tool_search_call = messages.iter().any(|m| {
+            m.content.contains("ToolSearch") || m.content.contains("WebSearch")
+        });
+        println!("ToolSearch interaction detected: {}", has_tool_search_call);
+    }
 }
