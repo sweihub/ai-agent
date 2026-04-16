@@ -896,31 +896,54 @@ impl Agent {
         let api_key = self.api_key.clone();
         let base_url = self.base_url.clone();
 
-        // Build system prompt: AI.md + memory prompt + custom system prompt
+        // Build system prompt: AI.md + memory mechanics + custom system prompt
+        // This matches TypeScript's memoryMechanicsPrompt logic:
+        // customPrompt !== undefined && hasAutoMemPathOverride() ? loadMemoryPrompt() : null
         let ai_md_prompt = load_ai_md(cwd_path).ok().flatten();
-        let memory_prompt = load_memory_prompt_sync();
+
+        // Memory mechanics prompt is ONLY loaded when:
+        // 1. custom system prompt exists (customPrompt !== undefined)
+        // 2. AI_COWORK_MEMORY_PATH_OVERRIDE is set (hasAutoMemPathOverride())
+        let memory_mechanics_prompt = if self.config.system_prompt.is_some()
+            && crate::memdir::has_auto_mem_path_override() {
+            load_memory_prompt_sync()
+        } else {
+            None
+        };
 
         // Use the full system prompt from prompts module (matches TypeScript)
         let base_system_prompt = build_system_prompt();
 
-        // Combine: AI.md (highest priority) -> memory -> base prompt -> custom
-        let system_prompt = match (&ai_md_prompt, &memory_prompt, &self.config.system_prompt) {
+        // Combine system prompt matching TypeScript's order:
+        // [...(customPrompt !== undefined ? [customPrompt] : defaultSystemPrompt),
+        //  ...(memoryMechanicsPrompt ? [memoryMechanicsPrompt] : []),
+        //  ...(appendSystemPrompt ? [appendSystemPrompt] : [])]
+        // Note: appendSystemPrompt is not exposed in current SDK but we reserve the slot
+        let system_prompt = match (&ai_md_prompt, &memory_mechanics_prompt, &self.config.system_prompt) {
+            // AI.md + memory mechanics + base + custom (custom always present in this branch)
             (Some(ai_md), Some(mem), Some(custom)) => Some(format!(
                 "{}\n\n{}\n\n{}\n\n{}",
                 ai_md, mem, base_system_prompt, custom
             )),
+            // AI.md + memory mechanics + base (no custom)
             (Some(ai_md), Some(mem), None) => {
                 Some(format!("{}\n\n{}\n\n{}", ai_md, mem, base_system_prompt))
             }
+            // AI.md + base + custom (memory mechanics null)
             (Some(ai_md), None, Some(custom)) => {
                 Some(format!("{}\n\n{}\n\n{}", ai_md, base_system_prompt, custom))
             }
+            // AI.md + base (no custom, no memory)
             (Some(ai_md), None, None) => Some(format!("{}\n\n{}", ai_md, base_system_prompt)),
+            // No AI.md, memory mechanics + base + custom
             (None, Some(mem), Some(custom)) => {
                 Some(format!("{}\n\n{}\n\n{}", mem, base_system_prompt, custom))
             }
+            // No AI.md, memory mechanics + base (no custom)
             (None, Some(mem), None) => Some(format!("{}\n\n{}", mem, base_system_prompt)),
+            // No AI.md, no memory, base + custom
             (None, None, Some(custom)) => Some(format!("{}\n\n{}", base_system_prompt, custom)),
+            // Base only
             (None, None, None) => Some(base_system_prompt),
         };
 
@@ -956,8 +979,6 @@ impl Agent {
 
         // Clone tool_pool before the closure to avoid capturing self
         let tool_pool = self.tool_pool.clone();
-
-        // Register the Agent tool executor
 
         // Register the Agent tool executor to spawn sub-agents with full parameter support
         let agent_tool_executor = move |input: serde_json::Value,
@@ -1067,8 +1088,6 @@ impl Agent {
             })
         };
 
-        // Register all tool executors
-        register_all_tool_executors(&mut engine);
         engine.register_tool("Agent".to_string(), agent_tool_executor);
 
         // Pass existing messages to engine for continuing conversation
@@ -1096,145 +1115,6 @@ impl Agent {
             num_turns: engine.get_turn_count(),
             duration_ms: start.elapsed().as_millis() as u64,
             exit_reason,
-        })
-    }
-}
-
-/// Helper function to create the Agent tool executor with all parameters
-fn create_agent_tool_executor(
-    cwd: String,
-    api_key: Option<String>,
-    base_url: Option<String>,
-    model: String,
-    tool_pool: Vec<crate::tools::ToolDefinition>,
-) -> impl Fn(serde_json::Value, &ToolContext) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<ToolResult, AgentError>> + Send>> + Send + 'static {
-    move |input: serde_json::Value,
-          _ctx: &ToolContext|
-          -> std::pin::Pin<
-        Box<dyn std::future::Future<Output = Result<ToolResult, AgentError>> + Send>,
-    > {
-        let cwd = cwd.clone();
-        let api_key = api_key.clone();
-        let base_url = base_url.clone();
-        let model = model.clone();
-        let tool_pool = tool_pool.clone();
-
-        Box::pin(async move {
-            // Extract ALL parameters from input (not just description, prompt, model, max_turns)
-            let description = input["description"].as_str().unwrap_or("subagent");
-            let subagent_prompt = input["prompt"].as_str().unwrap_or("");
-            let subagent_model = input["model"]
-                .as_str()
-                .map(|s| s.to_string())
-                .unwrap_or_else(|| model.clone());
-            let max_turns = input["max_turns"]
-                .as_u64()
-                .or_else(|| input["maxTurns"].as_u64()) // Support camelCase too
-                .unwrap_or(10) as u32;
-
-            // NEW: Extract subagent_type
-            let subagent_type = input["subagent_type"]
-                .as_str()
-                .or_else(|| input["subagentType"].as_str())
-                .map(|s| s.to_string());
-
-            // NEW: Extract run_in_background
-            let run_in_background = input["run_in_background"]
-                .as_bool()
-                .or_else(|| input["runInBackground"].as_bool())
-                .unwrap_or(false);
-
-            // NEW: Extract name
-            let agent_name = input["name"]
-                .as_str()
-                .map(|s| s.to_string());
-
-            // NEW: Extract team_name
-            let team_name = input["team_name"]
-                .as_str()
-                .or_else(|| input["teamName"].as_str())
-                .map(|s| s.to_string());
-
-            // NEW: Extract mode (permission mode)
-            let mode = input["mode"]
-                .as_str()
-                .map(|s| s.to_string());
-
-            // NEW: Extract cwd (working directory override)
-            let subagent_cwd = input["cwd"]
-                .as_str()
-                .map(|s| s.to_string())
-                .unwrap_or_else(|| cwd.clone());
-
-            // NEW: Extract isolation
-            let isolation = input["isolation"]
-                .as_str()
-                .map(|s| s.to_string());
-
-            // Log all parameters for debugging
-            let params_log = format!(
-                "Agent tool params: description={}, subagent_type={:?}, run_in_background={}, name={:?}, team_name={:?}, mode={:?}, cwd={}, isolation={:?}",
-                description,
-                subagent_type,
-                run_in_background,
-                agent_name,
-                team_name,
-                mode,
-                subagent_cwd,
-                isolation
-            );
-            eprintln!("{}", params_log);
-
-            // Use the correct cwd for the subagent
-            let actual_cwd = subagent_cwd.clone();
-
-            // Build system prompt for subagent (matching TypeScript getAgentSystemPrompt)
-            let system_prompt = build_agent_system_prompt(description, subagent_type.as_deref());
-
-            // Use parent agent's tool pool for the subagent
-            let tools = tool_pool;
-
-            // Create a new engine for the subagent
-            let mut sub_engine = QueryEngine::new(QueryEngineConfig {
-                cwd: actual_cwd,
-                model: subagent_model.to_string(),
-                api_key,
-                base_url,
-                tools,
-                system_prompt: Some(system_prompt),
-                max_turns,
-                max_budget_usd: None,
-                max_tokens: 16384,
-                fallback_model: None,
-                user_context: std::collections::HashMap::new(),
-                system_context: std::collections::HashMap::new(),
-                can_use_tool: None,
-                on_event: None,
-                thinking: None,
-            });
-
-            // Run the subagent
-            match sub_engine.submit_message(subagent_prompt).await {
-                Ok((result_text, _)) => {
-                    let mut content = format!("[Subagent: {}]", description);
-                    if let Some(ref name) = agent_name {
-                        content = format!("[Subagent: {} ({}))]", description, name);
-                    }
-                    content = format!("{}\n\n{}", content, result_text);
-                    Ok(ToolResult {
-                        result_type: "text".to_string(),
-                        tool_use_id: "agent_tool".to_string(),
-                        content,
-                        is_error: Some(false),
-                    })
-                }
-                Err(e) => Ok(ToolResult {
-                    result_type: "text".to_string(),
-                    tool_use_id: "agent_tool".to_string(),
-                    content: format!("[Subagent: {}] Error: {}", description, e),
-                    is_error: Some(true),
-                }),
-            }
         })
     }
 }

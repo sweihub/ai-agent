@@ -22,6 +22,7 @@ pub enum PromptInputMode {
 }
 
 /// Process user input context - combines ToolUseContext and LocalJSXCommandContext
+/// (Extended to match TypeScript's rich context with memory/skill tracking)
 #[derive(Debug, Clone)]
 pub struct ProcessUserInputContext {
     /// Session ID
@@ -34,6 +35,14 @@ pub struct ProcessUserInputContext {
     pub query_tracking: Option<QueryTracking>,
     /// Context options
     pub options: ProcessUserInputContextOptions,
+    /// Track nested memory paths loaded via memory attachment triggers
+    pub loaded_nested_memory_paths: std::collections::HashSet<String>,
+    /// Track discovered skill names (feeds was_discovered on skill_tool_invocation)
+    pub discovered_skill_names: std::collections::HashSet<String>,
+    /// Trigger directories for dynamic skill loading
+    pub dynamic_skill_dir_triggers: std::collections::HashSet<String>,
+    /// Trigger paths for nested memory attachments
+    pub nested_memory_attachment_triggers: std::collections::HashSet<String>,
 }
 
 /// Query tracking for analytics
@@ -87,6 +96,10 @@ impl Default for ProcessUserInputContext {
             agent_id: None,
             query_tracking: None,
             options: ProcessUserInputContextOptions::default(),
+            loaded_nested_memory_paths: std::collections::HashSet::new(),
+            discovered_skill_names: std::collections::HashSet::new(),
+            dynamic_skill_dir_triggers: std::collections::HashSet::new(),
+            nested_memory_attachment_triggers: std::collections::HashSet::new(),
         }
     }
 }

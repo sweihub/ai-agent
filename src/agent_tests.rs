@@ -431,4 +431,71 @@ mod tests {
         assert!(!response.text.is_empty(), "Response should not be empty");
         println!("Multiple tool calls test response: {}", response.text);
     }
+
+    /// Test that the agent remembers context across multiple query() calls
+    /// This verifies that messages are properly accumulated in the Agent and
+    /// passed to the QueryEngine for context maintenance across turns.
+    #[tokio::test]
+    async fn test_agent_remembers_context_across_queries() {
+        // Only run if required env vars are set
+        if !has_required_env_vars() {
+            eprintln!("Skipping test: AI_BASE_URL, AI_MODEL, or AI_AUTH_TOKEN not set");
+            return;
+        }
+
+        // Load config from .env file
+        let config = EnvConfig::load();
+
+        // Skip if no API configured
+        if config.base_url.is_none() || config.auth_token.is_none() {
+            eprintln!("Skipping test: no API config found");
+            return;
+        }
+
+        // Get all available tools
+        use crate::get_all_tools;
+        let tools = get_all_tools();
+
+        let mut agent = Agent::create(AgentOptions {
+            model: config.model.clone(),
+            max_turns: Some(5),
+            tools,
+            ..Default::default()
+        });
+
+        // First turn: tell the agent something specific to remember
+        let result1 = agent
+            .prompt("Remember this: My favorite color is blue and I live in Seattle.")
+            .await;
+
+        assert!(result1.is_ok(), "First query should succeed");
+        let response1 = result1.unwrap();
+        assert!(!response1.text.is_empty(), "First response should not be empty");
+        println!("Turn 1 response: {}", response1.text);
+
+        // Second turn: ask about what was just said - the agent should remember
+        let result2 = agent
+            .prompt("What is my favorite color and where do I live?")
+            .await;
+
+        assert!(result2.is_ok(), "Second query should succeed");
+        let response2 = result2.unwrap();
+        assert!(!response2.text.is_empty(), "Second response should not be empty");
+        println!("Turn 2 response: {}", response2.text);
+
+        // Verify the agent remembered the context
+        // The response should mention "blue" and "Seattle"
+        let text_lower = response2.text.to_lowercase();
+        let remembers_color = text_lower.contains("blue");
+        let remembers_city = text_lower.contains("seattle");
+
+        assert!(remembers_color, "Agent should remember favorite color is blue. Response: {}", response2.text);
+        assert!(remembers_city, "Agent should remember living in Seattle. Response: {}", response2.text);
+
+        // Also verify the message history is being accumulated
+        let messages = agent.get_messages();
+        // Should have at least: user msg 1, assistant msg 1, user msg 2, assistant msg 2
+        assert!(messages.len() >= 4, "Should have at least 4 messages in history, got {}", messages.len());
+        println!("Message history has {} messages", messages.len());
+    }
 }
