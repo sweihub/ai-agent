@@ -218,7 +218,8 @@ pub mod idle_timeout;
 pub mod image_store;
 pub mod image_validation;
 pub mod immediate_command;
-pub mod ink;
+// Source: from ink (~/claudecode/openclaudecode/src/ink)
+// ui_event renamed to interact
 
 // New modules from TypeScript translation
 pub mod managed_env_constants;
