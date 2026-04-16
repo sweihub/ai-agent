@@ -599,6 +599,85 @@ pub fn build_system_prompt() -> String {
     sections.join("\n\n")
 }
 
+// =============================================================================
+// BUILD SYSTEM PROMPT PARTS (matching TypeScript's fetchSystemPromptParts)
+// =============================================================================
+
+use std::collections::HashMap;
+
+/// Result of building system prompt parts (matches TypeScript's fetchSystemPromptParts)
+#[derive(Debug, Clone)]
+pub struct SystemPromptParts {
+    /// The default system prompt text
+    pub default_system_prompt: String,
+    /// User context - prepended to messages as <system-reminder> wrapped content
+    pub user_context: HashMap<String, String>,
+    /// System context - appended to system prompt
+    pub system_context: HashMap<String, String>,
+}
+
+/// Build system prompt parts - separates static prompt from dynamic context
+/// This matches TypeScript's fetchSystemPromptParts() which returns:
+/// { defaultSystemPrompt, userContext, systemContext }
+pub fn build_system_prompt_parts(
+    enabled_tool_names: &HashSet<String>,
+    _model: &str,
+    additional_working_directories: Option<Vec<String>>,
+    custom_system_prompt: Option<&str>,
+) -> SystemPromptParts {
+    // Build default system prompt with the provided tools
+    let default_system_prompt = build_system_prompt_with_tools(enabled_tool_names);
+
+    // Build user context (prepended to messages)
+    // This is used by TypeScript's prependUserContext feature
+    let mut user_context = HashMap::new();
+
+    // Add additional working directories to user context if provided
+    if let Some(dirs) = additional_working_directories {
+        if !dirs.is_empty() {
+            user_context.insert(
+                "additional_working_directories".to_string(),
+                dirs.join("\n"),
+            );
+        }
+    }
+
+    // Build system context (appended to system prompt via appendSystemPrompt)
+    let mut system_context = HashMap::new();
+
+    // If custom system prompt is provided, it goes into system_context
+    // to be appended to the system prompt (via appendSystemPrompt mechanism)
+    if let Some(custom) = custom_system_prompt {
+        system_context.insert("custom".to_string(), custom.to_string());
+    }
+
+    SystemPromptParts {
+        default_system_prompt,
+        user_context,
+        system_context,
+    }
+}
+
+/// Build system prompt with a custom set of enabled tools
+/// This is a helper used by build_system_prompt_parts
+fn build_system_prompt_with_tools(enabled_tool_names: &HashSet<String>) -> String {
+    let mut sections = Vec::new();
+
+    // Static sections
+    sections.push(get_simple_intro_section(None));
+    sections.push(get_simple_system_section());
+    sections.push(get_simple_doing_tasks_section(None));
+    sections.push(get_actions_section());
+
+    // Tools section - use the provided tool names
+    sections.push(get_using_your_tools_section(enabled_tool_names));
+
+    sections.push(get_simple_tone_and_style_section());
+    sections.push(get_output_efficiency_section());
+
+    sections.join("\n\n")
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

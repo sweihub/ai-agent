@@ -607,6 +607,46 @@ const ALL_TOOLS: &[(&str, &str, fn() -> ToolDefinition)] = &[
         is_mcp: None,
         search_hint: None,
     }),
+    ("LSP", "Code intelligence via Language Server Protocol", || ToolDefinition {
+        name: "LSP".to_string(),
+        description: "Interact with Language Server Protocol servers for code intelligence (definitions, references, symbols, hover, call hierarchy)".to_string(),
+        input_schema: lsp_schema(),
+        annotations: None,
+        should_defer: None,
+        always_load: None,
+        is_mcp: None,
+        search_hint: None,
+    }),
+    ("RemoteTrigger", "Manage remote Claude Code agents via CCR API", || ToolDefinition {
+        name: "RemoteTrigger".to_string(),
+        description: "Manage scheduled remote Claude Code agents (triggers) via the claude.ai CCR API".to_string(),
+        input_schema: remote_trigger_schema(),
+        annotations: None,
+        should_defer: None,
+        always_load: None,
+        is_mcp: None,
+        search_hint: None,
+    }),
+    ("ListMcpResourcesTool", "List MCP server resources", || ToolDefinition {
+        name: "ListMcpResourcesTool".to_string(),
+        description: "List available resources from configured MCP servers".to_string(),
+        input_schema: list_mcp_resources_schema(),
+        annotations: None,
+        should_defer: None,
+        always_load: None,
+        is_mcp: None,
+        search_hint: None,
+    }),
+    ("ReadMcpResourceTool", "Read MCP server resources by URI", || ToolDefinition {
+        name: "ReadMcpResourceTool".to_string(),
+        description: "Read a specific resource from an MCP server by URI".to_string(),
+        input_schema: read_mcp_resource_schema(),
+        annotations: None,
+        should_defer: None,
+        always_load: None,
+        is_mcp: None,
+        search_hint: None,
+    }),
 ];
 
 fn agent_schema() -> ToolInputSchema {
@@ -874,6 +914,60 @@ fn skill_schema() -> ToolInputSchema {
             "skill": { "type": "string", "description": "The name of the skill to invoke" }
         }),
         required: Some(vec!["skill".to_string()]),
+    }
+}
+
+// LSP tool schema
+fn lsp_schema() -> ToolInputSchema {
+    ToolInputSchema {
+        schema_type: "object".to_string(),
+        properties: serde_json::json!({
+            "operation": {
+                "type": "string",
+                "enum": ["goToDefinition", "findReferences", "hover", "documentSymbol", "workspaceSymbol", "goToImplementation", "prepareCallHierarchy", "incomingCalls", "outgoingCalls"],
+                "description": "The LSP operation to perform"
+            },
+            "filePath": { "type": "string", "description": "The file to operate on" },
+            "line": { "type": "integer", "description": "Line number (1-based)" },
+            "character": { "type": "integer", "description": "Character offset (1-based)" }
+        }),
+        required: Some(vec!["operation".to_string(), "filePath".to_string()]),
+    }
+}
+
+// RemoteTrigger tool schema
+fn remote_trigger_schema() -> ToolInputSchema {
+    ToolInputSchema {
+        schema_type: "object".to_string(),
+        properties: serde_json::json!({
+            "action": { "type": "string", "enum": ["list", "get", "create", "update", "run"], "description": "The action to perform" },
+            "trigger_id": { "type": "string", "description": "Required for get, update, and run" },
+            "body": { "type": "object", "description": "JSON body for create and update" }
+        }),
+        required: Some(vec!["action".to_string()]),
+    }
+}
+
+// ListMcpResourcesTool schema
+fn list_mcp_resources_schema() -> ToolInputSchema {
+    ToolInputSchema {
+        schema_type: "object".to_string(),
+        properties: serde_json::json!({
+            "server": { "type": "string", "description": "Optional server name to filter resources by" }
+        }),
+        required: None,
+    }
+}
+
+// ReadMcpResourceTool schema
+fn read_mcp_resource_schema() -> ToolInputSchema {
+    ToolInputSchema {
+        schema_type: "object".to_string(),
+        properties: serde_json::json!({
+            "server": { "type": "string", "description": "The MCP server name" },
+            "uri": { "type": "string", "description": "The resource URI to read" }
+        }),
+        required: Some(vec!["server".to_string(), "uri".to_string()]),
     }
 }
 

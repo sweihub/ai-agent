@@ -46,8 +46,8 @@ mod tests {
     #[test]
     fn test_get_all_base_tools_returns_all_tools() {
         let tools = get_all_base_tools();
-        // Should have 33 built-in tools (32 original + TaskStop)
-        assert_eq!(tools.len(), 33);
+        // Should have 37 built-in tools (33 original + LSP, RemoteTrigger, ListMcpResourcesTool, ReadMcpResourceTool)
+        assert_eq!(tools.len(), 37);
     }
 
     #[test]
