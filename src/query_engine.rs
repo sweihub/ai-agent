@@ -2792,6 +2792,17 @@ async fn make_anthropic_streaming_request(
                                     if json.get("research").is_some() {
                                         result.research = json.get("research").cloned();
                                     }
+                                    // Emit MessageStart event (matches TypeScript stream_event flow)
+                                    if let Some(ref cb) = on_event {
+                                        cb(AgentEvent::MessageStart {
+                                            message_id: json
+                                                .get("message")
+                                                .and_then(|m| m.get("id"))
+                                                .and_then(|i| i.as_str())
+                                                .unwrap_or("")
+                                                .to_string(),
+                                        });
+                                    }
                                 }
                                 "content_block_start" => {
                                     let index =
@@ -2991,6 +3002,19 @@ async fn make_anthropic_streaming_request(
                                     {
                                         if !content.is_empty() {
                                             result.content.push_str(content);
+                                            // Emit MessageStart before first content block delta
+                                            if !result.message_started {
+                                                result.message_started = true;
+                                                if let Some(ref cb) = on_event {
+                                                    cb(AgentEvent::MessageStart {
+                                                        message_id: uuid::Uuid::new_v4().to_string(),
+                                                    });
+                                                    cb(AgentEvent::ContentBlockStart {
+                                                        index: 0,
+                                                        block_type: "text".to_string(),
+                                                    });
+                                                }
+                                            }
                                             if let Some(ref cb) = on_event {
                                                 cb(AgentEvent::ContentBlockDelta {
                                                     index: 0,
@@ -3005,6 +3029,15 @@ async fn make_anthropic_streaming_request(
                                     if let Some(tool_calls) =
                                         delta.get("tool_calls").and_then(|t| t.as_array())
                                     {
+                                        // Emit MessageStart before first tool call
+                                        if !result.message_started {
+                                            result.message_started = true;
+                                            if let Some(ref cb) = on_event {
+                                                cb(AgentEvent::MessageStart {
+                                                    message_id: uuid::Uuid::new_v4().to_string(),
+                                                });
+                                            }
+                                        }
                                         for tc in tool_calls {
                                             let id =
                                                 tc.get("id").and_then(|i| i.as_str()).unwrap_or("");

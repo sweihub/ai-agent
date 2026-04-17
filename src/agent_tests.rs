@@ -562,4 +562,102 @@ mod tests {
         });
         println!("ToolSearch interaction detected: {}", has_tool_search_call);
     }
+
+    /// Test that AgentEvent streaming events are properly emitted during agent execution.
+    /// This verifies: MessageStart, MessageStop, ContentBlockDelta, ToolStart, ToolComplete
+    #[tokio::test]
+    async fn test_agent_events_emitted_correctly() {
+        // Only run if required env vars are set
+        if !has_required_env_vars() {
+            eprintln!("Skipping test: AI_BASE_URL, AI_MODEL, or AI_AUTH_TOKEN not set");
+            return;
+        }
+
+        // Load config from .env file
+        let config = EnvConfig::load();
+
+        // Skip if no API configured
+        if config.base_url.is_none() || config.auth_token.is_none() {
+            eprintln!("Skipping test: no API config found");
+            return;
+        }
+
+        // Get all available tools
+        use crate::get_all_tools;
+        use crate::types::api_types::ContentDelta;
+
+        let tools = get_all_tools();
+
+        // Track events received
+        use std::sync::Mutex;
+        let events_received: std::sync::Arc<Mutex<Vec<crate::types::AgentEvent>>> =
+            std::sync::Arc::new(Mutex::new(Vec::new()));
+        let events_clone = events_received.clone();
+
+        // Create agent with event callback using Agent::create
+        let mut agent = Agent::create(AgentOptions {
+            model: config.model.clone(),
+            max_turns: Some(5),
+            tools,
+            on_event: Some(std::sync::Arc::new(move |event| {
+                events_clone.lock().unwrap().push(event);
+            })),
+            ..Default::default()
+        });
+
+        // Prompt that will use the Bash tool
+        let result = agent
+            .prompt("Run this command and tell me the output: echo 'EventTest123'")
+            .await;
+
+        // Verify we got a response
+        assert!(result.is_ok(), "Agent should respond successfully");
+        let response = result.unwrap();
+        assert!(!response.text.is_empty(), "Response should not be empty");
+        println!("Agent response: {}", response.text);
+
+        // Get the events that were received
+        let events = events_received.lock().unwrap();
+
+        // Verify we received MessageStart event
+        let has_message_start = events.iter().any(|e| matches!(e, crate::types::AgentEvent::MessageStart { .. }));
+        assert!(has_message_start, "Should have received MessageStart event. Events: {:?}", events);
+
+        // Verify we received MessageStop event
+        let has_message_stop = events.iter().any(|e| matches!(e, crate::types::AgentEvent::MessageStop));
+        assert!(has_message_stop, "Should have received MessageStop event. Events: {:?}", events);
+
+        // Verify we received ContentBlockDelta event (text content)
+        let has_content_delta = events.iter().any(|e| {
+            match e {
+                crate::types::AgentEvent::ContentBlockDelta { delta, .. } => {
+                    match delta {
+                        ContentDelta::Text { text } => !text.is_empty(),
+                        _ => false,
+                    }
+                }
+                _ => false,
+            }
+        });
+        assert!(has_content_delta, "Should have received ContentBlockDelta with text. Events: {:?}", events);
+
+        // Verify we received ToolStart event (command should trigger Bash tool)
+        let has_tool_start = events.iter().any(|e| matches!(e, crate::types::AgentEvent::ToolStart { tool_name, .. } if tool_name == "Bash" || tool_name == "bash"));
+        println!("ToolStart check: {:?}", events.iter().filter(|e| matches!(e, crate::types::AgentEvent::ToolStart { .. })).collect::<Vec<_>>());
+        assert!(has_tool_start, "Should have received ToolStart event for Bash tool. Events: {:?}", events);
+
+        // Verify we received ToolComplete event
+        let has_tool_complete = events.iter().any(|e| matches!(e, crate::types::AgentEvent::ToolComplete { .. }));
+        assert!(has_tool_complete, "Should have received ToolComplete event. Events: {:?}", events);
+
+        // Verify the output contains our test string
+        let text_lower = response.text.to_lowercase();
+        let has_expected_output = text_lower.contains("eventtest123");
+        assert!(has_expected_output, "Response should contain 'EventTest123'. Response: {}", response.text);
+
+        println!("All event checks passed! Events received:");
+        for (i, event) in events.iter().enumerate() {
+            println!("  {}: {:?}", i, event);
+        }
+    }
 }
