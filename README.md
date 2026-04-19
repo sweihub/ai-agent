@@ -6,7 +6,7 @@
 
 [English](README.md) | [中文](READCN.md)
 
-Idiomatic Rust SDK — 1:1 translation of Claude Code. Runs the full agent loop **in-process** with 25+ built-in tools. Deploy anywhere: cloud, serverless, Docker, CI/CD.
+Idiomatic Rust SDK — 1:1 translation of Claude Code. Runs the full agent loop **in-process** with 37+ built-in tools. Deploy anywhere: cloud, serverless, Docker, CI/CD.
 
 AI Coding CLI: [ai-code](https://github.com/sweihub/ai-code)
 
@@ -37,16 +37,112 @@ See [Usage Examples](#usage-examples) for more.
 | **Context Compact** | Automatic conversation summarization when approaching context limits |
 | **Skills** | Load external skills or use 15+ bundled skills |
 | **Hooks** | 20+ lifecycle events (PreToolUse, PostToolUse, SessionStart, etc.) |
-| **Tools** | 25+ built-in tools (Bash, Read, Write, Edit, Glob, Grep, WebFetch, WebSearch, Agent, Tasks, Teams, Worktree, Cron, etc.) |
+| **Tools** | 37 built-in tools across 10 categories (File Ops, Shell, Web, LSP, Multi-agent, Tasks, Planning, Scheduling, Git, MCP, etc.) |
 | **Memory** | File-based persistent context via MEMORY.md |
 | **Permissions** | Tool access control with allow/deny rules |
 | **Plugins** | Load plugins with commands, skills, MCP servers |
 | **MCP** | Connect to Model Context Protocol servers |
 | **Cost Tracking** | Real-time token usage and cost estimation |
 
+## Built-in Tools
+
+The SDK ships with **37 built-in tools** organized into 10 categories. All tools are available out of the box with full parameter validation and type-safe schemas.
+
+### File Operations
+| Tool | Description |
+|------|-------------|
+| `Read` | Read files — text, images (PNG/JPG/GIF/WebP), PDFs, Jupyter notebooks |
+| `Write` | Write content to files with exact path control |
+| `Edit` | Perform exact string replacements in files (single or all occurrences) |
+| `NotebookEdit` | Edit Jupyter notebook cells — replace, insert, or delete |
+
+### File Discovery & Search
+| Tool | Description |
+|------|-------------|
+| `Glob` | Find files by glob pattern (e.g. `**/*.ts`) |
+| `Grep` | Search file contents with regex via ripgrep — supports context lines, line numbers, file filters |
+
+### Shell & Command Execution
+| Tool | Description |
+|------|-------------|
+| `Bash` | Execute shell commands with sandboxing, timeouts, and destructive command safety checks |
+| `PowerShell` | Execute PowerShell commands (Windows, with git safety and security checks) |
+
+### Web
+| Tool | Description |
+|------|-------------|
+| `WebFetch` | Fetch and extract content from any URL (HTML → Markdown, JSON, plain text) |
+| `WebSearch` | Search the web for up-to-date information |
+| `WebBrowser` | Headless browser automation — navigate, screenshot, click, fill, evaluate JS, manage tabs |
+
+### Code Intelligence
+| Tool | Description |
+|------|-------------|
+| `LSP` | Language Server Protocol operations — go-to-definition, find references, hover, document/workspace symbols, call hierarchy, implementations |
+
+### Multi-agent Orchestration
+| Tool | Description |
+|------|-------------|
+| `Agent` | Launch subagents with specialized capabilities (Explore, Plan, code-review, verification, etc.) |
+| `TeamCreate` / `TeamDelete` | Create and delete teams of parallel-working agents |
+| `SendMessage` | Send messages between agents within a team |
+
+### Task Management
+| Tool | Description |
+|------|-------------|
+| `TaskCreate` | Create a new task with subject, description, and active form |
+| `TaskList` | List all tasks with statuses and dependencies |
+| `TaskUpdate` | Update task status, details, or dependencies (pending → in_progress → completed) |
+| `TaskGet` | Get full details of a specific task |
+| `TaskStop` | Stop a running background task by ID |
+| `TaskOutput` | Retrieve output from a completed or running background task |
+
+### Planning & User Interaction
+| Tool | Description |
+|------|-------------|
+| `EnterPlanMode` | Switch to planning mode for multi-step implementation design |
+| `ExitPlanMode` | Present the plan for user approval and begin execution |
+| `AskUserQuestion` | Ask the user multi-choice questions with previews and multi-select support |
+
+### Scheduling
+| Tool | Description |
+|------|-------------|
+| `CronCreate` | Schedule recurring or one-shot tasks using cron expressions |
+| `CronDelete` | Cancel a scheduled task |
+| `CronList` | List all scheduled tasks |
+
+### Git & Worktrees
+| Tool | Description |
+|------|-------------|
+| `EnterWorktree` | Create an isolated git worktree for feature development |
+| `ExitWorktree` | Exit and clean up a worktree |
+
+### Skills & Configuration
+| Tool | Description |
+|------|-------------|
+| `Skill` | Invoke skills by name (e.g. brainstorming, TDD, debugging, security-review) |
+| `Config` | Read or update harness configuration (permissions, hooks, env vars) |
+
+### System
+| Tool | Description |
+|------|-------------|
+| `Monitor` | Monitor system resources and performance |
+| `ToolSearch` | Fetch full schemas for deferred tools (lazy-loaded tool discovery) |
+
+### MCP (Model Context Protocol)
+| Tool | Description |
+|------|-------------|
+| `ListMcpResourcesTool` | List available resources from configured MCP servers |
+| `ReadMcpResourceTool` | Read a specific resource from an MCP server by URI |
+
+### Remote / Cloud
+| Tool | Description |
+|------|-------------|
+| `RemoteTrigger` | Manage scheduled remote Claude Code agents via CCR API — list, create, update, run |
+
 ## Usage Examples
 
-> The agent automatically uses 25+ built-in tools (Bash, Read, Write, Edit, Glob, Grep, WebFetch, etc.) to accomplish tasks.
+> The agent automatically uses 37+ built-in tools across 10 categories to accomplish tasks.
 
 ### Multi-turn Conversation
 ```rust
@@ -147,9 +243,9 @@ SDK uses OpenAI format, compatible with:
                │
     ┌──────────┼──────────┐
     │          │          │
-┌───▼───┐  ┌───▼───┐  ┌──▼────┐
-│  LLM  │  │ 25+   │  │  MCP  │
-│  API  │  │Tools  │  │Server │
+┌───▼───┐  ┌───▼────┐  ┌──▼────┐
+│  LLM  │  │ 37+    │  │  MCP  │
+│  API  │  │Tools   │  │Server │
 └───────┘  └───────┘  └───────┘
 ```
 
