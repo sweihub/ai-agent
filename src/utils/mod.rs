@@ -316,7 +316,11 @@ pub use sandbox::{get_sandbox_dir, is_path_in_sandbox, is_sandbox_enabled};
 pub use sanitization::escape_shell_arg;
 pub use sanitization::{escape_html, sanitize_filename, sanitize_path, truncate};
 pub use screenshot_clipboard::{copy_screenshot_to_clipboard, take_screenshot};
-pub use sdk_event_queue::{SdkEvent, SdkEventQueue};
+pub use sdk_event_queue::{
+    drain_sdk_events, emit_session_state_changed, emit_task_progress, emit_task_started,
+    emit_task_terminated_sdk, enqueue_sdk_event, DrainedSdkEvent, SdkEvent, SdkEventQueue,
+    SdkEventUsage, SdkEventType, TaskProgressParams,
+};
 pub use secure_storage::SecureStorage;
 pub use semver::{parse_semver, Semver};
 pub use session_activity::{ActivityType, SessionActivity, SessionActivityTracker};

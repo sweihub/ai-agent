@@ -146,14 +146,35 @@ impl<T: Clone + 'static> TaskStateTrait for T {
 /// Register a new task in AppState.
 pub fn register_task(task: TaskStateBase, set_app_state: &SetAppState) -> bool {
     let mut is_replacement = false;
+    let task_for_emit = task.clone();
+
+    let _app_state = Arc::new(Mutex::new(HashMap::new()));
+    let existing_state = set_app_state(_app_state.clone());
+    let mut state = existing_state.blocking_lock();
 
     // Check if task exists (would be replacement)
-    // In real implementation, this would check the actual app state
-    // For now, return false (not a replacement)
-    let _ = (task, set_app_state);
+    is_replacement = state.contains_key(&task_for_emit.id);
 
-    // Note: This would emit task_started event in real implementation
-    // enqueueSdkEvent({ type: 'system', subtype: 'task_started', ... })
+    if !is_replacement {
+        state.insert(task_for_emit.id.clone(), task_for_emit.clone());
+    }
+
+    drop(state);
+
+    // Replacement (resume) — not a new start. Skip to avoid double-emit.
+    if is_replacement {
+        return false;
+    }
+
+    // Emit task_started SDK event
+    crate::utils::sdk_event_queue::emit_task_started(
+        &task_for_emit.id,
+        task_for_emit.tool_use_id.clone(),
+        &task_for_emit.description,
+        Some(task_for_emit.task_type.as_str().to_string()),
+        None, // workflow_name — not in TaskStateBase
+        None, // prompt — not in TaskStateBase
+    );
 
     is_replacement
 }

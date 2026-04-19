@@ -153,8 +153,14 @@ fn get_task_by_type(_task_type: &str) -> Option<Box<dyn Task>> {
 
 /// Emit a task terminated SDK event.
 fn emit_task_terminated_sdk(task_id: &str, tool_use_id: Option<String>, summary: Option<String>) {
-    // In a real implementation, this would enqueue an SDK event
-    let _ = (task_id, tool_use_id, summary);
+    crate::utils::sdk_event_queue::emit_task_terminated_sdk(
+        task_id,
+        tool_use_id,
+        "stopped",
+        summary,
+        None,
+        None,
+    );
 }
 
 #[cfg(test)]

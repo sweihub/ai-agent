@@ -50,6 +50,7 @@ pub use utils::{
 pub use types::ids::AgentId;
 pub mod ai_md;
 pub mod analytics;
+pub mod bootstrap;
 pub mod bridge;
 pub mod bridge_enabled;
 pub mod commands;
