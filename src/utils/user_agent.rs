@@ -1,14 +1,12 @@
-// Source: ~/claudecode/openclaudecode/src/utils/userAgent.rs
+// Source: ~/claudecode/openclaudecode/src/utils/userAgent.ts
+//! User agent string helpers.
+//!
+//! Single source of truth for all User-Agent values. Returns compile-time
+//! `CARGO_PKG_VERSION` so the value is always available.
 
-/// Get the AI Code user agent string.
-///
-/// Kept dependency-free so SDK-bundled code (bridge, cli/transports) can
-/// import without pulling in auth and its transitive dependency tree.
-pub fn get_ai_code_user_agent() -> String {
-    let version = std::env::var("AI_CODE_VERSION")
-        .ok()
-        .unwrap_or_else(|| "unknown".to_string());
-    format!("ai-code/{version}")
+/// Get the user agent string for all AI agent requests.
+pub fn get_user_agent() -> String {
+    format!("ai-agent/{}", env!("CARGO_PKG_VERSION"))
 }
 
 #[cfg(test)]
@@ -17,7 +15,8 @@ mod tests {
 
     #[test]
     fn test_user_agent_format() {
-        let ua = get_ai_code_user_agent();
-        assert!(ua.starts_with("ai-code/"));
+        let ua = get_user_agent();
+        assert!(ua.starts_with("ai-agent/"));
+        assert!(!ua.contains("unknown"));
     }
 }

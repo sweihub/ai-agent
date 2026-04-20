@@ -1,11 +1,8 @@
-//! User-Agent string helpers.
-//!
-//! Kept dependency-free so SDK-bundled code (bridge, cli/transports) can
-//! import without pulling in auth.ts and its transitive dependency tree.
+//! User-Agent string helpers (legacy re-exports for backwards compat).
 
-use crate::MACRO_VERSION;
+pub use crate::utils::user_agent::get_user_agent;
 
-/// Get the Claude Code User-Agent string.
+/// Backwards-compatible alias for the unified user agent.
 pub fn get_claude_code_user_agent() -> String {
-    format!("claude-code/{}", MACRO_VERSION)
+    get_user_agent()
 }

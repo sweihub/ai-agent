@@ -162,6 +162,9 @@ pub struct ToolDefinition {
     /// Optional aliases for backwards compatibility when a tool is renamed
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub aliases: Option<Vec<String>>,
+    /// Human-readable name for display in the UI (e.g., "Update" vs "Edit")
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub user_facing_name: Option<String>,
 }
 
 impl Default for ToolDefinition {
@@ -176,6 +179,7 @@ impl Default for ToolDefinition {
             is_mcp: None,
             search_hint: None,
             aliases: None,
+            user_facing_name: None,
         }
     }
 }
@@ -193,6 +197,7 @@ impl ToolDefinition {
             is_mcp: None,
             search_hint: None,
             aliases: None,
+            user_facing_name: None,
         }
     }
 
@@ -580,12 +585,23 @@ pub enum AgentEvent {
         tool_name: String,
         tool_call_id: String,
         input: serde_json::Value,
+        /// Human-readable display name (e.g., "Update" for edits, "Create" for new files).
+        /// Overrides `tool_name` for display in the TUI.
+        display_name: Option<String>,
+        /// Short summary for compact views (e.g., file path for FileEdit).
+        summary: Option<String>,
+        /// Activity description for spinner display (e.g., "Updating file.rs").
+        activity_description: Option<String>,
     },
     /// Tool execution completed
     ToolComplete {
         tool_name: String,
         tool_call_id: String,
         result: ToolResult,
+        /// Human-readable display name (e.g., "Update(file.rs) (1 +, 1 -)").
+        display_name: Option<String>,
+        /// Rendered result message from Tool::render_tool_result_message.
+        rendered_result: Option<String>,
     },
     /// Tool execution failed
     ToolError {

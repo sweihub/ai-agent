@@ -2,6 +2,7 @@
 //! First token date module
 //! Fetches and caches the user's first Claude Code token date
 
+use crate::utils::user_agent::get_user_agent;
 use std::collections::HashMap;
 
 /// Get OAuth config
@@ -26,9 +27,9 @@ fn save_global_config(update: impl FnOnce(&mut crate::utils::config::GlobalConfi
     let _ = crate::utils::config::save_global_config(&config);
 }
 
-/// Get Claude Code user agent
+/// Get user agent (delegates to unified function).
 fn get_claude_code_user_agent() -> String {
-    format!("ai-agent/{}", env!("CARGO_PKG_VERSION"))
+    get_user_agent()
 }
 
 /// Fetch the user's first Claude Code token date and store in config.

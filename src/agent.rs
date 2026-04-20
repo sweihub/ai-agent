@@ -2,6 +2,7 @@
 use crate::query_engine::{QueryEngine, QueryEngineConfig};
 use crate::env::EnvConfig;
 use crate::error::AgentError;
+use std::sync::Arc;
 use crate::tools::bash::BashTool;
 use crate::tools::edit::FileEditTool;
 use crate::tools::glob::GlobTool;
@@ -116,7 +117,8 @@ fn register_all_tool_executors(engine: &mut QueryEngine) {
     };
     engine.register_tool("Grep".to_string(), grep_executor);
 
-    // FileEdit tool
+    // FileEdit tool - with rendering metadata for TUI display
+    let file_edit_tool = FileEditTool::new();
     let edit_executor = move |input: serde_json::Value,
                               ctx: &ToolContext|
           -> BoxFuture<Result<ToolResult, AgentError>> {
@@ -130,7 +132,19 @@ fn register_all_tool_executors(engine: &mut QueryEngine) {
             tool_clone.execute(input, &ctx2).await
         })
     };
-    engine.register_tool("FileEdit".to_string(), edit_executor);
+    // Clone Arc for each closure capture
+    let fns_user_facing = Arc::new(file_edit_tool);
+    let fns_summary = Arc::clone(&fns_user_facing);
+    let fns_render = Arc::clone(&fns_user_facing);
+    let render_fns = crate::query_engine::ToolRenderFns {
+        user_facing_name: Arc::new(move |input| fns_user_facing.user_facing_name(input)),
+        get_tool_use_summary: Some(Arc::new(move |input| fns_summary.get_tool_use_summary(input))),
+        get_activity_description: None,
+        render_tool_result_message: Some(Arc::new(move |content, _progress, _options| {
+            fns_render.render_tool_result_message(content)
+        })),
+    };
+    engine.register_tool_with_render("FileEdit".to_string(), edit_executor, render_fns);
 
     // Skill tool - register skills from examples/skills directory
     use std::path::Path;

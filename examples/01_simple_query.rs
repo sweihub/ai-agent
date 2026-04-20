@@ -60,10 +60,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 AgentEvent::MessageStop => {
                     println!("[Stream] Message stopped");
                 }
-                AgentEvent::ToolStart { tool_name, tool_call_id: _, input: _ } => {
+                AgentEvent::ToolStart { tool_name, .. } => {
                     println!("\n[Tool Execute] {}", tool_name);
                 }
-                AgentEvent::ToolComplete { tool_name, tool_call_id: _, result } => {
+                AgentEvent::ToolComplete { tool_name, result, .. } => {
                     println!("[Tool Done] {} - {} chars", tool_name, result.content.len());
                 }
                 AgentEvent::ToolError { tool_name, tool_call_id: _, error } => {

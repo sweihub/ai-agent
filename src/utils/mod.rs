@@ -1,6 +1,7 @@
 //! Utility modules
 
 pub mod abort_controller;
+pub mod diff;
 pub mod circular_buffer;
 pub mod combined_abort_signal;
 pub mod commit_attribution;
@@ -31,6 +32,7 @@ pub mod thinking;
 pub mod ultraplan;
 pub mod tool_errors;
 pub mod user;
+pub mod user_agent;
 pub mod uuid;
 pub mod which;
 pub mod words;

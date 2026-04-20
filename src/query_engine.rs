@@ -8,6 +8,7 @@ use crate::compact::{
     self, get_auto_compact_threshold, get_compact_prompt, get_effective_context_window_size,
 };
 use crate::error::AgentError;
+use crate::utils::http::get_user_agent;
 use crate::hooks::{HookInput, HookRegistry};
 use crate::services::compact::microcompact::truncate_tool_result_content;
 use crate::services::streaming::{
@@ -16,6 +17,8 @@ use crate::services::streaming::{
     is_user_abort_error, release_stream_resources, validate_stream_completion, StallStats,
     StreamingResult, StreamingToolExecutor, StreamWatchdog, STALL_THRESHOLD_MS,
 };
+use crate::tool::Tool as ToolTrait;
+use crate::tool::{ProgressMessage, ToolResultRenderOptions};
 use crate::tools::orchestration::{self, ToolMessageUpdate};
 use crate::types::*;
 use std::collections::{HashMap, HashSet};
@@ -100,6 +103,48 @@ pub struct AutoCompactTracking {
     pub consecutive_failures: u32,
 }
 
+/// Rendered metadata for a tool execution, computed from Tool trait methods
+#[derive(Debug, Clone)]
+pub struct ToolRenderMetadata {
+    pub user_facing_name: String,
+    pub tool_use_summary: Option<String>,
+    pub activity_description: Option<String>,
+}
+
+/// Render function closures stored alongside a tool for display hooks
+type UserFacingNameFn = Arc<dyn Fn(Option<&serde_json::Value>) -> String + Send + Sync>;
+type GetToolUseSummaryFn = Arc<dyn Fn(Option<&serde_json::Value>) -> Option<String> + Send + Sync>;
+type GetActivityDescriptionFn = Arc<dyn Fn(Option<&serde_json::Value>) -> Option<String> + Send + Sync>;
+type RenderToolResultFn = Arc<dyn Fn(&serde_json::Value, &[ProgressMessage], &ToolResultRenderOptions) -> Option<String> + Send + Sync>;
+
+#[derive(Clone)]
+pub struct ToolRenderFns {
+    pub user_facing_name: UserFacingNameFn,
+    pub get_tool_use_summary: Option<GetToolUseSummaryFn>,
+    pub get_activity_description: Option<GetActivityDescriptionFn>,
+    pub render_tool_result_message: Option<RenderToolResultFn>,
+}
+
+impl ToolRenderFns {
+    /// Render a tool's result using the stored render closure.
+    /// The caller provides the tools vector for the ToolResultRenderOptions.
+    pub fn render(&self, content: &str, tools: &[crate::types::ToolDefinition]) -> Option<String> {
+        let content_value: serde_json::Value = serde_json::from_str(content).ok()?;
+        let progress_messages: Vec<ProgressMessage> = vec![];
+        let options = ToolResultRenderOptions {
+            style: None,
+            theme: "dark".to_string(),
+            tools: tools.to_vec(),
+            verbose: false,
+            is_transcript_mode: false,
+            is_brief_only: false,
+            input: None,
+        };
+        let render_fn = self.render_tool_result_message.as_ref()?;
+        render_fn(&content_value, &progress_messages, &options)
+    }
+}
+
 #[allow(dead_code)]
 pub struct QueryEngine {
     config: QueryEngineConfig,
@@ -110,6 +155,8 @@ pub struct QueryEngine {
     http_client: reqwest::Client,
     /// Tool executors: name -> async function
     tool_executors: Mutex<HashMap<String, Arc<ToolExecutor>>>,
+    /// Tool render metadata: name -> closures for computing display info and rendering results
+    tool_render_fns: Mutex<HashMap<String, ToolRenderFns>>,
     /// Hook registry for PreToolUse/PostToolUse hooks
     hook_registry: Arc<Mutex<Option<HookRegistry>>>,
     /// Auto-compaction tracking state
@@ -122,6 +169,8 @@ pub struct QueryEngine {
     max_output_tokens_recovery_count: u32,
     /// Recovery state for reactive compaction
     has_attempted_reactive_compact: bool,
+    /// Count of consecutive empty response retries (for transient API failures)
+    empty_response_retries: u32,
     /// Override for max_tokens during recovery
     max_output_tokens_override: Option<u32>,
     /// Whether a stop hook is currently active (prevents re-triggering)
@@ -209,6 +258,7 @@ impl QueryEngine {
             total_cost: 0.0,
             http_client: reqwest::Client::new(),
             tool_executors: Mutex::new(HashMap::new()),
+            tool_render_fns: Mutex::new(HashMap::new()),
             hook_registry: Arc::new(Mutex::new(None)),
             auto_compact_tracking: AutoCompactTracking::default(),
             permission_denials: Vec::new(),
@@ -219,10 +269,12 @@ impl QueryEngine {
             stop_hook_active: false,
             transition: None,
             pending_tool_use_summary: None,
+            empty_response_retries: 0,
         }
     }
 
-    /// Register a tool executor
+    /// Register a tool executor (without metadata).
+    /// For tools with rendering metadata, use `register_tool_with_render` instead.
     pub fn register_tool<F>(&mut self, name: String, executor: F)
     where
         F: Fn(serde_json::Value, &ToolContext) -> BoxFuture<Result<ToolResult, AgentError>>
@@ -234,6 +286,30 @@ impl QueryEngine {
             .lock()
             .unwrap()
             .insert(name, Arc::new(executor));
+    }
+
+    /// Register a tool executor with render metadata for display hooks.
+    /// This enables user_facing_name, get_tool_use_summary, and render_tool_result_message
+    /// to be called during event emission in execute_tool.
+    pub fn register_tool_with_render<F>(
+        &mut self,
+        name: String,
+        executor: F,
+        render_fns: ToolRenderFns,
+    ) where
+        F: Fn(serde_json::Value, &ToolContext) -> BoxFuture<Result<ToolResult, AgentError>>
+            + Send
+            + Sync
+            + 'static,
+    {
+        self.tool_executors
+            .lock()
+            .unwrap()
+            .insert(name.clone(), Arc::new(executor));
+        self.tool_render_fns
+            .lock()
+            .unwrap()
+            .insert(name, render_fns);
     }
 
     /// Set initial messages (for continuing a conversation)
@@ -365,10 +441,18 @@ impl QueryEngine {
             abort_signal: None,
         };
 
-        // Clone the Arc out of the map
-        let executor = {
+        // Clone the Arc out of the maps
+        let (executor, render_metadata) = {
             let executors = self.tool_executors.lock().unwrap();
-            executors.get(name).cloned()
+            let render_fns = self.tool_render_fns.lock().unwrap();
+            (
+                executors.get(name).cloned(),
+                render_fns.get(name).map(|fns| ToolRenderMetadata {
+                    user_facing_name: (Arc::clone(&fns.user_facing_name))(Some(&input)),
+                    tool_use_summary: fns.get_tool_use_summary.as_ref().and_then(|f| f(Some(&input))),
+                    activity_description: fns.get_activity_description.as_ref().and_then(|f| f(Some(&input))),
+                }),
+            )
         };
 
         if let Some(executor) = executor {
@@ -393,32 +477,64 @@ impl QueryEngine {
                 }
             }
 
-            // Continue with execution
-            // Run PreToolUse hooks
-            // Emit ToolStart event
+            // Emit ToolStart event with render metadata
             if let Some(ref cb) = self.config.on_event {
-                cb(AgentEvent::ToolStart {
-                    tool_name: name.to_string(),
-                    tool_call_id: tool_call_id.clone(),
-                    input: input.clone(),
-                });
+                if let Some(ref metadata) = render_metadata {
+                    let user_facing = &metadata.user_facing_name;
+                    cb(AgentEvent::ToolStart {
+                        tool_name: name.to_string(),
+                        tool_call_id: tool_call_id.clone(),
+                        input: input.clone(),
+                        display_name: Some(user_facing.clone()),
+                        summary: metadata.tool_use_summary.clone(),
+                        activity_description: metadata.activity_description.clone(),
+                    });
+                } else {
+                    cb(AgentEvent::ToolStart {
+                        tool_name: name.to_string(),
+                        tool_call_id: tool_call_id.clone(),
+                        input: input.clone(),
+                        display_name: None,
+                        summary: None,
+                        activity_description: None,
+                    });
+                }
             }
 
             self.run_pre_tool_use_hooks(name, &input, &tool_call_id)
                 .await?;
 
             // Execute the tool
-            let result = executor(input, &context).await;
+            let result = executor(input.clone(), &context).await;
 
-            // Emit ToolComplete or ToolError event
+            // Emit ToolComplete or ToolError event with render hooks
             if let Some(ref cb) = self.config.on_event {
                 match &result {
                     Ok(tool_result) => {
-                        cb(AgentEvent::ToolComplete {
-                            tool_name: name.to_string(),
-                            tool_call_id: tool_call_id.clone(),
-                            result: tool_result.clone(),
-                        });
+                        // Try to render the result message
+                        let rendered_result = self.render_tool_result(name, &tool_result.content);
+                        if let Some(ref metadata) = render_metadata {
+                            let display = format!(
+                                "{}({})",
+                                metadata.user_facing_name,
+                                metadata.tool_use_summary.as_deref().unwrap_or("?")
+                            );
+                            cb(AgentEvent::ToolComplete {
+                                tool_name: name.to_string(),
+                                tool_call_id: tool_call_id.clone(),
+                                result: tool_result.clone(),
+                                display_name: Some(display),
+                                rendered_result: rendered_result.clone(),
+                            });
+                        } else {
+                            cb(AgentEvent::ToolComplete {
+                                tool_name: name.to_string(),
+                                tool_call_id: tool_call_id.clone(),
+                                result: tool_result.clone(),
+                                display_name: None,
+                                rendered_result: rendered_result,
+                            });
+                        }
                     }
                     Err(e) => {
                         cb(AgentEvent::ToolError {
@@ -446,6 +562,25 @@ impl QueryEngine {
         } else {
             Err(AgentError::Tool(format!("Tool '{}' not found", name)))
         }
+    }
+
+    /// Render a tool's result using its stored render_tool_result_message closure.
+    /// Returns None if the tool has no render implementation or the content can't be parsed.
+    fn render_tool_result(&self, tool_name: &str, content: &str) -> Option<String> {
+        let content_value: serde_json::Value = serde_json::from_str(content).ok()?;
+        let progress_messages: Vec<ProgressMessage> = vec![];
+        let options = ToolResultRenderOptions {
+            style: None,
+            theme: "dark".to_string(),
+            tools: self.config.tools.clone(),
+            verbose: false,
+            is_transcript_mode: false,
+            is_brief_only: false,
+            input: None,
+        };
+        let fns = self.tool_render_fns.lock().unwrap();
+        let render_fn = fns.get(tool_name)?.render_tool_result_message.as_ref()?;
+        render_fn(&content_value, &progress_messages, &options)
     }
 
     /// Set the hook registry
@@ -902,6 +1037,7 @@ impl QueryEngine {
             .post(&url)
             .header("Authorization", format!("Bearer {}", api_key))
             .header("Content-Type", "application/json")
+            .header("User-Agent", get_user_agent())
             .json(&request_body)
             .send()
             .await
@@ -1455,10 +1591,47 @@ impl QueryEngine {
                 }
 
                 // No tool calls - this is the final response
-                let response_text = streaming_result.content;
+                let response_text = streaming_result.content.clone();
 
                 // Don't strip thinking from result.text - preserve it for history
                 // The thinking will still be shown during streaming via streaming_text
+
+                // If both content and tool_calls are empty, the API response was empty.
+                // This can happen from rate limiting, network issues, or model errors
+                // that slip past HTTP status checks (e.g., 200 OK with error body,
+                // or stream dropped mid-response). Retry a couple of times.
+                if response_text.is_empty() && streaming_result.tool_calls.is_empty()
+                    && self.config.max_turns > 0
+                    && self.turn_count < self.config.max_turns
+                {
+                    self.empty_response_retries += 1;
+                    if self.empty_response_retries <= 2 {
+                        log::warn!(
+                            "[query_engine] empty model response, retrying ({}) stop_reason={:?}",
+                            self.empty_response_retries,
+                            streaming_result.stop_reason,
+                        );
+                        // Brief backoff between retries
+                        tokio::time::sleep(std::time::Duration::from_millis(500 * self.empty_response_retries as u64)).await;
+                        // Continue to rebuild and retry the API call
+                        continue;
+                    }
+                    self.empty_response_retries = 0;
+                } else {
+                    self.empty_response_retries = 0;
+                }
+
+                // If both content and tool_calls are empty, it's a genuine error
+                if response_text.is_empty() && streaming_result.tool_calls.is_empty() {
+                    log::error!(
+                        "[query_engine] model returned empty response after retries: stop_reason={:?}",
+                        streaming_result.stop_reason,
+                    );
+                    return Err(AgentError::Api(
+                        "Model response contained no text and no tool calls".to_string(),
+                    ));
+                }
+
                 let final_text = response_text.clone();
 
                 // Update total usage (matching TypeScript usage tracking)
@@ -1550,6 +1723,7 @@ impl QueryEngine {
             // Create executor closure using the tool executors stored in QueryEngine
             // Wrap in Arc so it can be cloned for concurrent execution
             let tool_executors = Arc::new(self.tool_executors.lock().unwrap().clone());
+            let tool_render_fns = Arc::new(self.tool_render_fns.lock().unwrap().clone());
             let tools = self.config.tools.clone();
             let can_use_tool = self.config.can_use_tool;
             let cwd = self.config.cwd.clone();
@@ -1557,6 +1731,7 @@ impl QueryEngine {
 
             let executor = move |name: String, args: serde_json::Value, tool_call_id: String| {
                 let tool_executors = tool_executors.clone();
+                let tool_render_fns = tool_render_fns.clone();
                 let tools = tools.clone();
                 let can_use_tool = can_use_tool;
                 let cwd = cwd.clone();
@@ -1567,13 +1742,35 @@ impl QueryEngine {
                     // we have to implement the logic here or change orchestration.
                     // To keep it consistent with the new execute_tool, we'll mimic its logic.
 
-                    // Emit ToolStart event
+                    // Emit ToolStart event with render metadata
                     if let Some(ref cb) = on_event {
-                        cb(AgentEvent::ToolStart {
-                            tool_name: name.clone(),
-                            tool_call_id: tool_call_id.clone(),
-                            input: args.clone(),
-                        });
+                        let meta_input = Some(&args);
+                        let metadata = tool_render_fns
+                            .get(&name)
+                            .map(|fns| ToolRenderMetadata {
+                                user_facing_name: (Arc::clone(&fns.user_facing_name))(meta_input),
+                                tool_use_summary: fns.get_tool_use_summary.as_ref().and_then(|f| f(meta_input)),
+                                activity_description: fns.get_activity_description.as_ref().and_then(|f| f(meta_input)),
+                            });
+                        if let Some(ref meta) = metadata {
+                            cb(AgentEvent::ToolStart {
+                                tool_name: name.clone(),
+                                tool_call_id: tool_call_id.clone(),
+                                input: args.clone(),
+                                display_name: Some(meta.user_facing_name.clone()),
+                                summary: meta.tool_use_summary.clone(),
+                                activity_description: meta.activity_description.clone(),
+                            });
+                        } else {
+                            cb(AgentEvent::ToolStart {
+                                tool_name: name.clone(),
+                                tool_call_id: tool_call_id.clone(),
+                                input: args.clone(),
+                                display_name: None,
+                                summary: None,
+                                activity_description: None,
+                            });
+                        }
                     }
 
                     // We don't have access to `self` here, so we can't call self.execute_tool.
@@ -1588,6 +1785,16 @@ impl QueryEngine {
                     let executor_fn = tool_executors.get(&name).cloned();
 
                     if let Some(executor_fn) = executor_fn {
+                        // Compute render metadata
+                        let meta_input = Some(&args);
+                        let metadata = tool_render_fns
+                            .get(&name)
+                            .map(|fns| ToolRenderMetadata {
+                                user_facing_name: (Arc::clone(&fns.user_facing_name))(meta_input),
+                                tool_use_summary: fns.get_tool_use_summary.as_ref().and_then(|f| f(meta_input)),
+                                activity_description: fns.get_activity_description.as_ref().and_then(|f| f(meta_input)),
+                            });
+
                         // Pre-tool permission check
                         if let Some(can_use_fn) = can_use_tool {
                             if let Some(tool_def) = tools.iter().find(|t| &t.name == &name) {
@@ -1602,15 +1809,35 @@ impl QueryEngine {
 
                         let result = executor_fn(args, &context).await;
 
-                        // Emit ToolComplete or ToolError event
+                        // Emit ToolComplete or ToolError event with render hooks
                         if let Some(ref cb) = on_event {
                             match &result {
                                 Ok(tool_result) => {
-                                    cb(AgentEvent::ToolComplete {
-                                        tool_name: name.clone(),
-                                        tool_call_id: tool_call_id.clone(),
-                                        result: tool_result.clone(),
-                                    });
+                                    let rendered_result = tool_render_fns
+                                        .get(&name)
+                                        .and_then(|fns| fns.render(&tool_result.content, &tools));
+                                    if let Some(ref meta) = metadata {
+                                        let display = format!(
+                                            "{}({})",
+                                            meta.user_facing_name,
+                                            meta.tool_use_summary.as_deref().unwrap_or("?")
+                                        );
+                                        cb(AgentEvent::ToolComplete {
+                                            tool_name: name.clone(),
+                                            tool_call_id: tool_call_id.clone(),
+                                            result: tool_result.clone(),
+                                            display_name: Some(display),
+                                            rendered_result: rendered_result.clone(),
+                                        });
+                                    } else {
+                                        cb(AgentEvent::ToolComplete {
+                                            tool_name: name.clone(),
+                                            tool_call_id: tool_call_id.clone(),
+                                            result: tool_result.clone(),
+                                            display_name: None,
+                                            rendered_result: rendered_result,
+                                        });
+                                    }
                                 }
                                 Err(e) => {
                                     cb(AgentEvent::ToolError {
@@ -2163,6 +2390,7 @@ async fn make_nonstreaming_request(
             .header("x-api-key", api_key)
             .header("anthropic-version", "2023-06-01")
             .header("Content-Type", "application/json")
+            .header("User-Agent", get_user_agent())
             .json(&request_body)
             .send()
             .await
@@ -2173,6 +2401,7 @@ async fn make_nonstreaming_request(
             .post(url)
             .header("Authorization", format!("Bearer {}", api_key))
             .header("Content-Type", "application/json")
+            .header("User-Agent", get_user_agent())
             .json(&request_body)
             .send()
             .await
@@ -2393,6 +2622,7 @@ async fn make_anthropic_streaming_request(
             .header("anthropic-version", "2023-06-01")
             .header("Content-Type", "application/json")
             .header("Accept", "text/event-stream")
+            .header("User-Agent", get_user_agent())
             .json(&request_body)
             .send()
             .await
@@ -2412,6 +2642,7 @@ async fn make_anthropic_streaming_request(
             .header("Authorization", format!("Bearer {}", api_key))
             .header("Content-Type", "application/json")
             .header("Accept", "text/event-stream")
+            .header("User-Agent", get_user_agent())
             .json(&request_body)
             .send()
             .await
@@ -3942,6 +4173,7 @@ mod tests {
             is_mcp: if is_mcp { Some(true) } else { None },
             search_hint: Some(format!("{} capability", name.to_lowercase())),
             aliases: None,
+        user_facing_name: None,
         };
         t
     }

@@ -1,46 +1,23 @@
 // Source: /data/home/swei/claudecode/openclaudecode/src/utils/http.ts
 //! HTTP utility constants and helpers
 
-use crate::constants::env::ai;
+pub use crate::utils::user_agent::get_user_agent;
+
 use std::collections::HashMap;
-
-/// Get the user agent string for API requests
-pub fn get_user_agent() -> String {
-    let version = std::env::var(ai::VERSION).unwrap_or_else(|_| "unknown".to_string());
-    let user_type = std::env::var(ai::USER_TYPE).unwrap_or_else(|_| "external".to_string());
-    let entrypoint = std::env::var(ai::CODE_ENTRYPOINT).unwrap_or_else(|_| "cli".to_string());
-    let agent_sdk_version = std::env::var(ai::AGENT_SDK_VERSION);
-    let client_app = std::env::var(ai::AGENT_SDK_CLIENT_APP);
-
-    let mut ua = format!("claude-cli/{} ({}, {}", version, user_type, entrypoint);
-
-    if let Ok(v) = agent_sdk_version {
-        ua.push_str(&format!(", agent-sdk/{}", v));
-    }
-
-    if let Ok(app) = client_app {
-        ua.push_str(&format!(", client-app/{}", app));
-    }
-
-    // TODO: Add workload suffix from getWorkload()
-
-    ua.push(')');
-    ua
-}
 
 /// Get the user agent string for MCP requests
 pub fn get_mcp_user_agent() -> String {
-    let version = std::env::var(ai::VERSION).unwrap_or_else(|_| "unknown".to_string());
+    let version = env!("CARGO_PKG_VERSION");
 
     let mut parts: Vec<String> = vec![];
 
-    if let Ok(v) = std::env::var(ai::CODE_ENTRYPOINT) {
+    if let Ok(v) = std::env::var("AI_CODE_ENTRYPOINT") {
         parts.push(v);
     }
-    if let Ok(v) = std::env::var(ai::AGENT_SDK_VERSION) {
+    if let Ok(v) = std::env::var("AI_AGENT_SDK_VERSION") {
         parts.push(format!("agent-sdk/{}", v));
     }
-    if let Ok(v) = std::env::var(ai::AGENT_SDK_CLIENT_APP) {
+    if let Ok(v) = std::env::var("AI_AGENT_SDK_CLIENT_APP") {
         parts.push(format!("client-app/{}", v));
     }
 

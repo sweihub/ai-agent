@@ -2,6 +2,7 @@
 //! Bootstrap module
 //! Fetches bootstrap data from the API
 
+use crate::utils::user_agent::get_user_agent;
 use std::collections::HashMap;
 
 use crate::constants::oauth::OAUTH_BETA_HEADER;
@@ -108,9 +109,9 @@ fn save_global_config(_update: impl FnOnce(&mut GlobalConfig)) {
     // TODO: Integrate with real config system
 }
 
-/// Get Claude Code user agent
+/// Get user agent (delegates to unified function).
 fn get_claude_code_user_agent() -> String {
-    format!("ai-agent/{}", env!("CARGO_PKG_VERSION"))
+    get_user_agent()
 }
 
 /// Fetch bootstrap data from API
