@@ -8,6 +8,7 @@
 
 use std::collections::HashMap;
 use std::path::PathBuf;
+use crate::utils::http::get_user_agent;
 
 use tokio::fs;
 
@@ -183,6 +184,10 @@ pub async fn download_and_save_file(
         ANTHROPIC_VERSION.parse().unwrap(),
     );
     headers.insert("anthropic-beta", FILES_API_BETA_HEADER.parse().unwrap());
+    headers.insert(
+        "User-Agent",
+        get_user_agent().parse().unwrap(),
+    );
 
     // Download with retries
     let mut last_error = String::new();
@@ -448,6 +453,10 @@ pub async fn upload_file(
         reqwest::header::CONTENT_LENGTH,
         body.len().to_string().parse().unwrap(),
     );
+    headers.insert(
+        "User-Agent",
+        get_user_agent().parse().unwrap(),
+    );
 
     let mut last_error = String::new();
     for attempt in 1..=MAX_RETRIES {
@@ -596,6 +605,10 @@ pub async fn list_files_created_after(
         ANTHROPIC_VERSION.parse().unwrap(),
     );
     headers.insert("anthropic-beta", FILES_API_BETA_HEADER.parse().unwrap());
+    headers.insert(
+        "User-Agent",
+        get_user_agent().parse().unwrap(),
+    );
 
     log_debug(&format!("Listing files created after {}", after_created_at));
 

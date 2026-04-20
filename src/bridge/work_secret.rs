@@ -4,6 +4,7 @@
 
 use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine};
 use serde::{Deserialize, Serialize};
+use crate::utils::http::get_user_agent;
 
 #[cfg(feature = "reqwest")]
 use reqwest;
@@ -173,6 +174,7 @@ pub async fn register_worker(session_url: &str, access_token: &str) -> Result<u6
         .header("Authorization", format!("Bearer {}", access_token))
         .header("Content-Type", "application/json")
         .header("anthropic-version", "2023-06-01")
+        .header("User-Agent", get_user_agent())
         .timeout(std::time::Duration::from_secs(10))
         .send()
         .await

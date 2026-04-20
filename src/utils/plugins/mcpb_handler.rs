@@ -6,6 +6,8 @@ use std::path::{Path, PathBuf};
 
 use serde::{Deserialize, Serialize};
 
+use crate::utils::http::get_user_agent;
+
 use super::fetch_telemetry::{classify_fetch_error, log_plugin_fetch, PluginFetchOutcome, PluginFetchSource};
 
 /// Result of loading an MCPB file (success case).
@@ -238,6 +240,7 @@ async fn download_mcpb(url: &str, dest_path: &Path) -> Result<Vec<u8>, Box<dyn s
 
     let started = std::time::Instant::now();
     let client = reqwest::Client::builder()
+        .user_agent(get_user_agent())
         .timeout(std::time::Duration::from_secs(120))
         .build()?;
 

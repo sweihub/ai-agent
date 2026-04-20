@@ -4,6 +4,7 @@ pub mod empty_usage;
 pub mod error_utils;
 pub mod errors;
 pub mod logging;
+pub mod retry_helpers;
 pub mod usage;
 pub mod with_retry;
 

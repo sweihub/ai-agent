@@ -5,6 +5,7 @@
 // openclaudecode/src/bridge/bridgeConfig.ts
 
 use crate::constants::env::{ai, ai_code};
+use crate::utils::http::get_user_agent;
 use reqwest::header::{HeaderMap, HeaderName, HeaderValue};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -136,6 +137,7 @@ pub fn get_bridge_headers() -> HashMap<String, String> {
 
     headers.insert("Content-Type".to_string(), "application/json".to_string());
     headers.insert("anthropic-version".to_string(), "2023-06-01".to_string());
+    headers.insert("User-Agent".to_string(), get_user_agent());
 
     headers
 }
@@ -271,6 +273,7 @@ pub fn get_oauth_headers(access_token: &str) -> HashMap<String, String> {
     );
     headers.insert("Content-Type".to_string(), "application/json".to_string());
     headers.insert("anthropic-version".to_string(), "2023-06-01".to_string());
+    headers.insert("User-Agent".to_string(), get_user_agent());
     headers
 }
 

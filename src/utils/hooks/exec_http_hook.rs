@@ -8,6 +8,7 @@ use reqwest::Client;
 use url::Url;
 
 use crate::utils::hooks::ssrf_guard::ssrf_guarded_lookup;
+use crate::utils::http::get_user_agent;
 
 /// Default HTTP hook timeout: 10 minutes
 const DEFAULT_HTTP_HOOK_TIMEOUT_MS: u64 = 10 * 60 * 1000;
@@ -125,6 +126,10 @@ pub async fn exec_http_hook(
     headers.insert(
         reqwest::header::CONTENT_TYPE,
         "application/json".parse().unwrap(),
+    );
+    headers.insert(
+        "User-Agent",
+        get_user_agent().parse().unwrap(),
     );
 
     if let Some(ref hook_headers) = hook.headers {

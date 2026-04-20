@@ -9,6 +9,8 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use serde::{Deserialize, Serialize};
 use tokio::fs;
 
+use crate::utils::http::get_user_agent;
+
 use super::fetch_telemetry::{classify_fetch_error, log_plugin_fetch, PluginFetchOutcome, PluginFetchSource};
 use super::plugin_directories::get_plugins_directory;
 
@@ -112,6 +114,7 @@ async fn fetch_install_counts_from_github() -> Result<Vec<CountEntry>, Box<dyn s
     let started = std::time::Instant::now();
 
     let client = reqwest::Client::builder()
+        .user_agent(get_user_agent())
         .timeout(std::time::Duration::from_secs(10))
         .build()?;
 

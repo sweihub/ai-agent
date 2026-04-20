@@ -5,6 +5,7 @@ use std::collections::HashMap;
 use std::sync::Mutex;
 
 use crate::session_history::get_claude_ai_oauth_tokens;
+use crate::utils::http::get_user_agent;
 
 /// Fetch timeout in milliseconds
 const FETCH_TIMEOUT_MS: u64 = 5000;
@@ -118,6 +119,7 @@ pub async fn fetch_claudeai_mcp_configs_if_eligible() -> HashMap<String, crate::
         .header("Content-Type", "application/json")
         .header("anthropic-beta", MCP_SERVERS_BETA_HEADER)
         .header("anthropic-version", "2023-06-01")
+        .header("User-Agent", get_user_agent())
         .send()
         .await;
 

@@ -8,6 +8,8 @@
 use serde::{Deserialize, Serialize};
 use std::time::Duration;
 
+use crate::utils::http::get_user_agent;
+
 const XAA_REQUEST_TIMEOUT_MS: u64 = 30_000;
 
 /// Token exchange grant type (RFC 8693)
@@ -111,6 +113,7 @@ pub fn normalize_url(url: &str) -> String {
 fn build_xaa_client() -> Result<reqwest::Client, String> {
     reqwest::Client::builder()
         .timeout(Duration::from_millis(XAA_REQUEST_TIMEOUT_MS))
+        .user_agent(get_user_agent())
         .build()
         .map_err(|e| format!("Failed to build HTTP client: {}", e))
 }

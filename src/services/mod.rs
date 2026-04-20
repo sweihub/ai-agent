@@ -51,6 +51,7 @@ pub mod voice_keyterms;
 
 // Re-export commonly used items
 pub use api::errors::*;
+pub use api::retry_helpers::*;
 pub use api::usage::*;
 pub use api::with_retry::*;
 

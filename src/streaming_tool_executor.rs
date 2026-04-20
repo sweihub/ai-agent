@@ -681,6 +681,7 @@ mod tests {
                 annotations: Some(ToolAnnotations { concurrency_safe: Some(true), ..Default::default() }),
                 should_defer: None, always_load: None, is_mcp: None, search_hint: None,
             aliases: None,
+        user_facing_name: None,
             },
         ];
         let calls = vec![ToolCall {

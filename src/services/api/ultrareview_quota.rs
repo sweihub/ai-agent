@@ -4,6 +4,8 @@
 
 use std::collections::HashMap;
 
+use crate::utils::http::get_user_agent;
+
 /// Ultrareview quota response
 #[derive(Debug, Clone, serde::Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -37,6 +39,7 @@ pub struct OauthConfig {
 fn get_oauth_headers(access_token: &str) -> HashMap<String, String> {
     let mut headers = HashMap::new();
     headers.insert("Authorization".to_string(), format!("Bearer {}", access_token));
+    headers.insert("User-Agent".to_string(), get_user_agent());
     headers
 }
 

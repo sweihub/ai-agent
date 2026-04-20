@@ -3,6 +3,8 @@
 
 use std::collections::HashMap;
 
+use crate::utils::http::get_user_agent;
+
 /// Rate limit information from the API
 #[derive(Debug, Clone, PartialEq, serde::Deserialize, Default)]
 pub struct RateLimit {
@@ -72,16 +74,12 @@ fn get_auth_headers() -> HashMap<String, String> {
     let mut headers = HashMap::new();
     headers.insert("Content-Type".to_string(), "application/json".to_string());
     headers.insert("anthropic-version".to_string(), "2023-06-01".to_string());
+    headers.insert("User-Agent".to_string(), get_user_agent());
     // Add OAuth token if available
     if let Ok(token) = std::env::var("AI_CODE_OAUTH_TOKEN") {
         headers.insert("Authorization".to_string(), format!("Bearer {}", token));
     }
     headers
-}
-
-/// Get Claude Code user agent
-fn get_claude_code_user_agent() -> String {
-    format!("ai-agent/{}", env!("CARGO_PKG_VERSION"))
 }
 
 /// Check if OAuth token is expired

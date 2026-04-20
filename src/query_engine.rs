@@ -8,6 +8,7 @@ use crate::compact::{
     self, get_auto_compact_threshold, get_compact_prompt, get_effective_context_window_size,
 };
 use crate::error::AgentError;
+use crate::services::api::with_retry::{retry_post, RetryConfig};
 use crate::utils::http::get_user_agent;
 use crate::hooks::{HookInput, HookRegistry};
 use crate::services::compact::microcompact::truncate_tool_result_content;
@@ -2383,7 +2384,8 @@ async fn make_nonstreaming_request(
     // Determine if this is Anthropic API or a third-party API (OpenAI-compatible)
     let is_anthropic = url.contains("anthropic.com");
 
-    let response = if is_anthropic {
+    // Build the request and execute with retry (wraps .send() with exponential backoff)
+    let request_builder = if is_anthropic {
         // Anthropic format
         client
             .post(url)
@@ -2392,9 +2394,6 @@ async fn make_nonstreaming_request(
             .header("Content-Type", "application/json")
             .header("User-Agent", get_user_agent())
             .json(&request_body)
-            .send()
-            .await
-            .map_err(|e| AgentError::Api(format!("Non-streaming request failed: {}", e)))?
     } else {
         // OpenAI-compatible format (vLLM, etc.) - use Bearer auth
         client
@@ -2403,10 +2402,9 @@ async fn make_nonstreaming_request(
             .header("Content-Type", "application/json")
             .header("User-Agent", get_user_agent())
             .json(&request_body)
-            .send()
-            .await
-            .map_err(|e| AgentError::Api(format!("Non-streaming request failed: {}", e)))?
     };
+
+    let response = retry_post(request_builder, RetryConfig::default()).await?;
 
     let status = response.status();
     if !status.is_success() {
@@ -2614,7 +2612,9 @@ async fn make_anthropic_streaming_request(
     // Record when the stream started (for TTFT calculation)
     let mut ttft_recorded = false;
 
-    let response = if is_anthropic {
+    // Build the request and execute with retry (wraps .send() with exponential backoff)
+    // 404 stream creation errors are NOT retryable, so they bypass the retry layer
+    let request_builder = if is_anthropic {
         // Anthropic format
         client
             .post(url)
@@ -2624,17 +2624,6 @@ async fn make_anthropic_streaming_request(
             .header("Accept", "text/event-stream")
             .header("User-Agent", get_user_agent())
             .json(&request_body)
-            .send()
-            .await
-            .map_err(|e| {
-                // Check for 404 stream creation error (matching TypeScript lines 2530-2600)
-                let err_str = e.to_string();
-                if err_str.contains("404") {
-                    AgentError::Stream404CreationError(err_str)
-                } else {
-                    AgentError::Api(format!("Streaming request failed: {}", e))
-                }
-            })?
     } else {
         // OpenAI-compatible format (vLLM, etc.) - use Bearer auth
         client
@@ -2644,16 +2633,12 @@ async fn make_anthropic_streaming_request(
             .header("Accept", "text/event-stream")
             .header("User-Agent", get_user_agent())
             .json(&request_body)
-            .send()
-            .await
-            .map_err(|e| {
-                let err_str = e.to_string();
-                if err_str.contains("404") {
-                    AgentError::Stream404CreationError(err_str)
-                } else {
-                    AgentError::Api(format!("Streaming request failed: {}", e))
-                }
-            })?
+    };
+
+    let response = match retry_post(request_builder, RetryConfig::default()).await {
+        Ok(resp) => resp,
+        Err(AgentError::Stream404CreationError(msg)) => return Err(AgentError::Stream404CreationError(msg)),
+        Err(e) => return Err(e),
     };
 
     // Check if user aborted before we even started reading

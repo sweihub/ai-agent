@@ -5,6 +5,7 @@
 //! across all authenticated org members.
 
 use crate::constants::env::system;
+use crate::utils::http::get_user_agent;
 use crate::AgentError;
 use std::collections::HashMap;
 use std::path::PathBuf;
@@ -452,6 +453,12 @@ fn build_team_memory_headers(
                 .map_err(|e| format!("Invalid Content-Type header: {}", e))?,
         );
     }
+
+    headers.insert(
+        "User-Agent",
+        reqwest::header::HeaderValue::from_str(&get_user_agent())
+            .map_err(|e| format!("Invalid User-Agent header: {}", e))?,
+    );
 
     Ok(headers)
 }

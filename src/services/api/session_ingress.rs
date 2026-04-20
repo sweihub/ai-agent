@@ -3,6 +3,8 @@
 //! Handles session log persistence and retrieval
 
 use std::collections::HashMap;
+
+use crate::utils::http::get_user_agent;
 use std::sync::Mutex;
 
 use once_cell::sync::Lazy;
@@ -84,6 +86,7 @@ pub struct OauthConfig {
 fn get_oauth_headers(access_token: &str) -> HashMap<String, String> {
     let mut headers = HashMap::new();
     headers.insert("Authorization".to_string(), format!("Bearer {}", access_token));
+    headers.insert("User-Agent".to_string(), get_user_agent());
     headers
 }
 
@@ -288,6 +291,7 @@ pub async fn append_session_log(
     let mut headers = HashMap::new();
     headers.insert("Authorization".to_string(), format!("Bearer {}", session_token));
     headers.insert("Content-Type".to_string(), "application/json".to_string());
+    headers.insert("User-Agent".to_string(), get_user_agent());
 
     // For now, just call impl directly (sequential wrapper would be added in full impl)
     append_session_log_impl(session_id, entry, url, headers).await
@@ -308,6 +312,7 @@ pub async fn get_session_logs(
 
     let mut headers = HashMap::new();
     headers.insert("Authorization".to_string(), format!("Bearer {}", session_token));
+    headers.insert("User-Agent".to_string(), get_user_agent());
 
     let logs = fetch_session_logs_from_url(session_id, url, headers).await?;
 

@@ -12,6 +12,7 @@ use std::sync::OnceLock;
 
 use crate::services::analytics::log_event;
 use crate::services::mcp::types::*;
+use crate::utils::http::get_user_agent;
 
 // =============================================================================
 // ERROR TYPES
@@ -219,6 +220,7 @@ pub fn wrap_fetch_with_timeout(_base_fetch: impl Fn(String) -> std::pin::Pin<Box
     move |url: String| {
         let client = match reqwest::Client::builder()
             .timeout(std::time::Duration::from_millis(MCP_REQUEST_TIMEOUT_MS))
+            .user_agent(get_user_agent())
             .build()
         {
             Ok(c) => c,

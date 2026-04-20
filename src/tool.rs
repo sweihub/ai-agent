@@ -2183,6 +2183,7 @@ mod tests {
                 is_mcp: None,
                 search_hint: None,
             aliases: None,
+            user_facing_name: None,
             },
             ToolDefinition {
                 name: "Read".to_string(),
@@ -2198,6 +2199,7 @@ mod tests {
                 is_mcp: None,
                 search_hint: None,
             aliases: None,
+            user_facing_name: None,
             },
         ];
 

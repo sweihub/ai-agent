@@ -154,6 +154,15 @@ pub use services::{
         is_rate_limit_error, is_retryable_error, is_service_unavailable_error, retry_async,
         retry_with_retry_after, RetryConfig, RetryError, DEFAULT_MAX_RETRIES,
     },
+    // New canonical retry implementation (translates TypeScript withRetry)
+    api::with_retry::{
+        retry_post, with_retry, should_retry, is_529_error, get_retry_delay,
+        extract_retry_after_ms, parse_max_tokens_overflow, RetryConfig as ApiRetryConfig,
+        MAX_529_RETRIES, DEFAULT_MAX_RETRIES as API_DEFAULT_MAX_RETRIES, FLOOR_OUTPUT_TOKENS,
+    },
+    api::retry_helpers::{
+        is_connection_error, is_server_error, is_max_tokens_overflow as is_max_tokens_overflow_error,
+    },
     token_estimation::{
         calculate_padding, estimate_conversation, estimate_tokens, estimate_tokens_characters,
         estimate_tokens_words, estimate_tool_definitions, fits_in_context, EstimationMethod,

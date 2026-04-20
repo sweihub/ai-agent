@@ -4,6 +4,8 @@
 use std::collections::HashSet;
 use std::sync::Mutex;
 
+use crate::utils::http::get_user_agent;
+
 /// Registry server entry
 #[derive(Debug, serde::Deserialize)]
 pub struct RegistryServer {
@@ -62,6 +64,7 @@ pub async fn prefetch_official_mcp_urls() {
     let result = client
         .get("https://api.anthropic.com/mcp-registry/v0/servers?version=latest&visibility=commercial")
         .header("Accept", "application/json")
+        .header("User-Agent", get_user_agent())
         .send()
         .await;
 

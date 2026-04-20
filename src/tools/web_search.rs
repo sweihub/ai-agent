@@ -1,4 +1,5 @@
 use crate::types::*;
+use crate::utils::http::get_user_agent;
 use regex::Regex;
 use reqwest::Client;
 
@@ -10,7 +11,7 @@ impl WebSearchTool {
     pub fn new() -> Self {
         let client = Client::builder()
             .timeout(std::time::Duration::from_secs(15))
-            .user_agent("Mozilla/5.0 (compatible; AgentSDK/1.0)")
+            .user_agent(get_user_agent())
             .build()
             .expect("Failed to create HTTP client");
         Self { client }

@@ -2,6 +2,7 @@
 //! Session discovery for assistant sessions - discover sessions from the remote API
 
 use crate::constants::env::{ai, ai_code};
+use crate::utils::http::get_user_agent;
 use serde::{Deserialize, Serialize};
 
 /// Assistant session discovered from the remote API
@@ -86,6 +87,12 @@ fn build_discovery_headers() -> Result<reqwest::header::HeaderMap, String> {
                 .map_err(|e| format!("Invalid auth header: {}", e))?,
         );
     }
+
+    headers.insert(
+        "User-Agent",
+        reqwest::header::HeaderValue::from_str(&get_user_agent())
+            .map_err(|e| format!("Invalid User-Agent header: {}", e))?,
+    );
 
     Ok(headers)
 }

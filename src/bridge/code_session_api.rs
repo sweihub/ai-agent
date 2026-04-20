@@ -9,6 +9,7 @@
 
 use reqwest::header::{HeaderMap, HeaderName, HeaderValue, AUTHORIZATION, CONTENT_TYPE};
 use serde::{Deserialize, Serialize};
+use crate::utils::http::get_user_agent;
 
 const ANTHROPIC_VERSION: &str = "2023-06-01";
 
@@ -22,6 +23,10 @@ fn oauth_headers(access_token: &str) -> HeaderMap {
     headers.insert(
         HeaderName::from_static("anthropic-version"),
         HeaderValue::from_static(ANTHROPIC_VERSION),
+    );
+    headers.insert(
+        "User-Agent",
+        get_user_agent().parse().unwrap(),
     );
     headers
 }

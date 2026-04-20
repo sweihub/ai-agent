@@ -3,6 +3,8 @@
 //! Fetches and caches overage credit grant eligibility for subscribers
 
 use std::collections::HashMap;
+
+use crate::utils::http::get_user_agent;
 use std::sync::Mutex;
 use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -61,6 +63,7 @@ pub struct OauthConfig {
 fn get_oauth_headers(access_token: &str) -> HashMap<String, String> {
     let mut headers = HashMap::new();
     headers.insert("Authorization".to_string(), format!("Bearer {}", access_token));
+    headers.insert("User-Agent".to_string(), get_user_agent());
     headers
 }
 

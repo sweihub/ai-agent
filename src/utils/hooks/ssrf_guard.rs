@@ -4,6 +4,8 @@
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr, ToSocketAddrs};
 use std::sync::Arc;
 
+use crate::utils::http::get_user_agent;
+
 /// SSRF guard for HTTP hooks.
 ///
 /// Blocks private, link-local, and other non-routable address ranges to prevent
@@ -298,6 +300,7 @@ pub async fn ssrf_guarded_lookup_async(
 pub fn create_ssrf_protected_connector() -> Arc<reqwest::Client> {
     // Build a client that will use our SSRF-guarded DNS lookup
     reqwest::Client::builder()
+        .user_agent(get_user_agent())
         .danger_accept_invalid_certs(false)
         .build()
         .unwrap_or_else(|_| reqwest::Client::new())

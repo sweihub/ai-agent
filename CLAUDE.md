@@ -14,8 +14,6 @@ core features:
 
 ## Notices
 
-NEVER add Co-Authored-By to commits.
-
 Increment the version(major.minor.build) in Cargo.toml before git commit. (feature -> +minor, fix -> +build)
 
 run all unit tests and examples before git commit.

@@ -238,6 +238,7 @@ const ALL_TOOLS: &[(&str, &str, fn() -> ToolDefinition)] = &[
         is_mcp: None,
         search_hint: None,
     aliases: None,
+    user_facing_name: None,
     }),
     ("FileRead", "Read files, images, PDFs, notebooks", || {
         ToolDefinition {
@@ -250,6 +251,7 @@ const ALL_TOOLS: &[(&str, &str, fn() -> ToolDefinition)] = &[
             is_mcp: None,
             search_hint: Some("read files, images, PDFs, notebooks".to_string()),
         aliases: None,
+    user_facing_name: None,
         }
     }),
     ("FileWrite", "Write content to files", || ToolDefinition {
@@ -262,6 +264,7 @@ const ALL_TOOLS: &[(&str, &str, fn() -> ToolDefinition)] = &[
         is_mcp: None,
         search_hint: None,
     aliases: None,
+    user_facing_name: None,
     }),
     ("Glob", "Find files by name pattern or wildcard", || ToolDefinition {
         name: "Glob".to_string(),
@@ -273,6 +276,7 @@ const ALL_TOOLS: &[(&str, &str, fn() -> ToolDefinition)] = &[
         is_mcp: None,
         search_hint: Some("find files by name pattern or wildcard".to_string()),
     aliases: None,
+    user_facing_name: None,
     }),
     ("Grep", "Search file contents using regex", || ToolDefinition {
         name: "Grep".to_string(),
@@ -284,6 +288,7 @@ const ALL_TOOLS: &[(&str, &str, fn() -> ToolDefinition)] = &[
         is_mcp: None,
         search_hint: Some("search file contents using regex".to_string()),
     aliases: None,
+    user_facing_name: None,
     }),
     (
         "FileEdit",
@@ -298,6 +303,7 @@ const ALL_TOOLS: &[(&str, &str, fn() -> ToolDefinition)] = &[
             is_mcp: None,
             search_hint: None,
         aliases: None,
+    user_facing_name: None,
         },
     ),
     (
@@ -313,6 +319,7 @@ const ALL_TOOLS: &[(&str, &str, fn() -> ToolDefinition)] = &[
             is_mcp: None,
             search_hint: Some("edit Jupyter notebook cells (.ipynb)".to_string()),
         aliases: None,
+    user_facing_name: None,
         },
     ),
     (
@@ -329,6 +336,7 @@ const ALL_TOOLS: &[(&str, &str, fn() -> ToolDefinition)] = &[
         is_mcp: None,
         search_hint: Some("fetch web pages and URLs".to_string()),
     aliases: None,
+    user_facing_name: None,
     }
         },
     ),
@@ -343,6 +351,7 @@ const ALL_TOOLS: &[(&str, &str, fn() -> ToolDefinition)] = &[
         is_mcp: None,
         search_hint: Some("web search for information".to_string()),
     aliases: None,
+    user_facing_name: None,
     }
     }),
     (
@@ -359,6 +368,7 @@ const ALL_TOOLS: &[(&str, &str, fn() -> ToolDefinition)] = &[
         is_mcp: None,
         search_hint: None,
     aliases: None,
+    user_facing_name: None,
     }
         },
     ),
@@ -373,6 +383,7 @@ const ALL_TOOLS: &[(&str, &str, fn() -> ToolDefinition)] = &[
             is_mcp: None,
             search_hint: None,
         aliases: None,
+    user_facing_name: None,
         }
     }),
     ("TaskList", "List all tasks in the task list", || {
@@ -386,6 +397,7 @@ const ALL_TOOLS: &[(&str, &str, fn() -> ToolDefinition)] = &[
             is_mcp: None,
             search_hint: None,
         aliases: None,
+    user_facing_name: None,
         }
     }),
     ("TaskUpdate", "Update an existing task", || ToolDefinition {
@@ -398,6 +410,7 @@ const ALL_TOOLS: &[(&str, &str, fn() -> ToolDefinition)] = &[
         is_mcp: None,
         search_hint: None,
     aliases: None,
+    user_facing_name: None,
     }),
     ("TaskGet", "Get details of a specific task", || {
         ToolDefinition {
@@ -410,6 +423,7 @@ const ALL_TOOLS: &[(&str, &str, fn() -> ToolDefinition)] = &[
             is_mcp: None,
             search_hint: None,
         aliases: None,
+    user_facing_name: None,
         }
     }),
     (
@@ -425,6 +439,7 @@ const ALL_TOOLS: &[(&str, &str, fn() -> ToolDefinition)] = &[
             is_mcp: None,
             search_hint: None,
         aliases: None,
+    user_facing_name: None,
         },
     ),
     ("TeamDelete", "Delete a team of agents", || ToolDefinition {
@@ -437,6 +452,7 @@ const ALL_TOOLS: &[(&str, &str, fn() -> ToolDefinition)] = &[
         is_mcp: None,
         search_hint: None,
     aliases: None,
+    user_facing_name: None,
     }),
     ("SendMessage", "Send a message to another agent", || {
         ToolDefinition {
@@ -449,6 +465,7 @@ const ALL_TOOLS: &[(&str, &str, fn() -> ToolDefinition)] = &[
             is_mcp: None,
             search_hint: None,
         aliases: None,
+    user_facing_name: None,
         }
     }),
     ("EnterWorktree", "Create and enter a git worktree", || {
@@ -462,6 +479,7 @@ const ALL_TOOLS: &[(&str, &str, fn() -> ToolDefinition)] = &[
             is_mcp: None,
             search_hint: None,
         aliases: None,
+    user_facing_name: None,
         }
     }),
     (
@@ -477,6 +495,7 @@ const ALL_TOOLS: &[(&str, &str, fn() -> ToolDefinition)] = &[
             is_mcp: None,
             search_hint: None,
         aliases: None,
+    user_facing_name: None,
         },
     ),
     ("EnterPlanMode", "Enter structured planning mode", || {
@@ -491,6 +510,7 @@ const ALL_TOOLS: &[(&str, &str, fn() -> ToolDefinition)] = &[
             is_mcp: None,
             search_hint: None,
         aliases: None,
+    user_facing_name: None,
         }
     }),
     ("ExitPlanMode", "Exit planning mode", || ToolDefinition {
@@ -503,6 +523,7 @@ const ALL_TOOLS: &[(&str, &str, fn() -> ToolDefinition)] = &[
         is_mcp: None,
         search_hint: None,
     aliases: None,
+    user_facing_name: None,
     }),
     (
         "AskUserQuestion",
@@ -517,6 +538,7 @@ const ALL_TOOLS: &[(&str, &str, fn() -> ToolDefinition)] = &[
             is_mcp: None,
             search_hint: None,
         aliases: None,
+    user_facing_name: None,
         },
     ),
     ("ToolSearch", "Search for available tools", || {
@@ -530,6 +552,7 @@ const ALL_TOOLS: &[(&str, &str, fn() -> ToolDefinition)] = &[
             is_mcp: None,
             search_hint: None,
         aliases: None,
+    user_facing_name: None,
         }
     }),
     ("CronCreate", "Create a scheduled task", || ToolDefinition {
@@ -542,6 +565,7 @@ const ALL_TOOLS: &[(&str, &str, fn() -> ToolDefinition)] = &[
         is_mcp: None,
         search_hint: None,
     aliases: None,
+    user_facing_name: None,
     }),
     ("CronDelete", "Delete a scheduled task", || ToolDefinition {
         name: "CronDelete".to_string(),
@@ -553,6 +577,7 @@ const ALL_TOOLS: &[(&str, &str, fn() -> ToolDefinition)] = &[
         is_mcp: None,
         search_hint: None,
     aliases: None,
+    user_facing_name: None,
     }),
     ("CronList", "List all scheduled tasks", || ToolDefinition {
         name: "CronList".to_string(),
@@ -564,6 +589,7 @@ const ALL_TOOLS: &[(&str, &str, fn() -> ToolDefinition)] = &[
         is_mcp: None,
         search_hint: None,
     aliases: None,
+    user_facing_name: None,
     }),
     ("Config", "Read or update configuration", || {
         ToolDefinition {
@@ -576,6 +602,7 @@ const ALL_TOOLS: &[(&str, &str, fn() -> ToolDefinition)] = &[
             is_mcp: None,
             search_hint: None,
         aliases: None,
+    user_facing_name: None,
         }
     }),
     ("TodoWrite", "Manage the session task checklist", || ToolDefinition {
@@ -588,6 +615,7 @@ const ALL_TOOLS: &[(&str, &str, fn() -> ToolDefinition)] = &[
         is_mcp: None,
         search_hint: Some("manage the session task checklist".to_string()),
     aliases: None,
+    user_facing_name: None,
     }),
     ("Skill", "Invoke a skill by name", || ToolDefinition {
         name: "Skill".to_string(),
@@ -599,6 +627,7 @@ const ALL_TOOLS: &[(&str, &str, fn() -> ToolDefinition)] = &[
         is_mcp: None,
         search_hint: Some("invoke skills and workflows".to_string()),
     aliases: None,
+    user_facing_name: None,
     }),
     ("TaskStop", "Stop a running background task", || ToolDefinition {
         name: "TaskStop".to_string(),
@@ -610,6 +639,7 @@ const ALL_TOOLS: &[(&str, &str, fn() -> ToolDefinition)] = &[
         is_mcp: None,
         search_hint: Some("kill a running background task".to_string()),
     aliases: None,
+    user_facing_name: None,
     }),
     ("Monitor", "Monitor system resources", || ToolDefinition {
         name: "Monitor".to_string(),
@@ -621,6 +651,7 @@ const ALL_TOOLS: &[(&str, &str, fn() -> ToolDefinition)] = &[
         is_mcp: None,
         search_hint: None,
     aliases: None,
+    user_facing_name: None,
     }),
     ("send_user_file", "Send a file from user to agent", || ToolDefinition {
         name: "send_user_file".to_string(),
@@ -632,6 +663,7 @@ const ALL_TOOLS: &[(&str, &str, fn() -> ToolDefinition)] = &[
         is_mcp: None,
         search_hint: None,
     aliases: None,
+    user_facing_name: None,
     }),
     ("WebBrowser", "Control a web browser", || ToolDefinition {
         name: "WebBrowser".to_string(),
@@ -643,6 +675,7 @@ const ALL_TOOLS: &[(&str, &str, fn() -> ToolDefinition)] = &[
         is_mcp: None,
         search_hint: None,
     aliases: None,
+    user_facing_name: None,
     }),
     ("LSP", "Code intelligence via Language Server Protocol", || ToolDefinition {
         name: "LSP".to_string(),
@@ -654,6 +687,7 @@ const ALL_TOOLS: &[(&str, &str, fn() -> ToolDefinition)] = &[
         is_mcp: None,
         search_hint: None,
     aliases: None,
+    user_facing_name: None,
     }),
     ("RemoteTrigger", "Manage remote Claude Code agents via CCR API", || ToolDefinition {
         name: "RemoteTrigger".to_string(),
@@ -665,6 +699,7 @@ const ALL_TOOLS: &[(&str, &str, fn() -> ToolDefinition)] = &[
         is_mcp: None,
         search_hint: None,
     aliases: None,
+    user_facing_name: None,
     }),
     ("ListMcpResourcesTool", "List MCP server resources", || ToolDefinition {
         name: "ListMcpResourcesTool".to_string(),
@@ -676,6 +711,7 @@ const ALL_TOOLS: &[(&str, &str, fn() -> ToolDefinition)] = &[
         is_mcp: None,
         search_hint: None,
     aliases: None,
+    user_facing_name: None,
     }),
     ("ReadMcpResourceTool", "Read MCP server resources by URI", || ToolDefinition {
         name: "ReadMcpResourceTool".to_string(),
@@ -687,6 +723,7 @@ const ALL_TOOLS: &[(&str, &str, fn() -> ToolDefinition)] = &[
         is_mcp: None,
         search_hint: None,
     aliases: None,
+    user_facing_name: None,
     }),
 ];
 
@@ -1092,6 +1129,7 @@ impl Default for PartialToolDefinition {
             description: None,
             input_schema: None,
             aliases: None,
+            user_facing_name: None,
             search_hint: None,
             max_result_size_chars: None,
             should_defer: None,
@@ -1106,7 +1144,6 @@ impl Default for PartialToolDefinition {
             requires_user_interaction: None,
             is_mcp: None,
             is_lsp: None,
-            user_facing_name: None,
         }
     }
 }
@@ -1163,5 +1200,6 @@ pub fn build_tool(def: PartialToolDefinition) -> ToolDefinition {
         is_mcp: None,
         search_hint: def.search_hint,
         aliases: def.aliases,
+        user_facing_name: def.user_facing_name.map(|f| f(None)),
     }
 }

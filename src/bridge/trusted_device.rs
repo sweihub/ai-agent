@@ -7,6 +7,7 @@
 //! flag controls whether the CLI sends X-Trusted-Device-Token at all.
 
 use crate::constants::env::ai;
+use crate::utils::http::get_user_agent;
 use std::sync::{Arc, RwLock};
 
 use reqwest;
@@ -219,6 +220,7 @@ pub async fn enroll_trusted_device() {
         .post(&format!("{}/api/auth/trusted_devices", base_url))
         .header("Authorization", format!("Bearer {}", access_token))
         .header("Content-Type", "application/json")
+        .header("User-Agent", get_user_agent())
         .timeout(std::time::Duration::from_millis(ENROLLMENT_TIMEOUT_MS))
         .json(&serde_json::json!({ "display_name": display_name }))
         .send()

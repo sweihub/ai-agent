@@ -6,6 +6,7 @@ use sha2::{Digest, Sha256};
 use std::collections::HashMap;
 use std::sync::Mutex;
 use std::time::{Duration, Instant};
+use crate::utils::http::get_user_agent;
 
 const IDP_LOGIN_TIMEOUT_MS: u64 = 5 * 60 * 1000; // 5 minutes
 const IDP_REQUEST_TIMEOUT_MS: u64 = 30_000; // 30 seconds
@@ -289,6 +290,7 @@ fn build_idp_client() -> Result<reqwest::Client, String> {
     reqwest::Client::builder()
         .timeout(Duration::from_millis(IDP_REQUEST_TIMEOUT_MS))
         .redirect(reqwest::redirect::Policy::none()) // Don't follow redirects automatically
+        .user_agent(get_user_agent())
         .build()
         .map_err(|e| format!("Failed to build HTTP client: {}", e))
 }
