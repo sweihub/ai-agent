@@ -89,7 +89,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     );
 
     // Ask a question that explicitly requires tool use
-    let result = agent.prompt(
+    let result = agent.query(
         "Use the Glob tool to find all .rs files in the src directory, then tell me how many you found."
     ).await?;
 

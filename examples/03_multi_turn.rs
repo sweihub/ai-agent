@@ -19,19 +19,19 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Turn 1: Create a file
     println!("> Turn 1: Create a file");
-    let r1 = agent.prompt(
+    let r1 = agent.query(
         "Use Bash to run: echo \"Hello Open Agent SDK\" > /tmp/oas-test.txt. Confirm briefly."
     ).await?;
     println!("  {}\n", r1.text);
 
     // Turn 2: Read back (should remember context)
     println!("> Turn 2: Read the file back");
-    let r2 = agent.prompt("Read the file you just created and tell me its contents.").await?;
+    let r2 = agent.query("Read the file you just created and tell me its contents.").await?;
     println!("  {}\n", r2.text);
 
     // Turn 3: Clean up
     println!("> Turn 3: Cleanup");
-    let r3 = agent.prompt("Delete that file with Bash. Confirm.").await?;
+    let r3 = agent.query("Delete that file with Bash. Confirm.").await?;
     println!("  {}\n", r3.text);
 
     println!("Session history: {} messages", agent.get_messages().len());

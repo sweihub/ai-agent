@@ -17,7 +17,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         5,
     );
 
-    let result = agent.prompt(
+    let result = agent.query(
         "Use Bash to run `rustc --version` and `cargo --version`, then tell me the versions."
     ).await?;
 

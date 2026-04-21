@@ -36,7 +36,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     println!("Connecting to MCP filesystem server...\n");
 
-    let result = agent.prompt(
+    let result = agent.query(
         "Use the filesystem MCP tools to list files in /tmp. Be brief."
     ).await?;
 

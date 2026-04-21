@@ -33,7 +33,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Run the agent prompt with exclusive mutable access.
     let result = {
         let mut ag = agent.lock().await;
-        ag.prompt("List 10 files in the current directory, then read each of them").await
+        ag.query("List 10 files in the current directory, then read each of them").await
     };
 
     // Wait for the interrupt task to complete (it's a no-op after interrupt())

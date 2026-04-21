@@ -87,7 +87,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // 3. The agent can then invoke /plugin:command
 
     // For now, just verify the agent works
-    let result = agent.prompt("Say 'hello from plugin example' in one sentence.").await?;
+    let result = agent.query("Say 'hello from plugin example' in one sentence.").await?;
 
     println!("Agent response: {}", result.text);
     println!("\n--- done ---");

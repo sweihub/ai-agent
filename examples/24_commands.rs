@@ -43,7 +43,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Demonstrate command execution via agent
     println!("=== Asking agent to greet ===");
-    let result = agent.prompt(
+    let result = agent.query(
         "Say hello using the /greet command with argument 'World'"
     ).await?;
     println!("{}", result.text);

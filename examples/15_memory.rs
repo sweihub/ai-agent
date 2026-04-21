@@ -53,7 +53,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Ask about user preferences stored in memory
     let result = agent
-        .prompt("What do you know about me? Check your memory.")
+        .query("What do you know about me? Check your memory.")
         .await?;
 
     println!("\n--- Agent Response ---\n");

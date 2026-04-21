@@ -25,7 +25,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     println!("=== Turn 1: Tell the agent my favorite color ===\n");
     let result1 = agent
-        .prompt("My favorite color is blue. Remember this.")
+        .query("My favorite color is blue. Remember this.")
         .await?;
 
     println!("Agent: {}\n", result1.text.trim());
@@ -36,7 +36,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     println!("=== Turn 2: Ask the agent what my favorite color is ===\n");
     let result2 = agent
-        .prompt("What is my favorite color?")
+        .query("What is my favorite color?")
         .await?;
 
     println!("Agent: {}\n", result2.text.trim());

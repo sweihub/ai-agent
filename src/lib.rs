@@ -10,6 +10,7 @@
 #![allow(async_fn_in_trait)]
 
 pub mod agent;
+pub mod stream;
 pub mod query_engine;
 #[cfg(test)]
 mod tests;
@@ -90,6 +91,7 @@ pub use services::compact::auto_compact::{
     RecompactionInfo,
 };
 pub use query_engine::QueryEngine;
+pub use stream::{CancelGuard, EventSubscriber, QueryStream};
 pub use env::{is_assistant_mode, is_assistant_mode_enabled, EnvConfig};
 pub use error::AgentError;
 pub use extract_memories::{

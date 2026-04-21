@@ -47,7 +47,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         5,
     );
 
-    let result = agent.prompt("Say hello and confirm you received the configuration.").await?;
+    let result = agent.query("Say hello and confirm you received the configuration.").await?;
 
     println!("Answer: {}", result.text);
 

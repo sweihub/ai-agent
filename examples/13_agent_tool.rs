@@ -40,7 +40,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 use the 'Agent' tool with the appropriate description and prompt.");
 
     // The main agent will use the Agent tool to spawn a subagent
-    let result = agent.prompt(
+    let result = agent.query(
         "Use the 'Agent' tool to spawn a subagent. Description: 'count-numbers'. \
         Prompt: 'Count from 1 to 3, one number per line.'"
     ).await?;

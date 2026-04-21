@@ -22,7 +22,7 @@ export AI_MODEL=MiniMaxAI/MiniMax-M2.5
 ```rust
 use ai_agent::Agent;
 let mut agent = Agent::new("MiniMaxAI/MiniMax-M2.5", 10);
-agent.prompt("List 10 files").await?;
+agent.query("List 10 files").await?;
 ```
 
 See [Usage Examples](#usage-examples) for more.
@@ -147,8 +147,8 @@ The SDK ships with **37 built-in tools** organized into 10 categories. All tools
 ### Multi-turn Conversation
 ```rust
 let mut agent = Agent::new("MiniMaxAI/MiniMax-M2.5", 5);
-agent.prompt("Create /tmp/hello.txt with 'Hello'").await?;
-agent.prompt("Read that file back").await?;
+agent.query("Create /tmp/hello.txt with 'Hello'").await?;
+agent.query("Read that file back").await?;
 println!("Messages: {}", agent.get_messages().len());
 ```
 
@@ -186,9 +186,47 @@ registry.register("PreToolUse", HookDefinition {
 });
 ```
 
+### Async Stream API (CLI/TUI Integration)
+
+The SDK provides a `query_stream()` method that returns a `futures::Stream` for incremental event consumption — ideal for real-time chat UIs.
+
+```rust
+use ai_agent::Agent;
+use futures_util::StreamExt;
+
+let mut stream = agent.query_stream("write hello world").await?;
+tokio::pin!(stream);
+
+loop {
+    tokio::select! {
+        Some(AgentEvent::ContentBlockDelta {
+            delta: ContentDelta::Text { text }, ..
+        }) = stream.next() => {
+            print!("{}", text);
+        }
+        Some(AgentEvent::Done { result }) => {
+            println!("\nDone! Turns: {}", result.num_turns);
+            break;
+        }
+        None => break,
+    }
+}
+```
+
+See `examples/28_query_stream.rs` for a full runnable example.
+
+### Pub/Sub Event Subscription
+
+For decoupled architectures, use `subscribe()` to listen to events independently:
+
+```rust
+let (mut sub, _guard) = agent.subscribe();
+// Run query in background, consume events via sub.next().await
+```
+
 ### Interrupting Agent Execution
 
-Call `agent.interrupt()` from another task to cancel a running `prompt()` or `submit_message()`.
+Call `agent.interrupt()` from another task to cancel a running `query()`.
 The operation returns `AgentError::UserAborted`.
 
 ```rust
@@ -206,10 +244,10 @@ let interrupt_task = tokio::spawn(async move {
     interrupt_agent.lock().await.interrupt();
 });
 
-// Run the prompt with exclusive access
+// Run the query with exclusive access
 let result = {
     let mut ag = agent.lock().await;
-    ag.prompt("Process a large codebase").await
+    ag.query("Process a large codebase").await
 };
 
 let _ = tokio::time::timeout(Duration::from_secs(10), interrupt_task).await;
@@ -265,7 +303,7 @@ SDK uses OpenAI format, compatible with:
                │
     ┌──────────▼──────────┐
     │       Agent         │  Session, tools, MCP
-    │    prompt()         │
+    │    query()          │
     └──────────┬──────────┘
                │
     ┌──────────▼──────────┐

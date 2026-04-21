@@ -23,7 +23,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         ..Default::default()
     });
 
-    let result = agent.prompt(
+    let result = agent.query(
         "Review the code in src/agent.rs for best practices. Be concise."
     ).await?;
 

@@ -17,7 +17,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         15,
     );
 
-    let result = agent.prompt(
+    let result = agent.query(
         "Do these steps: \
          1) Use Glob to find all .rs files in src/ (pattern \"src/**/*.rs\"). \
          2) Use Bash to count lines in src/lib.rs with `wc -l`. \

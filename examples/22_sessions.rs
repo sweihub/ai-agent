@@ -34,13 +34,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // First turn: ask a question
     println!("=== Turn 1: Ask a question ===");
-    let result = agent.prompt("What is the capital of France? Answer in one line.").await?;
+    let result = agent.query("What is the capital of France? Answer in one line.").await?;
     println!("{}", result.text);
     println!();
 
     // Second turn: follow up
     println!("=== Turn 2: Follow up ===");
-    let result = agent.prompt("Now name three tourist attractions there.").await?;
+    let result = agent.query("Now name three tourist attractions there.").await?;
     println!("{}", result.text);
     println!();
 
@@ -105,7 +105,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
         // Note: To truly resume, you'd need to inject messages into the engine
         // For now, we demonstrate the session API works
-        let result = agent2.prompt("What currency does France use?").await?;
+        let result = agent2.query("What currency does France use?").await?;
         println!("{}", result.text);
     }
     println!();

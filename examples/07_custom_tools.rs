@@ -22,7 +22,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     println!("Loaded {} built-in tools\n", builtin_tools.len());
 
-    let result = agent.prompt(
+    let result = agent.query(
         "What is the weather in Tokyo and London? Also calculate 2**10 * 3. Be brief."
     ).await?;
 

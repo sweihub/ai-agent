@@ -39,7 +39,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Prompt the agent to use the singer skill - it should invoke Skill tool,
     // then read the skill content and use Bash to execute the echo command
-    let result = agent.prompt("Please sing a song using the 'singer' skill. Execute the skill's commands.").await?;
+    let result = agent.query("Please sing a song using the 'singer' skill. Execute the skill's commands.").await?;
 
     println!("--- Agent Response ---\n");
     println!("{}", result.text.trim());

@@ -19,7 +19,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     });
 
     // Using query with streaming-like behavior (for now just prompt)
-    let result = agent.prompt("What files are in this directory? Be brief.").await?;
+    let result = agent.query("What files are in this directory? Be brief.").await?;
 
     println!("{}", result.text);
     println!("\nDone: success");

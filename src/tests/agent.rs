@@ -198,7 +198,7 @@ async fn test_agent_prompt_with_real_api() {
     });
 
     // Make a simple prompt that should trigger tool use
-    let result = agent.prompt("What is 2 + 2? Just give me the answer.").await;
+    let result = agent.query("What is 2 + 2? Just give me the answer.").await;
 
     // Verify we got a response
     assert!(result.is_ok(), "Agent should respond successfully");
@@ -241,7 +241,7 @@ async fn test_agent_with_multiple_tools_real_config() {
     });
 
     // Prompt that might use tools
-    let result = agent.prompt("List all Rust files in the current directory using glob").await;
+    let result = agent.query("List all Rust files in the current directory using glob").await;
 
     // Should get a response (may or may not use tools depending on model)
     assert!(result.is_ok(), "Agent should respond");
@@ -290,7 +290,7 @@ async fn test_tool_executors_registered() {
 
     // Prompt that should definitely use the Bash tool
     let result = agent
-        .prompt("Run this command: echo 'hello from tool test'")
+        .query("Run this command: echo 'hello from tool test'")
         .await;
 
     // Verify we got a response
@@ -339,7 +339,7 @@ async fn test_glob_tool_via_agent() {
 
     // Prompt that should use Glob tool
     let result = agent
-        .prompt("List all .rs files in the src directory using the Glob tool")
+        .query("List all .rs files in the src directory using the Glob tool")
         .await;
 
     assert!(result.is_ok(), "Agent should respond");
@@ -379,7 +379,7 @@ async fn test_fileread_tool_via_agent() {
 
     // Prompt that should use FileRead tool
     let result = agent
-        .prompt("Read the Cargo.toml file from the current directory")
+        .query("Read the Cargo.toml file from the current directory")
         .await;
 
     assert!(result.is_ok(), "Agent should respond");
@@ -420,7 +420,7 @@ async fn test_multiple_tool_calls() {
 
     // Prompt that should use multiple tools
     let result = agent
-        .prompt("First list all files in the current directory, then read the README.md file if it exists")
+        .query("First list all files in the current directory, then read the README.md file if it exists")
         .await;
 
     assert!(result.is_ok(), "Agent should respond");
@@ -462,7 +462,7 @@ async fn test_agent_remembers_context_across_queries() {
 
     // First turn: tell the agent something specific to remember
     let result1 = agent
-        .prompt("Remember this: My favorite color is blue and I live in Seattle.")
+        .query("Remember this: My favorite color is blue and I live in Seattle.")
         .await;
 
     assert!(result1.is_ok(), "First query should succeed");
@@ -472,7 +472,7 @@ async fn test_agent_remembers_context_across_queries() {
 
     // Second turn: ask about what was just said - the agent should remember
     let result2 = agent
-        .prompt("What is my favorite color and where do I live?")
+        .query("What is my favorite color and where do I live?")
         .await;
 
     assert!(result2.is_ok(), "Second query should succeed");
@@ -533,7 +533,7 @@ async fn test_tool_search_discovers_and_uses_deferred_tool() {
 
     // Ask the agent to search for information - it should use ToolSearch to discover WebSearch
     let result = agent
-        .prompt("Search the web for the current weather in Tokyo, Japan")
+        .query("Search the web for the current weather in Tokyo, Japan")
         .await;
 
     assert!(result.is_ok(), "Agent should respond successfully");
@@ -603,7 +603,7 @@ async fn test_agent_events_emitted_correctly() {
 
     // Prompt that will use the Bash tool
     let result = agent
-        .prompt("Run this command and tell me the output: echo 'EventTest123'")
+        .query("Run this command and tell me the output: echo 'EventTest123'")
         .await;
 
     // Verify we got a response
@@ -702,7 +702,7 @@ async fn test_agent_max_turns_reached_event() {
 
     // Prompt that requires tool use (will need more than 1 turn)
     let result = agent
-        .prompt("Run this command: echo 'MaxTurnsTest'")
+        .query("Run this command: echo 'MaxTurnsTest'")
         .await;
 
     // Should still return a result (may be truncated due to max turns)
@@ -773,7 +773,7 @@ async fn test_agent_tool_error_event() {
 
     // Prompt that tries to access a non-existing file (will trigger tool error)
     let result = agent
-        .prompt("Read the first line of the file 'no-such-file-xyz.txt' using head command")
+        .query("Read the first line of the file 'no-such-file-xyz.txt' using head command")
         .await;
 
     // Should still return a result (agent handles error)
@@ -811,4 +811,179 @@ async fn test_agent_tool_error_event() {
     for (i, event) in events.iter().enumerate() {
         println!("  {}: {:?}", i, event);
     }
+}
+
+// ---------------------------------------------------------------------------
+// Persisted engine mechanics tests
+// ---------------------------------------------------------------------------
+
+/// Verify that the agent accumulates messages across multiple query() calls.
+/// This is the core persisted-engine test: the engine must not be recreated
+/// between calls, so conversation state carries forward naturally.
+#[tokio::test]
+async fn test_persisted_engine_accumulates_messages() {
+    if !has_required_env_vars() {
+        eprintln!("Skipping test: AI_BASE_URL, AI_MODEL, or AI_AUTH_TOKEN not set");
+        return;
+    }
+
+    let config = EnvConfig::load();
+    if config.base_url.is_none() || config.auth_token.is_none() {
+        eprintln!("Skipping test: no API config found");
+        return;
+    }
+
+    let mut agent = Agent::new("claude-sonnet-4-6", 5);
+
+    // Before any query, message list should be empty
+    assert!(agent.get_messages().is_empty(), "Messages should be empty before first query");
+
+    // First call — store the message count after
+    let result1 = agent.query("Say 'Hello' and nothing else.").await;
+    assert!(result1.is_ok(), "First query should succeed");
+    let msgs1 = agent.get_messages();
+    assert!(msgs1.len() >= 2, "After first query: expected >=2 messages, got {}", msgs1.len());
+
+    // Second call — message list must be longer (accumulates)
+    let result2 = agent
+        .query("Repeat back what I just said to you.")
+        .await;
+    assert!(result2.is_ok(), "Second query should succeed");
+    let msgs2 = agent.get_messages();
+    assert!(
+        msgs2.len() > msgs1.len(),
+        "After second query: expected {} > {} messages (messages should accumulate)",
+        msgs2.len(),
+        msgs1.len()
+    );
+
+    // Third call — still more messages
+    let result3 = agent.query("Now say goodbye.").await;
+    assert!(result3.is_ok(), "Third query should succeed");
+    let msgs3 = agent.get_messages();
+    assert!(
+        msgs3.len() > msgs2.len(),
+        "After third query: expected {} > {} messages (messages should keep accumulating)",
+        msgs3.len(),
+        msgs2.len()
+    );
+
+    println!(
+        "Persisted engine: {} -> {} -> {} messages across 3 turns",
+        msgs1.len(),
+        msgs2.len(),
+        msgs3.len()
+    );
+}
+
+/// Verify that reset() causes the engine to be recreated and messages are cleared.
+#[tokio::test]
+async fn test_reset_clears_engine_state() {
+    if !has_required_env_vars() {
+        eprintln!("Skipping test: AI_BASE_URL, AI_MODEL, or AI_AUTH_TOKEN not set");
+        return;
+    }
+
+    let config = EnvConfig::load();
+    if config.base_url.is_none() || config.auth_token.is_none() {
+        eprintln!("Skipping test: no API config found");
+        return;
+    }
+
+    let mut agent = Agent::new("claude-sonnet-4-6", 5);
+
+    // First query
+    let _r1 = agent.query("Say 'ResetTest'.").await;
+    let msgs_before = agent.get_messages();
+    assert!(msgs_before.len() >= 2);
+
+    // Reset
+    agent.reset();
+
+    // After reset, message list must be empty
+    assert!(
+        agent.get_messages().is_empty(),
+        "Messages should be empty after reset"
+    );
+
+    // Second query should work fine (engine recreated)
+    let _r2 = agent.query("Say 'PostReset'.").await;
+    let msgs_after = agent.get_messages();
+    assert!(
+        msgs_after.len() >= 2,
+        "After reset + query: expected >=2 messages, got {}",
+        msgs_after.len()
+    );
+
+    // Agent can continue calling after reset (engine was recreated)
+    let _r3 = agent.query("Say 'Again'.").await;
+    let msgs_after2 = agent.get_messages();
+    assert!(
+        msgs_after2.len() > msgs_after.len(),
+        "Agent should accumulate messages again after reset"
+    );
+
+    println!("Reset test: {} -> clear -> {} -> {} messages", msgs_before.len(), msgs_after.len(), msgs_after2.len());
+}
+
+/// Verify that the agent remembers context across query() calls via the
+/// persisted engine — the LLM should reference information from turn 1 when
+/// asked about it in turn 2.
+#[tokio::test]
+async fn test_persisted_engine_llm_remembers_context() {
+    if !has_required_env_vars() {
+        eprintln!("Skipping test: AI_BASE_URL, AI_MODEL, or AI_AUTH_TOKEN not set");
+        return;
+    }
+
+    let mut agent = Agent::new("claude-sonnet-4-6", 5);
+
+    // Turn 1: give the agent a specific fact to embed in conversation context
+    let _r1 = agent
+        .query("Remember this fact: The capital of Burkina Faso is Ouagadougou. Say only 'OK' if you understand.")
+        .await;
+    assert!(_r1.is_ok());
+    let msgs1 = agent.get_messages();
+    assert!(msgs1.len() >= 2);
+
+    // Turn 2: ask the question that requires recalling turn 1's content
+    let r2 = agent
+        .query("What is the capital of Burkina Faso? Answer with just the city name.")
+        .await;
+    assert!(r2.is_ok(), "Second turn should succeed");
+    let answer = r2.unwrap().text.to_lowercase();
+    println!("LLM remembers context: '{}'", answer);
+
+    // The LLM response should contain the city name if the context was preserved
+    assert!(
+        answer.contains("ouagadougou"),
+        "LLM should recall the capital from turn 1. Response: '{}'. Engine must have preserved conversation history across query() calls.",
+        answer
+    );
+
+    // Turn 3: ask about what the user asked in turn 2 — tests 3-turn context
+    let r3 = agent
+        .query("What did I just ask you about? Only name the country.")
+        .await;
+    assert!(r3.is_ok());
+    let answer3 = r3.unwrap().text.to_lowercase();
+    println!("LLM remembers turn 2: '{}'", answer3);
+
+    assert!(
+        answer3.contains("burkina") || answer3.contains("burkina faso"),
+        "LLM should recall turn 2 question from 3-turn history. Response: '{}'",
+        answer3
+    );
+
+    let msgs3 = agent.get_messages();
+    assert!(
+        msgs3.len() >= 6,
+        "After 3 turns: expected >=6 messages, got {} (user+assistant per turn)",
+        msgs3.len()
+    );
+
+    println!(
+        "LLM context retention test passed: {} messages across 3 turns",
+        msgs3.len()
+    );
 }

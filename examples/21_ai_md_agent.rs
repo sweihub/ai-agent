@@ -53,7 +53,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut agent = Agent::new("MiniMaxAI/MiniMax-M2.5", 3);
 
     // Ask about the project - agent should follow AI.md instructions
-    let result = agent.prompt("Tell me about this project in one sentence.").await?;
+    let result = agent.query("Tell me about this project in one sentence.").await?;
 
     println!("\n--- Agent Response ---");
     println!("{}", result.text);

@@ -77,7 +77,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     println!("Loaded {} tools\n", agent.get_tools().len());
 
-    let result = agent.prompt(
+    let result = agent.query(
         "What is the temperature in Tokyo and Paris? Also convert 10 km to miles. Be brief."
     ).await?;
 

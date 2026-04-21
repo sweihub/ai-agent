@@ -231,7 +231,7 @@ async fn test_agent_accumulates_messages_on_prompt() {
     });
 
     let result = agent
-        .prompt("Say 'Hello Integration Test' and nothing else.")
+        .query("Say 'Hello Integration Test' and nothing else.")
         .await;
 
     assert!(result.is_ok(), "prompt should succeed: {:?}", result.err());
@@ -270,7 +270,7 @@ async fn test_agent_emits_done_event() {
     });
 
     let result = agent
-        .prompt("Say 'Done event test' and nothing else.")
+        .query("Say 'Done event test' and nothing else.")
         .await;
 
     assert!(result.is_ok());
@@ -313,7 +313,7 @@ async fn test_agent_max_turns_reason() {
         max_turns: Some(1),
         ..Default::default()
     })
-    .prompt("Run `echo hello` and return the output.")
+    .query("Run `echo hello` and return the output.")
     .await;
 
     assert!(result.is_ok(), "Agent should return a result even with max_turns=1");
@@ -350,7 +350,7 @@ async fn test_agent_session_persists_to_disk() {
     let messages_before = agent.get_messages().len();
 
     let result = agent
-        .prompt("Say 'PersistTest' and nothing else.")
+        .query("Say 'PersistTest' and nothing else.")
         .await;
 
     assert!(result.is_ok(), "Prompt should succeed");
@@ -397,7 +397,7 @@ async fn test_agent_session_continuation() {
 
     // We verify session persistence instead: first agent saves, second agent continues
     let result1 = agent1
-        .prompt("Say 'FirstAgentSaid' and nothing else.")
+        .query("Say 'FirstAgentSaid' and nothing else.")
         .await;
     assert!(result1.is_ok());
 
@@ -410,7 +410,7 @@ async fn test_agent_session_continuation() {
     });
 
     let result2 = agent2
-        .prompt("What did the first agent say? Reply with 'Continued' and nothing else.")
+        .query("What did the first agent say? Reply with 'Continued' and nothing else.")
         .await;
     assert!(result2.is_ok());
 
@@ -820,7 +820,7 @@ async fn test_agent_message_accumulation() {
     });
 
     let result = agent
-        .prompt("Count from 1 to 3. Say '1 2 3' and nothing else.")
+        .query("Count from 1 to 3. Say '1 2 3' and nothing else.")
         .await;
 
     assert!(result.is_ok(), "Agent should respond: {:?}", result.err());
@@ -852,11 +852,11 @@ async fn test_token_estimation_on_agent_messages() {
     });
 
     let _ = agent
-        .prompt("Say 'TokenEstimationTest' and nothing else.")
+        .query("Say 'TokenEstimationTest' and nothing else.")
         .await;
 
     let messages = agent.get_messages();
-    let token_count = ai_agent::compact::estimate_token_count(messages, 20_000);
+    let token_count = ai_agent::compact::estimate_token_count(&messages, 20_000);
     assert!(token_count > 0, "Token count should be positive");
     // estimate_token_count adds max_output_tokens (20000) as buffer, so total is ~20000+ for short convos
     assert!(token_count < 30000, "Token count should be reasonable, got {}", token_count);
@@ -927,7 +927,7 @@ async fn test_agent_prompt_without_model_fails_gracefully() {
         max_turns: Some(1),
         ..Default::default()
     })
-    .prompt("This should fail or be handled gracefully.")
+    .query("This should fail or be handled gracefully.")
     .await;
 
     // Depending on implementation, this either errors or the agent handles missing model
@@ -957,7 +957,7 @@ async fn test_agent_zero_max_turns() {
         max_turns: Some(0),
         ..Default::default()
     })
-    .prompt("This should hit max turns.")
+    .query("This should hit max turns.")
     .await;
 
     // With 0 max turns, the agent might still get a response from the API
