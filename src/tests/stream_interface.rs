@@ -1,19 +1,6 @@
 // Source: Internal module — tests for the async stream interface
 
-use crate::types::{AgentEvent, ContentDelta};
 use futures_util::StreamExt;
-
-/// Verify that query_stream returns a valid Stream type that can be polled.
-/// This test verifies the Stream trait implementation is correctly wired.
-#[tokio::test]
-async fn test_query_stream_stream_trait() {
-    let agent = crate::Agent::new("claude-sonnet-4-6", 1);
-    // This test verifies compilation and basic API shape.
-    // The actual event flow requires a real LLM API connection,
-    // so we just verify the method signature and return type.
-    // A full integration test would need AI_AUTH_TOKEN configured.
-    assert!(!agent.get_model().is_empty(), "Agent should have a model set");
-}
 
 /// Verify that EventSubscriber implements Stream
 /// Tests: subscribe -> drop guard -> stream resolves to None

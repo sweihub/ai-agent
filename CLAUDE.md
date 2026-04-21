@@ -16,8 +16,6 @@ core features:
 
 Increment the version(major.minor.build) in Cargo.toml before git commit. (feature -> +minor, fix -> +build)
 
-run all unit tests and examples before git commit.
-
 Keep the original project's structure, flavor and logics, file name from camelCase to snake_case.
 
 Localize all environment variables from prefix `CLAUDE_CODE_` to `AI_CODE_`, `ANTHROPIC_` to `AI_`.
@@ -40,7 +38,9 @@ Avoid using of `unsafe` in Rust.
 
 Fix or suppress any build warnings, allow dead code!
 
-Run all unit tests and examples when you think you are done!
+run all unit tests and examples with 5 threads before git commit.
+
+Run all unit tests and examples with 5 threads when you think you are done!
 
 Always translate README.md into READCN.md (Chinese) if any changes.
 

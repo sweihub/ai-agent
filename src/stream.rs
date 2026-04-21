@@ -1,94 +1,13 @@
 // Source: Internal module — async stream interface for CLI/TUI users
 // Provides futures::Stream-based event consumption for the AI Agent SDK.
 
-use crate::types::{AgentEvent, QueryResult};
+use crate::types::AgentEvent;
 use std::pin::Pin;
-use std::sync::{Arc, OnceLock};
 use std::task::{Context, Poll};
 use tokio::sync::mpsc;
 
 // Re-use the Stream trait from futures_util (already a dependency)
 use futures_util::Stream;
-
-/// A stream of [`AgentEvent`] from a single query, returned by [`crate::agent::Agent::query_stream`].
-///
-/// The engine loop runs on a spawned tokio task. Events flow through an internal
-/// `mpsc` channel that this stream polls. The stream terminates when a
-/// [`AgentEvent::Done`] event fires (both on normal completion and abort).
-///
-/// # Example
-///
-/// ```rust,ignore
-/// let mut stream = agent.query_stream("hello").await?;
-/// while let Some(ev) = stream.next().await {
-///     match ev {
-///         AgentEvent::ContentBlockDelta {
-///             delta: AgentEvent::ContentDelta::Text { text },
-///             ..
-///         } => print!("{}", text),
-///         AgentEvent::Done { result } => println!("\nDone!"),
-///         _ => {}
-///     }
-/// }
-/// ```
-pub struct QueryStream {
-    receiver: mpsc::Receiver<AgentEvent>,
-    task: tokio::task::JoinHandle<()>,
-    result: Arc<OnceLock<QueryResult>>,
-}
-
-impl QueryStream {
-    pub(crate) fn new(
-        receiver: mpsc::Receiver<AgentEvent>,
-        task: tokio::task::JoinHandle<()>,
-        result: Arc<OnceLock<QueryResult>>,
-    ) -> Self {
-        Self { receiver, task, result }
-    }
-
-    /// Get the final [`QueryResult`] after the stream has completed.
-    ///
-    /// Returns `None` if the stream is still running.
-    ///
-    /// # Example
-    ///
-    /// ```rust,ignore
-    /// let mut stream = agent.query_stream("hello").await?;
-    /// while let Some(ev) = stream.next().await {}
-    /// let result = stream.result().expect("stream completed");
-    /// println!("turns={}", result.num_turns);
-    /// ```
-    pub fn result(&self) -> Option<QueryResult> {
-        self.result.get().cloned()
-    }
-}
-
-impl Stream for QueryStream {
-    type Item = AgentEvent;
-
-    fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
-        // Try non-blocking recv first (avoids waker registration for completed streams)
-        match self.receiver.try_recv() {
-            Ok(event) => Poll::Ready(Some(event)),
-            Err(mpsc::error::TryRecvError::Empty) => {
-                // Register waker and await
-                match Pin::new(&mut self.receiver).poll_recv(cx) {
-                    Poll::Ready(Some(event)) => Poll::Ready(Some(event)),
-                    Poll::Ready(None) => Poll::Ready(None),
-                    Poll::Pending => Poll::Pending,
-                }
-            }
-            Err(mpsc::error::TryRecvError::Disconnected) => Poll::Ready(None),
-        }
-    }
-}
-
-impl Drop for QueryStream {
-    fn drop(&mut self) {
-        // Abort the spawned task when the stream is dropped
-        self.task.abort();
-    }
-}
 
 /// A subscriber to agent events across multiple queries.
 ///
@@ -154,4 +73,3 @@ impl Drop for CancelGuard {
         self._sender.take();
     }
 }
-

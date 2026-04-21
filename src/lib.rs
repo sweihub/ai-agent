@@ -92,7 +92,7 @@ pub use services::compact::auto_compact::{
     RecompactionInfo,
 };
 pub use query_engine::QueryEngine;
-pub use stream::{CancelGuard, EventSubscriber, QueryStream};
+pub use stream::{CancelGuard, EventSubscriber};
 pub use env::{is_assistant_mode, is_assistant_mode_enabled, EnvConfig};
 pub use error::AgentError;
 pub use extract_memories::{

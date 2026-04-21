@@ -186,34 +186,32 @@ registry.register("PreToolUse", HookDefinition {
 });
 ```
 
-### 异步流 API（CLI/TUI 集成）
+### 事件回调 API（CLI/TUI 集成）
 
-SDK 提供了 `query_stream()` 方法，返回 `futures::Stream` 用于增量事件消费——非常适合实时聊天界面。
+注册 `on_event` 回调以在查询执行期间接收增量事件——非常适合实时聊天界面和终端 UI。
 
 ```rust
 use ai_agent::Agent;
-use futures_util::StreamExt;
 
-let mut stream = agent.query_stream("写一个 hello world").await?;
-tokio::pin!(stream);
-
-loop {
-    tokio::select! {
-        Some(AgentEvent::ContentBlockDelta {
-            delta: ContentDelta::Text { text }, ..
-        }) = stream.next() => {
-            print!("{}", text);
+let mut agent = Agent::new("claude-sonnet-4-6", 10);
+agent.set_event_callback(|event| {
+    match &event {
+        ai_agent::AgentEvent::ContentBlockDelta {
+            delta: ai_agent::types::ContentDelta::Text { text },
+            ..
+        } => print!("{}", text),
+        ai_agent::AgentEvent::Thinking { turn } => {
+            eprintln!("[第 {} 轮 思考中...]", turn);
         }
-        Some(AgentEvent::Done { result }) => {
+        ai_agent::AgentEvent::Done { result } => {
             println!("\n完成！轮数: {}", result.num_turns);
-            break;
         }
-        None => break,
+        _ => {}
     }
-}
-```
+});
 
-参见 `examples/28_query_stream.rs` 获取完整可运行示例。
+let result = agent.query("写一个 hello world").await?;
+```
 
 ### 发布/订阅事件监听
 

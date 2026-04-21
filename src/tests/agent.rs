@@ -531,33 +531,22 @@ async fn test_tool_search_discovers_and_uses_deferred_tool() {
         ..Default::default()
     });
 
-    // Ask the agent to search for information - it should use ToolSearch to discover WebSearch
+    // Ask the agent to discover and use WebSearch via ToolSearch
     let result = agent
-        .query("Search the web for the current weather in Tokyo, Japan")
+        .query("Use ToolSearch to discover the WebSearch tool, then use it to look up the latest news about Iran.")
         .await;
 
     assert!(result.is_ok(), "Agent should respond successfully");
     let response = result.unwrap();
-    assert!(!response.text.is_empty(), "Response should not be empty");
-    println!("ToolSearch test response: {}", response.text);
+    assert!(!response.text.is_empty(), "Agent returned empty response (possible API issue).");
 
-    // Verify the agent actually did a web search
-    // The response should contain something weather-related or Tokyo-related
-    let text_lower = response.text.to_lowercase();
-    let did_search = text_lower.contains("tokyo")
-        || text_lower.contains("weather")
-        || text_lower.contains("japan")
-        || text_lower.contains("search")
-        || text_lower.contains("web");
-
-    assert!(did_search, "Agent should have searched the web for Tokyo weather. Response: {}", response.text);
-
-    // Verify ToolSearch was involved by checking message history
+    // Verify ToolSearch was used to discover WebSearch by checking message history.
+    // The LLM should discover WebSearch via ToolSearch before using it to answer the question.
     let messages = agent.get_messages();
     let has_tool_search_call = messages.iter().any(|m| {
         m.content.contains("ToolSearch") || m.content.contains("WebSearch")
     });
-    println!("ToolSearch interaction detected: {}", has_tool_search_call);
+    assert!(has_tool_search_call, "Agent should have used ToolSearch to discover WebSearch. Messages: {:?}", messages);
 }
 
 /// Test that AgentEvent streaming events are properly emitted during agent execution.
@@ -602,9 +591,12 @@ async fn test_agent_events_emitted_correctly() {
     });
 
     // Prompt that will use the Bash tool
-    let result = agent
-        .query("Run this command and tell me the output: echo 'EventTest123'")
-        .await;
+    let result = tokio::time::timeout(
+        std::time::Duration::from_secs(10),
+        agent.query("Run this command and tell me the output: echo 'EventTest123'"),
+    )
+    .await
+    .expect("test timed out after 10s (likely API rate limit with retries in parallel test run)");
 
     // Verify we got a response
     assert!(result.is_ok(), "Agent should respond successfully");

@@ -186,34 +186,32 @@ registry.register("PreToolUse", HookDefinition {
 });
 ```
 
-### Async Stream API (CLI/TUI Integration)
+### Event Callback API (CLI/TUI Integration)
 
-The SDK provides a `query_stream()` method that returns a `futures::Stream` for incremental event consumption — ideal for real-time chat UIs.
+Register an `on_event` callback to receive incremental events during query execution — ideal for real-time chat UIs and TUIs.
 
 ```rust
 use ai_agent::Agent;
-use futures_util::StreamExt;
 
-let mut stream = agent.query_stream("write hello world").await?;
-tokio::pin!(stream);
-
-loop {
-    tokio::select! {
-        Some(AgentEvent::ContentBlockDelta {
-            delta: ContentDelta::Text { text }, ..
-        }) = stream.next() => {
-            print!("{}", text);
+let mut agent = Agent::new("claude-sonnet-4-6", 10);
+agent.set_event_callback(|event| {
+    match &event {
+        ai_agent::AgentEvent::ContentBlockDelta {
+            delta: ai_agent::types::ContentDelta::Text { text },
+            ..
+        } => print!("{}", text),
+        ai_agent::AgentEvent::Thinking { turn } => {
+            eprintln!("[Turn {} thinking...]", turn);
         }
-        Some(AgentEvent::Done { result }) => {
+        ai_agent::AgentEvent::Done { result } => {
             println!("\nDone! Turns: {}", result.num_turns);
-            break;
         }
-        None => break,
+        _ => {}
     }
-}
-```
+});
 
-See `examples/28_query_stream.rs` for a full runnable example.
+let result = agent.query("write hello world").await?;
+```
 
 ### Pub/Sub Event Subscription
 
