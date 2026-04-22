@@ -307,14 +307,18 @@ impl Default for SkillTool {
 mod tests {
     use super::*;
 
+    use crate::tests::common::get_serialization_lock;
+
     #[test]
     fn test_skill_tool_name() {
+        let _lock = get_serialization_lock();
         let tool = SkillTool::new();
         assert_eq!(tool.name(), SKILL_TOOL_NAME);
     }
 
     #[test]
     fn test_skill_tool_schema() {
+        let _lock = get_serialization_lock();
         let tool = SkillTool::new();
         let schema = tool.input_schema();
         assert!(schema.properties.get("skill").is_some());
@@ -324,6 +328,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_skill_tool_unknown_skill() {
+        let _lock = get_serialization_lock();
         let tool = SkillTool::new();
         let input = serde_json::json!({
             "skill": "nonexistent_skill"
@@ -338,6 +343,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_skill_tool_prefix_matching() {
+        let _lock = get_serialization_lock();
         let tool = SkillTool::new();
         let input = serde_json::json!({
             "skill": "review:*"

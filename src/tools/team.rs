@@ -365,8 +365,11 @@ const TEAMCREATE_TOOL_NAME: &str = "TeamCreate";
 mod tests {
     use super::*;
 
+    use crate::tests::common::get_serialization_lock;
+
     #[tokio::test]
     async fn test_team_create_and_delete() {
+        let _lock = get_serialization_lock();
         let create = TeamCreateTool::new();
         let result = create
             .execute(
@@ -395,6 +398,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_send_message() {
+        let _lock = get_serialization_lock();
         let send = SendMessageTool::new();
         let result = send
             .execute(
@@ -411,6 +415,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_send_message_broadcast() {
+        let _lock = get_serialization_lock();
         let send = SendMessageTool::new();
         let result = send
             .execute(

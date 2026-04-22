@@ -177,14 +177,18 @@ impl Default for TodoWriteTool {
 mod tests {
     use super::*;
 
+    use crate::tests::common::get_serialization_lock;
+
     #[test]
     fn test_todo_write_tool_name() {
+        let _lock = get_serialization_lock();
         let tool = TodoWriteTool::new();
         assert_eq!(tool.name(), TODO_WRITE_TOOL_NAME);
     }
 
     #[test]
     fn test_todo_write_schema() {
+        let _lock = get_serialization_lock();
         let tool = TodoWriteTool::new();
         let schema = tool.input_schema();
         assert!(schema.properties.get("todos").is_some());
@@ -192,6 +196,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_todo_write_creates_items() {
+        let _lock = get_serialization_lock();
         let tool = TodoWriteTool::new();
         let input = serde_json::json!({
             "todos": [
@@ -207,6 +212,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_todo_write_clears_when_all_done() {
+        let _lock = get_serialization_lock();
         let tool = TodoWriteTool::new();
         // First, add some todos
         let input = serde_json::json!({
@@ -226,6 +232,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_todo_write_verification_nudge() {
+        let _lock = get_serialization_lock();
         let tool = TodoWriteTool::new();
         // 3+ items, none mention "verif", all completed
         let input = serde_json::json!({

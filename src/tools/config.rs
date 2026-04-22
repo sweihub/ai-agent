@@ -201,14 +201,18 @@ impl Default for ConfigTool {
 mod tests {
     use super::*;
 
+    use crate::tests::common::get_serialization_lock;
+
     #[test]
     fn test_config_tool_name() {
+        let _lock = get_serialization_lock();
         let tool = ConfigTool::new();
         assert_eq!(tool.name(), CONFIG_TOOL_NAME);
     }
 
     #[test]
     fn test_config_tool_schema() {
+        let _lock = get_serialization_lock();
         let tool = ConfigTool::new();
         let schema = tool.input_schema();
         assert_eq!(schema.schema_type, "object");
@@ -217,6 +221,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_config_tool_list_empty() {
+        let _lock = get_serialization_lock();
         let tool = ConfigTool::new();
         let input = serde_json::json!({ "action": "list" });
         let context = ToolContext::default();
@@ -226,6 +231,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_config_tool_set_and_get() {
+        let _lock = get_serialization_lock();
         let tool = ConfigTool::new();
         let context = ToolContext::default();
 

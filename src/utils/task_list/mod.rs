@@ -103,7 +103,6 @@ fn get_store() -> &'static Mutex<TaskStore> {
     TASK_STORE.get_or_init(|| Mutex::new(TaskStore::new()))
 }
 
-#[cfg(test)]
 pub fn reset_task_store() {
     let mut store = get_store().lock().unwrap();
     store.tasks.clear();
@@ -210,14 +209,17 @@ pub struct TaskUpdate {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::tests::common::get_serialization_lock;
 
     #[test]
     fn test_is_todo_v2_enabled() {
+        let _lock = get_serialization_lock();
         assert!(is_todo_v2_enabled());
     }
 
     #[test]
     fn test_task_status_display() {
+        let _lock = get_serialization_lock();
         assert_eq!(TaskStatus::Pending.to_string(), "pending");
         assert_eq!(TaskStatus::InProgress.to_string(), "in_progress");
         assert_eq!(TaskStatus::Completed.to_string(), "completed");
@@ -225,6 +227,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_create_and_get_task() {
+        let _lock = get_serialization_lock();
         reset_task_store();
         let task_list_id = get_task_list_id();
         let task = Task {
@@ -248,6 +251,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_list_tasks() {
+        let _lock = get_serialization_lock();
         reset_task_store();
         let task_list_id = get_task_list_id();
         // Create a task first so list_tasks has something to return
@@ -269,6 +273,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_delete_task() {
+        let _lock = get_serialization_lock();
         reset_task_store();
         let task_list_id = get_task_list_id();
         let task = Task {

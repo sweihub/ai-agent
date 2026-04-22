@@ -968,8 +968,6 @@ impl Agent {
     /// Get all messages in the conversation history.
     /// Delegates to the persisted QueryEngine which owns the message state
     /// (matches TypeScript: engine.mutableMessages).
-    /// Uses try_lock() — returns messages if no async operation holds the lock,
-    /// otherwise returns an empty vec (the engine is busy in a query).
     pub fn get_messages(&self) -> Vec<Message> {
         let inner = self.inner.lock().unwrap();
         inner

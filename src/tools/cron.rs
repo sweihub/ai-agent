@@ -349,8 +349,11 @@ impl Default for CronListTool {
 mod tests {
     use super::*;
 
+    use crate::tests::common::get_serialization_lock;
+
     #[tokio::test]
     async fn test_cron_create_and_list() {
+        let _lock = get_serialization_lock();
         let create = CronCreateTool::new();
         let result = create
             .execute(
@@ -376,6 +379,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_cron_delete() {
+        let _lock = get_serialization_lock();
         let create = CronCreateTool::new();
         create
             .execute(
@@ -406,6 +410,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_cron_create_invalid_expression() {
+        let _lock = get_serialization_lock();
         let create = CronCreateTool::new();
         let result = create
             .execute(
@@ -424,6 +429,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_cron_list_empty() {
+        let _lock = get_serialization_lock();
         // Clear all jobs first
         let mut guard = get_cron_jobs_map().lock().unwrap();
         guard.clear();
