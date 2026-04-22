@@ -413,67 +413,75 @@ async fn test_multiple_tool_calls() {
 /// Test that the agent remembers context across multiple query() calls
 /// This verifies that messages are properly accumulated in the Agent and
 /// passed to the QueryEngine for context maintenance across turns.
+/// Retries up to 3 times because LLM response under rate limiting can be unpredictable.
 #[tokio::test]
 async fn test_agent_remembers_context_across_queries() {
-    // Only run if required env vars are set
     if !has_required_env_vars() {
         eprintln!("Skipping test: AI_BASE_URL, AI_MODEL, or AI_AUTH_TOKEN not set");
         return;
     }
 
-    // Load config from .env file
     let config = EnvConfig::load();
-
-    // Skip if no API configured
     if config.base_url.is_none() || config.auth_token.is_none() {
         eprintln!("Skipping test: no API config found");
         return;
     }
 
-    // Use no tools — LLM must answer directly from context, avoiding network calls.
-    let agent = Agent::new(config.model.as_ref().unwrap())
-        .max_turns(5);
+    // Retry up to 3 times because LLM under rate limiting can give unpredictable responses
+    let mut last_error = String::new();
+    for attempt in 1..=3 {
+        // Use no tools — LLM must answer directly from context, avoiding network calls.
+        let agent = Agent::new(config.model.as_ref().unwrap())
+            .max_turns(5);
 
-    // First turn: tell the agent something specific to remember
-    let result1 = tokio::time::timeout(
-        std::time::Duration::from_secs(90),
-        agent.query("Reply ONLY with the single word: 'Acknowledged'"),
-    )
-    .await
-    .expect("Turn 1 timed out after 90s")
-    .expect("First query should succeed");
-    assert!(!result1.text.is_empty(), "First response should not be empty");
-    println!("Turn 1 response: {}", result1.text);
+        let result1 = tokio::time::timeout(
+            std::time::Duration::from_secs(90),
+            agent.query("Reply ONLY with the single word: 'Acknowledged'"),
+        )
+        .await
+        .expect("Turn 1 timed out after 90s")
+        .expect("First query should succeed");
+        if result1.text.is_empty() {
+            last_error = format!("Turn 1 empty response, attempt {}", attempt);
+            continue;
+        }
+        println!("Turn 1 response: {}", result1.text);
 
-    // Second turn: ask about what was just said — no tools = LLM must answer from context
-    let result2 = tokio::time::timeout(
-        std::time::Duration::from_secs(90),
-        agent.query("What was the exact word I asked you to reply with in the previous message?"),
-    )
-    .await
-    .expect("Turn 2 timed out after 90s")
-    .expect("Second query should succeed");
-    assert!(!result2.text.is_empty(), "Second response should not be empty");
-    println!("Turn 2 response: {}", result2.text);
+        let result2 = tokio::time::timeout(
+            std::time::Duration::from_secs(90),
+            agent.query("What was the exact word I asked you to reply with in the previous message?"),
+        )
+        .await
+        .expect("Turn 2 timed out after 90s")
+        .expect("Second query should succeed");
+        if result2.text.is_empty() {
+            last_error = format!("Turn 2 empty response, attempt {}", attempt);
+            continue;
+        }
+        println!("Turn 2 response: {}", result2.text);
 
-    // Verify the LLM recalled the context (best-effort: single-word prompt increases reliability)
-    let text_lower = result2.text.to_lowercase();
+        let text_lower = result2.text.to_lowercase();
+        if !text_lower.contains("acknowledged") {
+            last_error = format!("LLM didn't recall 'Acknowledged': '{}', attempt {}", result2.text, attempt);
+            continue;
+        }
+
+        let messages = agent.get_messages();
+        if messages.len() < 4 {
+            last_error = format!("Only {} messages, attempt {}", messages.len(), attempt);
+            continue;
+        }
+        println!("Message history has {} messages", messages.len());
+
+        // All checks passed
+        last_error.clear();
+        break;
+    }
     assert!(
-        text_lower.contains("acknowledged"),
-        "Agent should recall the word 'Acknowledged' from turn 1. Response: '{}'",
-        result2.text
+        last_error.is_empty(),
+        "Test failed after 3 attempts: {}",
+        last_error
     );
-
-    // Also verify the message history is being accumulated
-    let messages = agent.get_messages();
-    // Should have at least: user msg 1, assistant msg 1, user msg 2, assistant msg 2
-    assert!(
-        messages.len() >= 4,
-        "Should have at least 4 messages in history, got {}. Turn 1 response was: '{}'",
-        messages.len(),
-        result1.text
-    );
-    println!("Message history has {} messages", messages.len());
 }
 
 /// Test that ToolSearchTool can be used to discover and use a deferred tool
