@@ -48,7 +48,9 @@ mod tests {
     fn test_is_rate_limit_error() {
         assert!(is_rate_limit_error("429 Too Many Requests"));
         assert!(is_rate_limit_error("rate limit exceeded"));
-        assert!(is_rate_limit_error("Streaming API error 429 Too Many Requests"));
+        assert!(is_rate_limit_error(
+            "Streaming API error 429 Too Many Requests"
+        ));
         assert!(!is_rate_limit_error("404 Not Found"));
     }
 

@@ -3,10 +3,10 @@
 //!
 //! Show keyboard shortcuts and keybindings.
 
-use crate::skills::bundled_skills::{
-    register_bundled_skill, BundledSkillDefinition, ContentBlock, SkillContext,
-};
 use crate::AgentError;
+use crate::skills::bundled_skills::{
+    BundledSkillDefinition, ContentBlock, SkillContext, register_bundled_skill,
+};
 
 const KEYBINDINGS_PROMPT: &str = r#"# Keybindings Skill
 

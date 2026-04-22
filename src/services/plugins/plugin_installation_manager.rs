@@ -28,9 +28,9 @@ impl MarketplaceProgressEvent {
 
     pub fn name(&self) -> &str {
         match self {
-            Self::Installing { name }
-            | Self::Installed { name }
-            | Self::Failed { name, .. } => name,
+            Self::Installing { name } | Self::Installed { name } | Self::Failed { name, .. } => {
+                name
+            }
         }
     }
 }
@@ -234,7 +234,9 @@ fn clear_plugin_cache(reason: &str) {
 }
 
 /// Refresh active plugins - clears caches and reloads plugins
-async fn refresh_active_plugins(_set_app_state: &SetAppState) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+async fn refresh_active_plugins(
+    _set_app_state: &SetAppState,
+) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     // In production, this would:
     // 1. Clear all plugin caches
     // 2. Reload plugins from disk
@@ -257,7 +259,11 @@ fn log_event(event_name: &str, metrics: &MarketplaceBackgroundInstallMetrics) {
 }
 
 /// Log a diagnostic message (no PII)
-fn log_for_diagnostics_no_pii(level: &str, event: &str, metrics: &MarketplaceBackgroundInstallMetrics) {
+fn log_for_diagnostics_no_pii(
+    level: &str,
+    event: &str,
+    metrics: &MarketplaceBackgroundInstallMetrics,
+) {
     log::debug!(
         "[{}] {} installed={} updated={} failed={} up_to_date={}",
         level,
@@ -296,9 +302,7 @@ fn plural(count: usize, singular: &str) -> String {
 /// - New installs -> auto-refresh plugins (fixes "plugin-not-found" errors
 ///   from the initial cache-only load on fresh homespace/cleared cache)
 /// - Updates only -> set needs_refresh, show notification for /reload-plugins
-pub async fn perform_background_plugin_installations(
-    set_app_state: &SetAppState,
-) {
+pub async fn perform_background_plugin_installations(set_app_state: &SetAppState) {
     log_for_debugging("perform_background_plugin_installations called");
 
     // Compute diff upfront for initial UI status (pending spinners)
@@ -348,17 +352,15 @@ pub async fn perform_background_plugin_installations(
     ));
 
     let result = reconcile_marketplaces(Some(Box::new(move |event| {
-        let on_progress = move |ev: MarketplaceProgressEvent| {
-            match ev {
-                MarketplaceProgressEvent::Installing { name } => {
-                    log::debug!("Installing marketplace: {}", name);
-                }
-                MarketplaceProgressEvent::Installed { name } => {
-                    log::debug!("Installed marketplace: {}", name);
-                }
-                MarketplaceProgressEvent::Failed { name, error } => {
-                    log::error!("Failed to install marketplace {}: {}", name, error);
-                }
+        let on_progress = move |ev: MarketplaceProgressEvent| match ev {
+            MarketplaceProgressEvent::Installing { name } => {
+                log::debug!("Installing marketplace: {}", name);
+            }
+            MarketplaceProgressEvent::Installed { name } => {
+                log::debug!("Installed marketplace: {}", name);
+            }
+            MarketplaceProgressEvent::Failed { name, error } => {
+                log::error!("Failed to install marketplace {}: {}", name, error);
             }
         };
         on_progress(event);
@@ -395,9 +397,7 @@ pub async fn perform_background_plugin_installations(
                 "Auto-refresh failed, falling back to needs_refresh: {}",
                 refresh_error
             ));
-            clear_plugin_cache(
-                "perform_background_plugin_installations: auto-refresh failed",
-            );
+            clear_plugin_cache("perform_background_plugin_installations: auto-refresh failed");
 
             let new_state = AppState {
                 plugins: PluginsState {
@@ -411,9 +411,7 @@ pub async fn perform_background_plugin_installations(
         // Existing marketplaces updated -- notify user to run /reload-plugins.
         // Updates are less urgent and the user should choose when to apply them.
         clear_marketplaces_cache();
-        clear_plugin_cache(
-            "perform_background_plugin_installations: marketplaces reconciled",
-        );
+        clear_plugin_cache("perform_background_plugin_installations: marketplaces reconciled");
 
         let new_state = AppState {
             plugins: PluginsState {
@@ -518,7 +516,10 @@ mod tests {
 
     #[test]
     fn test_marketplace_status_kind() {
-        assert_eq!(MarketplaceStatusKind::Pending, MarketplaceStatusKind::Pending);
+        assert_eq!(
+            MarketplaceStatusKind::Pending,
+            MarketplaceStatusKind::Pending
+        );
         assert_eq!(
             MarketplaceStatusKind::Installing,
             MarketplaceStatusKind::Installing
@@ -527,10 +528,7 @@ mod tests {
             MarketplaceStatusKind::Installed,
             MarketplaceStatusKind::Installed
         );
-        assert_eq!(
-            MarketplaceStatusKind::Failed,
-            MarketplaceStatusKind::Failed
-        );
+        assert_eq!(MarketplaceStatusKind::Failed, MarketplaceStatusKind::Failed);
     }
 
     #[test]

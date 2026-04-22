@@ -1,6 +1,6 @@
 // Source: /data/home/swei/claudecode/openclaudecode/src/utils/model/model.ts
-use crate::constants::env::ai;
 use super::{Command, CommandCallResult};
+use crate::constants::env::ai;
 
 pub fn create_model_command() -> Command {
     Command::prompt("model", "Set the AI model for Claude Code").argument_hint("[model]")

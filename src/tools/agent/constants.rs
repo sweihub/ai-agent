@@ -12,16 +12,10 @@ pub fn one_shot_builtin_agent_types() -> &'static [&'static str] {
 }
 
 /// Tools that are disallowed for ALL agents (built-in and custom).
-pub const ALL_AGENT_DISALLOWED_TOOLS: &[&str] = &[
-    "Skill",
-    "ReloadPlugin",
-    "Prompt",
-];
+pub const ALL_AGENT_DISALLOWED_TOOLS: &[&str] = &["Skill", "ReloadPlugin", "Prompt"];
 
 /// Tools that are disallowed for non-built-in (custom) agents.
-pub const CUSTOM_AGENT_DISALLOWED_TOOLS: &[&str] = &[
-    "Skill",
-];
+pub const CUSTOM_AGENT_DISALLOWED_TOOLS: &[&str] = &["Skill"];
 
 /// Tools that async (background) agents are allowed to use.
 pub const ASYNC_AGENT_ALLOWED_TOOLS: &[&str] = &[

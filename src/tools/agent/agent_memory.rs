@@ -72,7 +72,10 @@ fn get_local_agent_memory_dir(dir_name: &str) -> PathBuf {
 
 /// Sanitize a path for use in a directory name.
 fn sanitize_path(path: &str) -> String {
-    path.replace(|c: char| !c.is_alphanumeric() && c != '/' && c != '-' && c != '_', "_")
+    path.replace(
+        |c: char| !c.is_alphanumeric() && c != '/' && c != '-' && c != '_',
+        "_",
+    )
 }
 
 /// Get the project root (git root or current directory).
@@ -85,24 +88,30 @@ fn get_project_root() -> String {
 pub fn get_agent_memory_dir(agent_type: &str, scope: AgentMemoryScope) -> PathBuf {
     let dir_name = sanitize_agent_type_for_path(agent_type);
     match scope {
-        AgentMemoryScope::Project => {
-            get_cwd().join(".claude").join("agent-memory").join(dir_name)
-        }
+        AgentMemoryScope::Project => get_cwd()
+            .join(".claude")
+            .join("agent-memory")
+            .join(dir_name),
         AgentMemoryScope::Local => get_local_agent_memory_dir(&dir_name),
-        AgentMemoryScope::User => {
-            get_memory_base_dir().join("agent-memory").join(dir_name)
-        }
+        AgentMemoryScope::User => get_memory_base_dir().join("agent-memory").join(dir_name),
     }
 }
 
 /// Check if file is within an agent memory directory (any scope).
 pub fn is_agent_memory_path(absolute_path: &str) -> bool {
-    let normalized = Path::new(absolute_path).canonicalize().unwrap_or_else(|_| absolute_path.into());
+    let normalized = Path::new(absolute_path)
+        .canonicalize()
+        .unwrap_or_else(|_| absolute_path.into());
     let normalized_str = normalized.to_string_lossy();
     let memory_base = get_memory_base_dir();
 
     // User scope
-    if normalized_str.starts_with(&memory_base.join("agent-memory").to_string_lossy().to_string()) {
+    if normalized_str.starts_with(
+        &memory_base
+            .join("agent-memory")
+            .to_string_lossy()
+            .to_string(),
+    ) {
         return true;
     }
 
@@ -165,9 +174,7 @@ pub fn load_agent_memory_prompt(agent_type: &str, scope: AgentMemoryScope) -> St
     let _ = std::fs::create_dir_all(&memory_dir);
 
     let extra_guidelines = std::env::var("CLAUDE_COWORK_MEMORY_EXTRA_GUIDELINES").ok();
-    let extra_guidelines = extra_guidelines
-        .as_deref()
-        .filter(|s| !s.trim().is_empty());
+    let extra_guidelines = extra_guidelines.as_deref().filter(|s| !s.trim().is_empty());
 
     build_memory_prompt(
         "Persistent Agent Memory",
@@ -181,7 +188,11 @@ pub fn load_agent_memory_prompt(agent_type: &str, scope: AgentMemoryScope) -> St
 }
 
 /// Build a memory prompt string.
-fn build_memory_prompt(display_name: &str, memory_dir: &Path, extra_guidelines: Vec<&str>) -> String {
+fn build_memory_prompt(
+    display_name: &str,
+    memory_dir: &Path,
+    extra_guidelines: Vec<&str>,
+) -> String {
     let memory_contents = read_memory_files(memory_dir);
     let guidelines = extra_guidelines.join("\n");
 
@@ -219,21 +230,36 @@ mod tests {
     #[test]
     fn test_sanitize_agent_type() {
         assert_eq!(sanitize_agent_type_for_path("my-agent"), "my-agent");
-        assert_eq!(sanitize_agent_type_for_path("my-plugin:my-agent"), "my-plugin-my-agent");
+        assert_eq!(
+            sanitize_agent_type_for_path("my-plugin:my-agent"),
+            "my-plugin-my-agent"
+        );
     }
 
     #[test]
     fn test_memory_scope_from_str() {
-        assert_eq!(AgentMemoryScope::from_str("user"), Some(AgentMemoryScope::User));
-        assert_eq!(AgentMemoryScope::from_str("project"), Some(AgentMemoryScope::Project));
-        assert_eq!(AgentMemoryScope::from_str("local"), Some(AgentMemoryScope::Local));
+        assert_eq!(
+            AgentMemoryScope::from_str("user"),
+            Some(AgentMemoryScope::User)
+        );
+        assert_eq!(
+            AgentMemoryScope::from_str("project"),
+            Some(AgentMemoryScope::Project)
+        );
+        assert_eq!(
+            AgentMemoryScope::from_str("local"),
+            Some(AgentMemoryScope::Local)
+        );
         assert_eq!(AgentMemoryScope::from_str("invalid"), None);
     }
 
     #[test]
     fn test_memory_scope_display() {
         assert_eq!(get_memory_scope_display(None), "None");
-        assert_eq!(get_memory_scope_display(Some(AgentMemoryScope::User)), "User (~/.claude/agent-memory/)");
+        assert_eq!(
+            get_memory_scope_display(Some(AgentMemoryScope::User)),
+            "User (~/.claude/agent-memory/)"
+        );
     }
 
     #[test]

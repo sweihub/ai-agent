@@ -5,7 +5,7 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 
-use crate::tasks::guards::{is_local_shell_task_from_value, LocalShellTaskState};
+use crate::tasks::guards::{LocalShellTaskState, is_local_shell_task_from_value};
 use crate::types::ids::AgentId;
 
 /// Type alias for the app state updater function.

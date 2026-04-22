@@ -28,7 +28,11 @@ pub fn filter_tools_by_server(tools: &[McpToolRef], server_name: &str) -> Vec<Mc
     let prefix = format!("mcp__{}_", normalize_name_for_mcp(server_name));
     tools
         .iter()
-        .filter(|tool| tool.name.as_ref().map_or(false, |name| name.starts_with(&prefix)))
+        .filter(|tool| {
+            tool.name
+                .as_ref()
+                .map_or(false, |name| name.starts_with(&prefix))
+        })
         .cloned()
         .collect()
 }
@@ -39,12 +43,16 @@ pub fn filter_tools_by_server(tools: &[McpToolRef], server_name: &str) -> Vec<Mc
 pub fn command_belongs_to_server(command: &McpCommandRef, server_name: &str) -> bool {
     let normalized = normalize_name_for_mcp(server_name);
     command.name.as_ref().map_or(false, |name| {
-        name.starts_with(&format!("mcp__{}_", normalized)) || name.starts_with(&format!("{}:", normalized))
+        name.starts_with(&format!("mcp__{}_", normalized))
+            || name.starts_with(&format!("{}:", normalized))
     })
 }
 
 /// Filters commands by MCP server name
-pub fn filter_commands_by_server(commands: &[McpCommandRef], server_name: &str) -> Vec<McpCommandRef> {
+pub fn filter_commands_by_server(
+    commands: &[McpCommandRef],
+    server_name: &str,
+) -> Vec<McpCommandRef> {
     commands
         .iter()
         .filter(|c| command_belongs_to_server(c, server_name))
@@ -53,19 +61,26 @@ pub fn filter_commands_by_server(commands: &[McpCommandRef], server_name: &str) 
 }
 
 /// Filters MCP prompts (not skills) by server
-pub fn filter_mcp_prompts_by_server(commands: &[McpCommandRef], server_name: &str) -> Vec<McpCommandRef> {
+pub fn filter_mcp_prompts_by_server(
+    commands: &[McpCommandRef],
+    server_name: &str,
+) -> Vec<McpCommandRef> {
     commands
         .iter()
         .filter(|c| {
             command_belongs_to_server(c, server_name)
-                && !(c.command_type.as_deref() == Some("prompt") && c.loaded_from.as_deref() == Some("mcp"))
+                && !(c.command_type.as_deref() == Some("prompt")
+                    && c.loaded_from.as_deref() == Some("mcp"))
         })
         .cloned()
         .collect()
 }
 
 /// Filters resources by MCP server name
-pub fn filter_resources_by_server(resources: &[ServerResource], server_name: &str) -> Vec<ServerResource> {
+pub fn filter_resources_by_server(
+    resources: &[ServerResource],
+    server_name: &str,
+) -> Vec<ServerResource> {
     resources
         .iter()
         .filter(|resource| resource.server == server_name)
@@ -78,13 +93,20 @@ pub fn exclude_tools_by_server(tools: &[McpToolRef], server_name: &str) -> Vec<M
     let prefix = format!("mcp__{}_", normalize_name_for_mcp(server_name));
     tools
         .iter()
-        .filter(|tool| tool.name.as_ref().map_or(true, |name| !name.starts_with(&prefix)))
+        .filter(|tool| {
+            tool.name
+                .as_ref()
+                .map_or(true, |name| !name.starts_with(&prefix))
+        })
         .cloned()
         .collect()
 }
 
 /// Removes commands belonging to a specific MCP server
-pub fn exclude_commands_by_server(commands: &[McpCommandRef], server_name: &str) -> Vec<McpCommandRef> {
+pub fn exclude_commands_by_server(
+    commands: &[McpCommandRef],
+    server_name: &str,
+) -> Vec<McpCommandRef> {
     commands
         .iter()
         .filter(|c| !command_belongs_to_server(c, server_name))
@@ -93,7 +115,10 @@ pub fn exclude_commands_by_server(commands: &[McpCommandRef], server_name: &str)
 }
 
 /// Removes resources belonging to a specific MCP server
-pub fn exclude_resources_by_server(resources: &HashMap<String, Vec<ServerResource>>, server_name: &str) -> HashMap<String, Vec<ServerResource>> {
+pub fn exclude_resources_by_server(
+    resources: &HashMap<String, Vec<ServerResource>>,
+    server_name: &str,
+) -> HashMap<String, Vec<ServerResource>> {
     resources
         .iter()
         .filter(|(name, _)| *name != server_name)
@@ -140,14 +165,20 @@ pub fn parse_headers(header_array: &[String]) -> Result<HashMap<String, String>,
 
     for header in header_array {
         let colon_index = header.find(':').ok_or_else(|| {
-            format!("Invalid header format: \"{}\". Expected format: \"Header-Name: value\"", header)
+            format!(
+                "Invalid header format: \"{}\". Expected format: \"Header-Name: value\"",
+                header
+            )
         })?;
 
         let key = header[..colon_index].trim();
         let value = header[colon_index + 1..].trim();
 
         if key.is_empty() {
-            return Err(format!("Invalid header: \"{}\". Header name cannot be empty.", header));
+            return Err(format!(
+                "Invalid header: \"{}\". Header name cannot be empty.",
+                header
+            ));
         }
 
         headers.insert(key.to_string(), value.to_string());
@@ -166,13 +197,20 @@ pub fn get_project_mcp_server_status(
     let normalized_name = normalize_name_for_mcp(server_name);
 
     if let Some(disabled) = disabled_servers {
-        if disabled.iter().any(|name| normalize_name_for_mcp(name) == normalized_name) {
+        if disabled
+            .iter()
+            .any(|name| normalize_name_for_mcp(name) == normalized_name)
+        {
             return "rejected";
         }
     }
 
     if let Some(enabled) = enabled_servers {
-        if enabled.iter().any(|name| normalize_name_for_mcp(name) == normalized_name) || enable_all {
+        if enabled
+            .iter()
+            .any(|name| normalize_name_for_mcp(name) == normalized_name)
+            || enable_all
+        {
             return "approved";
         }
     }
@@ -215,9 +253,18 @@ mod tests {
     #[test]
     fn test_filter_tools_by_server() {
         let tools = vec![
-            McpToolRef { name: Some("mcp__server1__tool1".to_string()), is_mcp: None },
-            McpToolRef { name: Some("mcp__server2__tool2".to_string()), is_mcp: None },
-            McpToolRef { name: Some("other_tool".to_string()), is_mcp: None },
+            McpToolRef {
+                name: Some("mcp__server1__tool1".to_string()),
+                is_mcp: None,
+            },
+            McpToolRef {
+                name: Some("mcp__server2__tool2".to_string()),
+                is_mcp: None,
+            },
+            McpToolRef {
+                name: Some("other_tool".to_string()),
+                is_mcp: None,
+            },
         ];
 
         let filtered = filter_tools_by_server(&tools, "server1");
@@ -227,9 +274,24 @@ mod tests {
 
     #[test]
     fn test_command_belongs_to_server() {
-        let cmd1 = McpCommandRef { name: Some("mcp__server1__prompt".to_string()), command_type: None, loaded_from: None, is_mcp: None };
-        let cmd2 = McpCommandRef { name: Some("server1:skill".to_string()), command_type: None, loaded_from: None, is_mcp: None };
-        let cmd3 = McpCommandRef { name: Some("other_command".to_string()), command_type: None, loaded_from: None, is_mcp: None };
+        let cmd1 = McpCommandRef {
+            name: Some("mcp__server1__prompt".to_string()),
+            command_type: None,
+            loaded_from: None,
+            is_mcp: None,
+        };
+        let cmd2 = McpCommandRef {
+            name: Some("server1:skill".to_string()),
+            command_type: None,
+            loaded_from: None,
+            is_mcp: None,
+        };
+        let cmd3 = McpCommandRef {
+            name: Some("other_command".to_string()),
+            command_type: None,
+            loaded_from: None,
+            is_mcp: None,
+        };
 
         assert!(command_belongs_to_server(&cmd1, "server1"));
         assert!(command_belongs_to_server(&cmd2, "server1"));
@@ -238,10 +300,19 @@ mod tests {
 
     #[test]
     fn test_parse_headers() {
-        let headers = vec!["Content-Type: application/json".to_string(), "Authorization: Bearer token".to_string()];
+        let headers = vec![
+            "Content-Type: application/json".to_string(),
+            "Authorization: Bearer token".to_string(),
+        ];
         let result = parse_headers(&headers).unwrap();
-        assert_eq!(result.get("Content-Type"), Some(&"application/json".to_string()));
-        assert_eq!(result.get("Authorization"), Some(&"Bearer token".to_string()));
+        assert_eq!(
+            result.get("Content-Type"),
+            Some(&"application/json".to_string())
+        );
+        assert_eq!(
+            result.get("Authorization"),
+            Some(&"Bearer token".to_string())
+        );
     }
 
     #[test]

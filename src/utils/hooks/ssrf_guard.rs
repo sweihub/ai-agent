@@ -279,9 +279,7 @@ fn ssrf_error(hostname: &str, address: &str) -> SsrfError {
 }
 
 /// Async DNS lookup wrapper (for use with reqwest or other async HTTP clients)
-pub async fn ssrf_guarded_lookup_async(
-    hostname: &str,
-) -> Result<DnsLookupResult, SsrfError> {
+pub async fn ssrf_guarded_lookup_async(hostname: &str) -> Result<DnsLookupResult, SsrfError> {
     // Run the sync lookup in a blocking task
     let hostname_owned = hostname.to_string();
     let hostname_for_err = hostname_owned.clone();

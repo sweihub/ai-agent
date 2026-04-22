@@ -5,7 +5,7 @@ use std::sync::Arc;
 use uuid::Uuid;
 
 use crate::types::Message;
-use crate::utils::hooks::hook_helpers::{add_arguments_to_prompt, HookResponse};
+use crate::utils::hooks::hook_helpers::{HookResponse, add_arguments_to_prompt};
 
 /// Result of a hook execution
 pub enum HookResult {
@@ -67,10 +67,7 @@ pub async fn exec_prompt_hook(
 
     // Prepend conversation history if provided
     let messages_to_query: Vec<serde_json::Value> = if let Some(msgs) = messages {
-        let mut msg_vec: Vec<serde_json::Value> = msgs
-            .iter()
-            .map(|m| message_to_json(m))
-            .collect();
+        let mut msg_vec: Vec<serde_json::Value> = msgs.iter().map(|m| message_to_json(m)).collect();
         msg_vec.push(message_to_json_user(&user_message));
         msg_vec
     } else {
@@ -103,13 +100,9 @@ Your response must be a JSON object matching one of the following schemas:
 2. If the condition is not met, return: {"ok": false, "reason": "Reason for why it is not met}"#;
 
     // Make the API call
-    let response = query_model_without_streaming(
-        &messages_to_query,
-        system_prompt,
-        &model,
-        &tool_use_context,
-    )
-    .await;
+    let response =
+        query_model_without_streaming(&messages_to_query, system_prompt, &model, &tool_use_context)
+            .await;
 
     timeout_handle.abort();
 

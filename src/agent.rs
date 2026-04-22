@@ -1,60 +1,40 @@
 // Source: /data/home/swei/claudecode/openclaudecode/src/utils/model/agent.ts
-use crate::query_engine::{QueryEngine, QueryEngineConfig};
 use crate::env::EnvConfig;
 use crate::error::AgentError;
+use crate::query_engine::{QueryEngine, QueryEngineConfig};
 use crate::stream::{CancelGuard, EventSubscriber};
-use crate::types::AgentEvent;
-use std::sync::Arc;
-use tokio::sync::{mpsc, Mutex as TokioMutex};
+use crate::tools::ask::AskUserQuestionTool;
 use crate::tools::bash::BashTool;
+use crate::tools::config::ConfigTool;
+use crate::tools::cron::{CronCreateTool, CronDeleteTool, CronListTool};
 use crate::tools::edit::FileEditTool;
 use crate::tools::glob::GlobTool;
 use crate::tools::grep::GrepTool;
-use crate::tools::read::FileReadTool as ReadTool;
-use crate::tools::write::FileWriteTool as WriteTool;
-use crate::tools::web_fetch::WebFetchTool;
-use crate::tools::web_search::WebSearchTool;
+use crate::tools::lsp::LSPTool;
+use crate::tools::mcp_resource_reader::ReadMcpResourceTool;
+use crate::tools::mcp_resources::ListMcpResourcesTool;
+use crate::tools::monitor::MonitorTool;
 use crate::tools::notebook_edit::NotebookEditTool;
-use crate::tools::tasks::{TaskCreateTool, TaskListTool, TaskUpdateTool, TaskGetTool};
-use crate::tools::todo::TodoWriteTool;
-use crate::tools::cron::{CronCreateTool, CronDeleteTool, CronListTool};
-use crate::tools::config::ConfigTool;
-use crate::tools::worktree::{EnterWorktreeTool, ExitWorktreeTool};
 use crate::tools::plan::{EnterPlanModeTool, ExitPlanModeTool};
-use crate::tools::ask::AskUserQuestionTool;
-use crate::tools::team::{TeamCreateTool, TeamDeleteTool, SendMessageTool};
+use crate::tools::read::FileReadTool as ReadTool;
+use crate::tools::remote_trigger::RemoteTriggerTool;
+use crate::tools::search::ToolSearchTool;
+use crate::tools::send_user_file::SendUserFileTool;
 use crate::tools::skill::SkillTool;
 use crate::tools::skill::register_skills_from_dir;
-use crate::tools::search::ToolSearchTool;
-use crate::tools::monitor::MonitorTool;
-use crate::tools::send_user_file::SendUserFileTool;
-use crate::tools::web_browser::WebBrowserTool;
 use crate::tools::sleep_tool::SleepTool;
-use crate::tools::lsp::LSPTool;
-use crate::tools::remote_trigger::RemoteTriggerTool;
-use crate::tools::mcp_resources::ListMcpResourcesTool;
-use crate::tools::mcp_resource_reader::ReadMcpResourceTool;
+use crate::tools::tasks::{TaskCreateTool, TaskGetTool, TaskListTool, TaskUpdateTool};
+use crate::tools::team::{SendMessageTool, TeamCreateTool, TeamDeleteTool};
+use crate::tools::todo::TodoWriteTool;
+use crate::tools::web_browser::WebBrowserTool;
+use crate::tools::web_fetch::WebFetchTool;
+use crate::tools::web_search::WebSearchTool;
+use crate::tools::worktree::{EnterWorktreeTool, ExitWorktreeTool};
+use crate::tools::write::FileWriteTool as WriteTool;
+use crate::types::AgentEvent;
 use crate::types::*;
-
-/// Tracks engine-critical configuration to detect when the QueryEngine must be recreated.
-#[derive(Debug, Clone, Default)]
-struct EngineConfig {
-    model: String,
-    api_key: Option<String>,
-    base_url: Option<String>,
-    cwd: String,
-    max_turns: u32,
-}
-
-impl EngineConfig {
-    fn eq_ignore_tools(&self, other: &Self) -> bool {
-        self.model == other.model
-            && self.api_key == other.api_key
-            && self.base_url == other.base_url
-            && self.cwd == other.cwd
-            && self.max_turns == other.max_turns
-    }
-}
+use std::sync::Arc;
+use tokio::sync::{Mutex as TokioMutex, mpsc};
 
 /// Register all built-in tool executors
 fn register_all_tool_executors(engine: &mut QueryEngine) {
@@ -167,7 +147,9 @@ fn register_all_tool_executors(engine: &mut QueryEngine) {
     let fns_render = Arc::clone(&fns_user_facing);
     let render_fns = crate::query_engine::ToolRenderFns {
         user_facing_name: Arc::new(move |input| fns_user_facing.user_facing_name(input)),
-        get_tool_use_summary: Some(Arc::new(move |input| fns_summary.get_tool_use_summary(input))),
+        get_tool_use_summary: Some(Arc::new(move |input| {
+            fns_summary.get_tool_use_summary(input)
+        })),
         get_activity_description: None,
         render_tool_result_message: Some(Arc::new(move |content, _progress, _options| {
             fns_render.render_tool_result_message(content)
@@ -197,7 +179,7 @@ fn register_all_tool_executors(engine: &mut QueryEngine) {
 
     // Monitor tool
     let monitor_executor = move |input: serde_json::Value,
-                                   ctx: &ToolContext|
+                                 ctx: &ToolContext|
           -> BoxFuture<Result<ToolResult, AgentError>> {
         let tool_clone = MonitorTool::new();
         let cwd = ctx.cwd.clone();
@@ -214,7 +196,7 @@ fn register_all_tool_executors(engine: &mut QueryEngine) {
 
     // SendUserFile tool
     let send_user_file_executor = move |input: serde_json::Value,
-                                              ctx: &ToolContext|
+                                        ctx: &ToolContext|
           -> BoxFuture<Result<ToolResult, AgentError>> {
         let tool_clone = SendUserFileTool::new();
         let cwd = ctx.cwd.clone();
@@ -231,7 +213,7 @@ fn register_all_tool_executors(engine: &mut QueryEngine) {
 
     // WebBrowser tool
     let web_browser_executor = move |input: serde_json::Value,
-                                           ctx: &ToolContext|
+                                     ctx: &ToolContext|
           -> BoxFuture<Result<ToolResult, AgentError>> {
         let tool_clone = WebBrowserTool::new();
         let cwd = ctx.cwd.clone();
@@ -248,7 +230,7 @@ fn register_all_tool_executors(engine: &mut QueryEngine) {
 
     // WebFetch tool
     let web_fetch_executor = move |input: serde_json::Value,
-                                    ctx: &ToolContext|
+                                   ctx: &ToolContext|
           -> BoxFuture<Result<ToolResult, AgentError>> {
         let tool_clone = WebFetchTool::new();
         let cwd = ctx.cwd.clone();
@@ -265,7 +247,7 @@ fn register_all_tool_executors(engine: &mut QueryEngine) {
 
     // WebSearch tool
     let web_search_executor = move |input: serde_json::Value,
-                                     ctx: &ToolContext|
+                                    ctx: &ToolContext|
           -> BoxFuture<Result<ToolResult, AgentError>> {
         let tool_clone = WebSearchTool::new();
         let cwd = ctx.cwd.clone();
@@ -282,7 +264,7 @@ fn register_all_tool_executors(engine: &mut QueryEngine) {
 
     // NotebookEdit tool
     let notebook_edit_executor = move |input: serde_json::Value,
-                                        ctx: &ToolContext|
+                                       ctx: &ToolContext|
           -> BoxFuture<Result<ToolResult, AgentError>> {
         let tool_clone = NotebookEditTool::new();
         let cwd = ctx.cwd.clone();
@@ -299,7 +281,7 @@ fn register_all_tool_executors(engine: &mut QueryEngine) {
 
     // TaskCreate tool
     let task_create_executor = move |input: serde_json::Value,
-                                      ctx: &ToolContext|
+                                     ctx: &ToolContext|
           -> BoxFuture<Result<ToolResult, AgentError>> {
         let tool_clone = TaskCreateTool::new();
         let cwd = ctx.cwd.clone();
@@ -316,7 +298,7 @@ fn register_all_tool_executors(engine: &mut QueryEngine) {
 
     // TaskList tool
     let task_list_executor = move |input: serde_json::Value,
-                                    ctx: &ToolContext|
+                                   ctx: &ToolContext|
           -> BoxFuture<Result<ToolResult, AgentError>> {
         let tool_clone = TaskListTool::new();
         let cwd = ctx.cwd.clone();
@@ -333,7 +315,7 @@ fn register_all_tool_executors(engine: &mut QueryEngine) {
 
     // TaskUpdate tool
     let task_update_executor = move |input: serde_json::Value,
-                                      ctx: &ToolContext|
+                                     ctx: &ToolContext|
           -> BoxFuture<Result<ToolResult, AgentError>> {
         let tool_clone = TaskUpdateTool::new();
         let cwd = ctx.cwd.clone();
@@ -350,7 +332,7 @@ fn register_all_tool_executors(engine: &mut QueryEngine) {
 
     // TaskGet tool
     let task_get_executor = move |input: serde_json::Value,
-                                   ctx: &ToolContext|
+                                  ctx: &ToolContext|
           -> BoxFuture<Result<ToolResult, AgentError>> {
         let tool_clone = TaskGetTool::new();
         let cwd = ctx.cwd.clone();
@@ -367,7 +349,7 @@ fn register_all_tool_executors(engine: &mut QueryEngine) {
 
     // TodoWrite tool
     let todo_write_executor = move |input: serde_json::Value,
-                                     ctx: &ToolContext|
+                                    ctx: &ToolContext|
           -> BoxFuture<Result<ToolResult, AgentError>> {
         let tool_clone = TodoWriteTool::new();
         let cwd = ctx.cwd.clone();
@@ -384,7 +366,7 @@ fn register_all_tool_executors(engine: &mut QueryEngine) {
 
     // CronCreate tool
     let cron_create_executor = move |input: serde_json::Value,
-                                      ctx: &ToolContext|
+                                     ctx: &ToolContext|
           -> BoxFuture<Result<ToolResult, AgentError>> {
         let tool_clone = CronCreateTool::new();
         let cwd = ctx.cwd.clone();
@@ -401,7 +383,7 @@ fn register_all_tool_executors(engine: &mut QueryEngine) {
 
     // CronDelete tool
     let cron_delete_executor = move |input: serde_json::Value,
-                                      ctx: &ToolContext|
+                                     ctx: &ToolContext|
           -> BoxFuture<Result<ToolResult, AgentError>> {
         let tool_clone = CronDeleteTool::new();
         let cwd = ctx.cwd.clone();
@@ -418,7 +400,7 @@ fn register_all_tool_executors(engine: &mut QueryEngine) {
 
     // CronList tool
     let cron_list_executor = move |input: serde_json::Value,
-                                    ctx: &ToolContext|
+                                   ctx: &ToolContext|
           -> BoxFuture<Result<ToolResult, AgentError>> {
         let tool_clone = CronListTool::new();
         let cwd = ctx.cwd.clone();
@@ -452,7 +434,7 @@ fn register_all_tool_executors(engine: &mut QueryEngine) {
 
     // EnterWorktree tool
     let enter_worktree_executor = move |input: serde_json::Value,
-                                         ctx: &ToolContext|
+                                        ctx: &ToolContext|
           -> BoxFuture<Result<ToolResult, AgentError>> {
         let tool_clone = EnterWorktreeTool::new();
         let cwd = ctx.cwd.clone();
@@ -469,7 +451,7 @@ fn register_all_tool_executors(engine: &mut QueryEngine) {
 
     // ExitWorktree tool
     let exit_worktree_executor = move |input: serde_json::Value,
-                                        ctx: &ToolContext|
+                                       ctx: &ToolContext|
           -> BoxFuture<Result<ToolResult, AgentError>> {
         let tool_clone = ExitWorktreeTool::new();
         let cwd = ctx.cwd.clone();
@@ -486,7 +468,7 @@ fn register_all_tool_executors(engine: &mut QueryEngine) {
 
     // EnterPlanMode tool
     let enter_plan_mode_executor = move |input: serde_json::Value,
-                                           ctx: &ToolContext|
+                                         ctx: &ToolContext|
           -> BoxFuture<Result<ToolResult, AgentError>> {
         let tool_clone = EnterPlanModeTool::new();
         let cwd = ctx.cwd.clone();
@@ -503,7 +485,7 @@ fn register_all_tool_executors(engine: &mut QueryEngine) {
 
     // ExitPlanMode tool
     let exit_plan_mode_executor = move |input: serde_json::Value,
-                                          ctx: &ToolContext|
+                                        ctx: &ToolContext|
           -> BoxFuture<Result<ToolResult, AgentError>> {
         let tool_clone = ExitPlanModeTool::new();
         let cwd = ctx.cwd.clone();
@@ -520,7 +502,7 @@ fn register_all_tool_executors(engine: &mut QueryEngine) {
 
     // AskUserQuestion tool
     let ask_user_question_executor = move |input: serde_json::Value,
-                                             ctx: &ToolContext|
+                                           ctx: &ToolContext|
           -> BoxFuture<Result<ToolResult, AgentError>> {
         let tool_clone = AskUserQuestionTool::new();
         let cwd = ctx.cwd.clone();
@@ -537,7 +519,7 @@ fn register_all_tool_executors(engine: &mut QueryEngine) {
 
     // ToolSearch tool
     let tool_search_executor = move |input: serde_json::Value,
-                                        ctx: &ToolContext|
+                                     ctx: &ToolContext|
           -> BoxFuture<Result<ToolResult, AgentError>> {
         let tool_clone = ToolSearchTool::new();
         let cwd = ctx.cwd.clone();
@@ -554,7 +536,7 @@ fn register_all_tool_executors(engine: &mut QueryEngine) {
 
     // TeamCreate tool
     let team_create_executor = move |input: serde_json::Value,
-                                      ctx: &ToolContext|
+                                     ctx: &ToolContext|
           -> BoxFuture<Result<ToolResult, AgentError>> {
         let tool_clone = TeamCreateTool::new();
         let cwd = ctx.cwd.clone();
@@ -571,7 +553,7 @@ fn register_all_tool_executors(engine: &mut QueryEngine) {
 
     // TeamDelete tool
     let team_delete_executor = move |input: serde_json::Value,
-                                      ctx: &ToolContext|
+                                     ctx: &ToolContext|
           -> BoxFuture<Result<ToolResult, AgentError>> {
         let tool_clone = TeamDeleteTool::new();
         let cwd = ctx.cwd.clone();
@@ -588,7 +570,7 @@ fn register_all_tool_executors(engine: &mut QueryEngine) {
 
     // SendMessage tool
     let send_message_executor = move |input: serde_json::Value,
-                                       ctx: &ToolContext|
+                                      ctx: &ToolContext|
           -> BoxFuture<Result<ToolResult, AgentError>> {
         let tool_clone = SendMessageTool::new();
         let cwd = ctx.cwd.clone();
@@ -605,7 +587,7 @@ fn register_all_tool_executors(engine: &mut QueryEngine) {
 
     // Sleep tool - wait for a duration without holding a shell process
     let sleep_executor = move |input: serde_json::Value,
-                                 ctx: &ToolContext|
+                               ctx: &ToolContext|
           -> BoxFuture<Result<ToolResult, AgentError>> {
         let tool_clone = SleepTool::new();
         let cwd = ctx.cwd.clone();
@@ -622,7 +604,7 @@ fn register_all_tool_executors(engine: &mut QueryEngine) {
 
     // LSP tool - code intelligence via Language Server Protocol
     let lsp_executor = move |input: serde_json::Value,
-                               ctx: &ToolContext|
+                             ctx: &ToolContext|
           -> BoxFuture<Result<ToolResult, AgentError>> {
         let tool_clone = LSPTool::new();
         let cwd = ctx.cwd.clone();
@@ -639,7 +621,7 @@ fn register_all_tool_executors(engine: &mut QueryEngine) {
 
     // RemoteTrigger tool - manage remote agent triggers
     let remote_trigger_executor = move |input: serde_json::Value,
-                                          ctx: &ToolContext|
+                                        ctx: &ToolContext|
           -> BoxFuture<Result<ToolResult, AgentError>> {
         let tool_clone = RemoteTriggerTool::new();
         let cwd = ctx.cwd.clone();
@@ -656,7 +638,7 @@ fn register_all_tool_executors(engine: &mut QueryEngine) {
 
     // ListMcpResourcesTool - list MCP server resources
     let list_mcp_resources_executor = move |input: serde_json::Value,
-                                              ctx: &ToolContext|
+                                            ctx: &ToolContext|
           -> BoxFuture<Result<ToolResult, AgentError>> {
         let tool_clone = ListMcpResourcesTool::new();
         let cwd = ctx.cwd.clone();
@@ -669,11 +651,14 @@ fn register_all_tool_executors(engine: &mut QueryEngine) {
             tool_clone.execute(input, &ctx2).await
         })
     };
-    engine.register_tool("ListMcpResourcesTool".to_string(), list_mcp_resources_executor);
+    engine.register_tool(
+        "ListMcpResourcesTool".to_string(),
+        list_mcp_resources_executor,
+    );
 
     // ReadMcpResourceTool - read MCP resources
     let read_mcp_resource_executor = move |input: serde_json::Value,
-                                             ctx: &ToolContext|
+                                           ctx: &ToolContext|
           -> BoxFuture<Result<ToolResult, AgentError>> {
         let tool_clone = ReadMcpResourceTool::new();
         let cwd = ctx.cwd.clone();
@@ -686,156 +671,298 @@ fn register_all_tool_executors(engine: &mut QueryEngine) {
             tool_clone.execute(input, &ctx2).await
         })
     };
-    engine.register_tool("ReadMcpResourceTool".to_string(), read_mcp_resource_executor);
+    engine.register_tool(
+        "ReadMcpResourceTool".to_string(),
+        read_mcp_resource_executor,
+    );
 }
 
 /// Subscriber info for fan-out event delivery
+///
+/// Thread-safe, Clone-able agent handle for tokio async usage.
+/// All internal state is held behind a single `Arc<Mutex<>>` — cloning Agent
+/// just increments the reference count. All public methods take `&self`.
+///
+/// # Sharing across tasks
+///
+/// ```rust,ignore
+/// let agent = Agent::new("claude-sonnet-4-6");
+///
+/// // Clone into another task
+/// let agent2 = agent.clone();
+/// let handle = tokio::spawn(async move {
+///     agent2.query("do work").await
+/// });
+///
+/// // Subscribe from the original
+/// let (mut sub, _guard) = agent.subscribe();
+/// ```
+#[derive(Clone)]
 pub struct Agent {
-    config: AgentOptions,
+    inner: std::sync::Arc<std::sync::Mutex<AgentInner>>,
+}
+
+struct AgentInner {
     model: String,
     api_key: Option<String>,
     base_url: Option<String>,
+    cwd: String,
+    system_prompt: Option<String>,
+    max_turns: u32,
+    max_budget_usd: Option<f64>,
+    max_tokens: u32,
+    fallback_model: Option<String>,
+    thinking: Option<ThinkingConfig>,
+    mcp_servers: Option<std::collections::HashMap<String, crate::mcp::McpServerConfig>>,
     tool_pool: Vec<ToolDefinition>,
+    allowed_tools: Vec<String>,
+    disallowed_tools: Vec<String>,
+    on_event: Option<std::sync::Arc<dyn Fn(AgentEvent) + Send + Sync>>,
     session_id: String,
     abort_controller: std::sync::Arc<crate::utils::AbortController>,
     /// Persisted QueryEngine for multi-turn reuse (matches TypeScript pattern).
     /// Shared via Arc<TokioMutex> so spawned tasks from query() can access
     /// the same conversation state (messages, usage, turns).
-    persist_engine: Option<Arc<TokioMutex<QueryEngine>>>,
-    engine_config: Option<EngineConfig>,
-}
-
-impl From<AgentOptions> for Agent {
-    fn from(options: AgentOptions) -> Self {
-        Agent::create(options)
-    }
+    /// `None` until first query — lazily initialized.
+    engine: Option<Arc<TokioMutex<QueryEngine>>>,
 }
 
 impl Agent {
-    /// Create a new agent with model name and max turns
-    pub fn new(model: &str, max_turns: u32) -> Self {
-        Self::create(AgentOptions {
-            model: Some(model.to_string()),
-            max_turns: Some(max_turns),
-            ..Default::default()
-        })
+    /// Create a new agent with the given model name.
+    ///
+    /// The model defaults to the `AI_MODEL` environment variable, then
+    /// `"claude-sonnet-4-6"`. All other config (API key, base URL, max turns,
+    /// thinking) also defaults from environment.
+    ///
+    /// Chain builder methods to customize:
+    /// ```ignore
+    /// let agent = Agent::new("claude-sonnet-4-6")
+    ///     .max_turns(20)
+    ///     .system_prompt("You are a code reviewer.")
+    ///     .thinking(ThinkingConfig::Enabled { budget_tokens: 4096 });
+    /// ```
+    ///
+    /// Returns a [`Clone`]able handle — all internal state uses interior
+    /// mutability, so [`Agent::query`] takes `&self` and the agent can be
+    /// shared across async tasks via `Arc<Agent>`.
+    pub fn new(model: &str) -> Self {
+        let env_config = EnvConfig::load();
+        let model = env_config.model.unwrap_or_else(|| model.to_string());
+        let api_key = env_config.auth_token.clone();
+        let base_url = env_config.base_url.clone();
+        let cwd = std::env::current_dir()
+            .map(|p| p.to_string_lossy().to_string())
+            .unwrap_or_else(|_| ".".to_string());
+
+        Self {
+            inner: std::sync::Arc::new(std::sync::Mutex::new(AgentInner {
+                model,
+                api_key,
+                base_url,
+                cwd,
+                system_prompt: None,
+                max_turns: 10,
+                max_budget_usd: None,
+                max_tokens: 16384,
+                fallback_model: None,
+                thinking: None,
+                mcp_servers: None,
+                tool_pool: vec![],
+                allowed_tools: vec![],
+                disallowed_tools: vec![],
+                on_event: None,
+                session_id: uuid::Uuid::new_v4().to_string(),
+                abort_controller: std::sync::Arc::new(
+                    crate::utils::create_abort_controller_default(),
+                ),
+                engine: None,
+            })),
+        }
     }
 
-    /// Create a new agent with model, max turns, and event callback for streaming
-    pub fn with_event_callback<F>(model: &str, max_turns: u32, on_event: F) -> Self
+    /// Configure the model name.
+    ///
+    /// Triggers engine recreation if the engine is already initialized.
+    pub fn model(mut self, model: &str) -> Self {
+        self.inner.lock().unwrap().model = model.to_string();
+        self
+    }
+
+    /// Set the API key.
+    ///
+    /// Triggers engine recreation if the engine is already initialized.
+    pub fn api_key(mut self, api_key: &str) -> Self {
+        self.inner.lock().unwrap().api_key = Some(api_key.to_string());
+        self
+    }
+
+    /// Set a custom base URL for the API.
+    ///
+    /// Triggers engine recreation if the engine is already initialized.
+    pub fn base_url(mut self, base_url: &str) -> Self {
+        self.inner.lock().unwrap().base_url = Some(base_url.to_string());
+        self
+    }
+
+    /// Set the working directory.
+    ///
+    /// Triggers engine recreation if the engine is already initialized.
+    pub fn cwd(mut self, cwd: &str) -> Self {
+        self.inner.lock().unwrap().cwd = cwd.to_string();
+        self
+    }
+
+    /// Set a custom system prompt.
+    pub fn system_prompt(mut self, prompt: &str) -> Self {
+        self.inner.lock().unwrap().system_prompt = Some(prompt.to_string());
+        self
+    }
+
+    /// Set the maximum number of turns.
+    ///
+    /// Triggers engine recreation if the engine is already initialized.
+    pub fn max_turns(mut self, max_turns: u32) -> Self {
+        self.inner.lock().unwrap().max_turns = max_turns;
+        self
+    }
+
+    /// Set the maximum budget in USD.
+    pub fn max_budget_usd(mut self, budget: f64) -> Self {
+        self.inner.lock().unwrap().max_budget_usd = Some(budget);
+        self
+    }
+
+    /// Set the maximum tokens for a single response.
+    pub fn max_tokens(mut self, max_tokens: u32) -> Self {
+        self.inner.lock().unwrap().max_tokens = max_tokens;
+        self
+    }
+
+    /// Set the fallback model.
+    pub fn fallback_model(mut self, model: &str) -> Self {
+        self.inner.lock().unwrap().fallback_model = Some(model.to_string());
+        self
+    }
+
+    /// Set thinking configuration for extended thinking.
+    pub fn thinking(mut self, thinking: ThinkingConfig) -> Self {
+        self.inner.lock().unwrap().thinking = Some(thinking);
+        self
+    }
+
+    /// Set tool definitions.
+    pub fn tools(mut self, tools: Vec<ToolDefinition>) -> Self {
+        self.inner.lock().unwrap().tool_pool = tools;
+        self
+    }
+
+    /// Only allow specific tools by name.
+    pub fn allowed_tools(mut self, tools: Vec<String>) -> Self {
+        self.inner.lock().unwrap().allowed_tools = tools;
+        self
+    }
+
+    /// Explicitly disallow specific tools by name.
+    pub fn disallowed_tools(mut self, tools: Vec<String>) -> Self {
+        self.inner.lock().unwrap().disallowed_tools = tools;
+        self
+    }
+
+    /// Set MCP server configurations.
+    pub fn mcp_servers(
+        mut self,
+        servers: std::collections::HashMap<String, crate::mcp::McpServerConfig>,
+    ) -> Self {
+        self.inner.lock().unwrap().mcp_servers = Some(servers);
+        self
+    }
+
+    /// Set an event callback for streaming agent events.
+    ///
+    /// Can be called at any time (before or after `query()`). Takes `&self`
+    /// so it can be updated between queries for dynamic event handling.
+    pub fn on_event<F>(mut self, callback: F) -> Self
     where
         F: Fn(AgentEvent) + Send + Sync + 'static,
     {
-        let mut agent = Self::new(model, max_turns);
-        agent.config.on_event = Some(std::sync::Arc::new(on_event));
-        agent
+        self.inner.lock().unwrap().on_event = Some(std::sync::Arc::new(callback));
+        self
     }
 
-    /// Create agent from AgentOptions
-    pub fn create(options: AgentOptions) -> Self {
-        // Load env config for defaults
-        let env_config = EnvConfig::load();
-
-        // Use env value, then options value, then default
-        let model = env_config
-            .model
-            .clone()
-            .or_else(|| options.model.clone())
-            .unwrap_or_else(|| "claude-sonnet-4-6".to_string());
-
-        let api_key = env_config
-            .auth_token
-            .clone()
-            .or_else(|| options.api_key.clone());
-
-        let base_url = env_config
-            .base_url
-            .clone()
-            .or_else(|| options.base_url.clone());
-
-        let session_id = uuid::Uuid::new_v4().to_string();
-
-        Self {
-            config: options.clone(),
-            model,
-            api_key,
-            base_url,
-            tool_pool: options.tools.clone(),
-            session_id,
-            abort_controller: std::sync::Arc::new(crate::utils::create_abort_controller_default()),
-            persist_engine: None,
-            engine_config: None,
-        }
-    }
-
-    /// Lazily create or return the persisted QueryEngine.
-    /// Recreates the engine when engine-critical config has changed.
-    fn get_or_create_engine(&mut self) -> Arc<TokioMutex<QueryEngine>> {
-        let needs_recreate = self.persist_engine.is_none()
-            || match &self.engine_config {
-                Some(ec) => {
-                    let cwd = self.config.cwd.clone().unwrap_or_else(|| {
-                        std::env::current_dir()
-                            .map(|p| p.to_string_lossy().to_string())
-                            .unwrap_or_else(|_| ".".to_string())
-                    });
-                    let current = EngineConfig {
-                        model: self.model.clone(),
-                        api_key: self.api_key.clone(),
-                        base_url: self.base_url.clone(),
-                        cwd,
-                        max_turns: self.config.max_turns.unwrap_or(10),
-                    };
-                    !ec.eq_ignore_tools(&current)
-                }
-                None => true,
+    /// Uses interior mutability — takes `&self` so the agent can be shared across tasks.
+    /// Lazily creates the QueryEngine on first query.
+    fn init_engine(&self) {
+        let mut inner = self.inner.lock().unwrap();
+        if inner.engine.is_none() {
+            let cwd = inner.cwd.clone();
+            let allowed_tools = inner.allowed_tools.clone();
+            let disallowed_tools = inner.disallowed_tools.clone();
+            let tool_pool = inner.tool_pool.clone();
+            let can_use_tool: Option<
+                std::sync::Arc<dyn Fn(ToolDefinition, serde_json::Value) -> bool + Send + Sync>,
+            > = if !allowed_tools.is_empty() || !disallowed_tools.is_empty() {
+                Some(std::sync::Arc::new(
+                    move |tool_def: ToolDefinition, _input: serde_json::Value| {
+                        if !allowed_tools.is_empty() && !allowed_tools.contains(&tool_def.name) {
+                            return false;
+                        }
+                        if disallowed_tools.contains(&tool_def.name) {
+                            return false;
+                        }
+                        true
+                    },
+                ))
+            } else {
+                None
             };
-
-        if needs_recreate {
-            let cwd = self.config.cwd.clone().unwrap_or_else(|| {
-                std::env::current_dir()
-                    .map(|p| p.to_string_lossy().to_string())
-                    .unwrap_or_else(|_| ".".to_string())
-            });
             let config = QueryEngineConfig {
                 cwd: cwd.clone(),
-                model: self.model.clone(),
-                api_key: self.api_key.clone(),
-                base_url: self.base_url.clone(),
-                tools: vec![],
+                model: inner.model.clone(),
+                api_key: inner.api_key.clone(),
+                base_url: inner.base_url.clone(),
+                tools: tool_pool,
                 system_prompt: None,
-                max_turns: self.config.max_turns.unwrap_or(10),
-                max_budget_usd: self.config.max_budget_usd,
-                max_tokens: self.config.max_tokens.unwrap_or(16384),
-                fallback_model: self.config.fallback_model.clone(),
+                max_turns: inner.max_turns,
+                max_budget_usd: inner.max_budget_usd,
+                max_tokens: inner.max_tokens,
+                fallback_model: inner.fallback_model.clone(),
                 user_context: std::collections::HashMap::new(),
                 system_context: std::collections::HashMap::new(),
-                can_use_tool: None,
-                on_event: self.config.on_event.clone(),
-                thinking: self.config.thinking.clone(),
-                abort_controller: Some(self.abort_controller.clone()),
+                can_use_tool,
+                on_event: inner.on_event.clone(),
+                thinking: inner.thinking.clone(),
+                abort_controller: Some(inner.abort_controller.clone()),
             };
             let mut engine = QueryEngine::new(config);
             register_all_tool_executors(&mut engine);
-            self.persist_engine = Some(Arc::new(TokioMutex::new(engine)));
-            self.engine_config = Some(EngineConfig {
-                model: self.model.clone(),
-                api_key: self.api_key.clone(),
-                base_url: self.base_url.clone(),
-                cwd,
-                max_turns: self.config.max_turns.unwrap_or(10),
-            });
+            inner.engine = Some(Arc::new(TokioMutex::new(engine)));
         }
-
-        Arc::clone(self.persist_engine.as_ref().unwrap())
     }
 
-    pub fn get_model(&self) -> &str {
-        &self.model
+    /// One-shot query — creates an agent, sends the prompt, and returns the text.
+    ///
+    /// Use this for single-turn interactions where you don't need conversation history
+    /// or multi-turn reuse. For persistent agents, use `Agent::new()` + `.query()`.
+    ///
+    /// # Example
+    ///
+    /// ```rust,ignore
+    /// let answer = Agent::prompt("claude-sonnet-4-6", "Explain quantum computing")
+    ///     .await?;
+    /// println!("{answer}");
+    /// ```
+    pub async fn prompt(model: &str, prompt: &str) -> Result<String, AgentError> {
+        let agent = Self::new(model);
+        let result = agent.query(prompt).await?;
+        Ok(result.text)
     }
 
-    pub fn get_session_id(&self) -> &str {
-        &self.session_id
+    pub fn get_model(&self) -> String {
+        self.inner.lock().unwrap().model.clone()
+    }
+
+    pub fn get_session_id(&self) -> String {
+        self.inner.lock().unwrap().session_id.clone()
     }
 
     /// Get all messages in the conversation history.
@@ -844,56 +971,58 @@ impl Agent {
     /// Uses try_lock() — returns messages if no async operation holds the lock,
     /// otherwise returns an empty vec (the engine is busy in a query).
     pub fn get_messages(&self) -> Vec<Message> {
-        self.persist_engine
+        let inner = self.inner.lock().unwrap();
+        inner
+            .engine
             .as_ref()
-            .and_then(|e| e.try_lock().ok().map(|guard| guard.get_messages()))
+            .and_then(|e| e.try_lock().ok().map(|g| g.get_messages()))
             .unwrap_or_default()
     }
 
     /// Get all tools available to the agent
-    pub fn get_tools(&self) -> &[ToolDefinition] {
-        &self.tool_pool
+    pub fn get_tools(&self) -> Vec<ToolDefinition> {
+        self.inner.lock().unwrap().tool_pool.clone()
     }
 
-    /// Set system prompt for the agent
-    pub fn set_system_prompt(&mut self, prompt: &str) {
-        self.config.system_prompt = Some(prompt.to_string());
+    /// Set system prompt for the agent (interior mutability).
+    pub fn set_system_prompt(&self, prompt: &str) {
+        self.inner.lock().unwrap().system_prompt = Some(prompt.to_string());
     }
 
-    /// Set the working directory for the agent
-    pub fn set_cwd(&mut self, cwd: &str) {
-        self.config.cwd = Some(cwd.to_string());
+    /// Set the working directory for the agent (interior mutability).
+    pub fn set_cwd(&self, cwd: &str) {
+        self.inner.lock().unwrap().cwd = cwd.to_string();
     }
 
-    /// Set the event callback for agent events (tool start/complete/error, thinking, done)
-    /// Note: This must be called BEFORE query() - it sets the callback on the engine
-    pub fn set_event_callback<F>(&mut self, callback: F)
+    /// Set the event callback for agent events.
+    ///
+    /// Can be called at any time. Takes effect on the next `query()` call,
+    /// where `on_event` is set on the engine before submitting the message.
+    /// Takes `&self` (interior mutability).
+    pub fn set_event_callback<F>(&self, callback: F)
     where
         F: Fn(AgentEvent) + Send + Sync + 'static,
     {
-        self.config.on_event = Some(std::sync::Arc::new(callback));
+        self.inner.lock().unwrap().on_event = Some(std::sync::Arc::new(callback));
     }
 
-    /// Set thinking configuration for the agent
-    pub fn set_thinking(&mut self, thinking: Option<ThinkingConfig>) {
-        self.config.thinking = thinking;
+    /// Set thinking configuration for the agent (interior mutability).
+    pub fn set_thinking(&self, thinking: Option<ThinkingConfig>) {
+        self.inner.lock().unwrap().thinking = thinking;
     }
 
-    /// Execute a tool directly (for testing/demo purposes)
+    /// Execute a tool directly (for testing/demo purposes).
+    /// Takes `&self` (interior mutability).
     pub async fn execute_tool(
-        &mut self,
+        &self,
         name: &str,
         input: serde_json::Value,
     ) -> Result<ToolResult, AgentError> {
-        // Create a temporary engine to execute the tool
-        let cwd = self.config.cwd.clone().unwrap_or_else(|| {
-            std::env::current_dir()
-                .map(|p| p.to_string_lossy().to_string())
-                .unwrap_or_else(|_| ".".to_string())
-        });
-        let model = self.model.clone();
-        let api_key = self.api_key.clone();
-        let base_url = self.base_url.clone();
+        let inner = &*self.inner.lock().unwrap();
+        let cwd = inner.cwd.clone();
+        let model = inner.model.clone();
+        let api_key = inner.api_key.clone();
+        let base_url = inner.base_url.clone();
 
         let mut engine = QueryEngine::new(QueryEngineConfig {
             cwd: cwd.clone(),
@@ -911,14 +1040,14 @@ impl Agent {
             can_use_tool: None,
             on_event: None,
             thinking: None,
-            abort_controller: Some(self.abort_controller.clone()),
+            abort_controller: Some(inner.abort_controller.clone()),
         });
 
         // Register all tool executors (including Bash, Read, Write, etc.)
         register_all_tool_executors(&mut engine);
 
         // Register Agent tool executor with full parameter support
-        let subagent_abort = std::sync::Arc::clone(&self.abort_controller);
+        let subagent_abort = inner.abort_controller.clone();
         let agent_tool_executor = move |input: serde_json::Value,
                                         _ctx: &ToolContext|
               -> std::pin::Pin<
@@ -977,7 +1106,8 @@ impl Agent {
                 let _isolation = input["isolation"].as_str().map(|s| s.to_string());
 
                 // Build system prompt for subagent
-                let system_prompt = build_agent_system_prompt(description, subagent_type.as_deref());
+                let system_prompt =
+                    build_agent_system_prompt(description, subagent_type.as_deref());
 
                 // Create sub-agent engine with proper system prompt
                 let mut sub_engine = QueryEngine::new(QueryEngineConfig {
@@ -1011,7 +1141,7 @@ impl Agent {
                             tool_use_id: "agent_tool".to_string(),
                             content,
                             is_error: Some(false),
-                was_persisted: None,
+                            was_persisted: None,
                         })
                     }
                     Err(e) => Ok(ToolResult {
@@ -1019,7 +1149,7 @@ impl Agent {
                         tool_use_id: "agent_tool".to_string(),
                         content: format!("[Subagent: {}] Error: {}", description, e),
                         is_error: Some(true),
-                was_persisted: None,
+                        was_persisted: None,
                     }),
                 }
             })
@@ -1037,17 +1167,21 @@ impl Agent {
         use crate::memdir::load_memory_prompt_sync;
         use crate::prompts::build_system_prompt as base_build_system_prompt;
 
+        let inner = &*self.inner.lock().unwrap();
         let ai_md_prompt = load_ai_md(cwd).ok().flatten();
-        let memory_mechanics_prompt = if self.config.system_prompt.is_some()
-            && crate::memdir::has_auto_mem_path_override()
-        {
-            load_memory_prompt_sync()
-        } else {
-            None
-        };
+        let memory_mechanics_prompt =
+            if inner.system_prompt.is_some() && crate::memdir::has_auto_mem_path_override() {
+                load_memory_prompt_sync()
+            } else {
+                None
+            };
         let base_system_prompt = base_build_system_prompt();
 
-        let system_prompt = match (&ai_md_prompt, &memory_mechanics_prompt, &self.config.system_prompt) {
+        let system_prompt = match (
+            &ai_md_prompt,
+            &memory_mechanics_prompt,
+            &inner.system_prompt,
+        ) {
             (Some(ai_md), Some(mem), Some(custom)) => Some(format!(
                 "{}\n\n{}\n\n{}\n\n{}",
                 ai_md, mem, base_system_prompt, custom
@@ -1071,10 +1205,11 @@ impl Agent {
 
     /// Select the tools to use: all base tools if tool_pool is empty, otherwise the tool pool.
     fn select_tools(&self) -> Vec<ToolDefinition> {
-        if self.tool_pool.is_empty() {
+        let inner = &*self.inner.lock().unwrap();
+        if inner.tool_pool.is_empty() {
             crate::tools::get_all_base_tools()
         } else {
-            self.tool_pool.clone()
+            inner.tool_pool.clone()
         }
     }
 
@@ -1083,19 +1218,27 @@ impl Agent {
     ///
     /// Reuses a persisted QueryEngine across calls so that conversation history,
     /// usage tracking, and tool state accumulate naturally (matches TypeScript pattern).
-    pub async fn query(&mut self, prompt: &str) -> Result<QueryResult, AgentError> {
-        let cwd = self.config.cwd.clone().unwrap_or_else(|| {
-            std::env::current_dir()
-                .map(|p| p.to_string_lossy().to_string())
-                .unwrap_or_else(|_| ".".to_string())
-        });
+    ///
+    /// Takes `&self` (interior mutability) — the agent can be shared across tasks.
+    pub async fn query(&self, prompt: &str) -> Result<QueryResult, AgentError> {
+        self.init_engine();
+
+        // Clone all data from AgentInner before any .await (MutexGuard is not Send).
+        // Single lock acquisition.
+        let (cwd, on_event, thinking, abort_controller, engine) = {
+            let inner = self.inner.lock().unwrap();
+            (
+                inner.cwd.clone(),
+                inner.on_event.clone(),
+                inner.thinking.clone(),
+                inner.abort_controller.clone(),
+                Arc::clone(inner.engine.as_ref().unwrap()),
+            )
+        };
         let cwd_path = std::path::Path::new(&cwd);
 
         let system_prompt = self.build_system_prompt(cwd_path);
         let tools = self.select_tools();
-
-        // Get the shared persisted engine
-        let engine = self.get_or_create_engine();
 
         let start = std::time::Instant::now();
         let (response_text, exit_reason, current_model, usage, turns) = {
@@ -1104,8 +1247,8 @@ impl Agent {
             // Update per-query config
             eng.config.system_prompt = system_prompt;
             eng.config.tools = tools;
-            eng.config.on_event = self.config.on_event.clone();
-            eng.config.thinking = self.config.thinking.clone();
+            eng.config.on_event = on_event;
+            eng.config.thinking = thinking;
 
             // Snapshot engine config values needed by the subagent closure
             let engine_tools = eng.config.tools.clone();
@@ -1113,7 +1256,7 @@ impl Agent {
             let engine_api_key = eng.config.api_key.clone();
             let engine_base_url = eng.config.base_url.clone();
             let engine_cwd = eng.config.cwd.clone();
-            let subagent_abort = std::sync::Arc::clone(&self.abort_controller);
+            let subagent_abort = abort_controller.clone();
 
             let agent_tool_executor = move |input: serde_json::Value,
                                             _ctx: &ToolContext|
@@ -1165,7 +1308,8 @@ impl Agent {
 
                     let _isolation = input["isolation"].as_str().map(|s| s.to_string());
 
-                    let system_prompt = build_agent_system_prompt(description, subagent_type.as_deref());
+                    let system_prompt =
+                        build_agent_system_prompt(description, subagent_type.as_deref());
 
                     let mut sub_engine = QueryEngine::new(QueryEngineConfig {
                         cwd: subagent_cwd,
@@ -1225,8 +1369,8 @@ impl Agent {
         }; // Lock released here
 
         // Track model in case it changed (for recreation detection)
-        if current_model != self.model {
-            self.model = current_model;
+        if current_model != self.get_model() {
+            self.inner.lock().unwrap().model = current_model;
         }
 
         Ok(QueryResult {
@@ -1245,12 +1389,18 @@ impl Agent {
 
     /// Reset the agent's conversation history, keeping configuration intact.
     ///
-    /// Forces the QueryEngine to be recreated on the next query call, clearing
-    /// all messages, usage tracking, and turn count. This starts a fresh
+    /// Clears all messages, usage tracking, and turn count. This starts a fresh
     /// conversation while preserving model, API key, tools, and other settings.
-    pub fn reset(&mut self) {
-        self.persist_engine = None;
-        self.engine_config = None;
+    /// Takes `&self` (interior mutability).
+    pub fn reset(&self) {
+        {
+            let inner = &*self.inner.lock().unwrap();
+            if let Some(engine) = &inner.engine {
+                if let Ok(mut eng) = engine.try_lock() {
+                    eng.reset();
+                }
+            }
+        }
     }
 
     /// Subscribe to agent events for the current and subsequent queries.
@@ -1284,13 +1434,13 @@ impl Agent {
         (EventSubscriber::new(rx), guard)
     }
 
-    /// Interrupt the agent loop. This aborts the current `prompt()` or `query()`
-    /// call, cancelling any in-flight API requests and tool execution.
+    /// Interrupt the agent loop. This aborts the current `query()` call,
+    /// cancelling any in-flight API requests and tool execution.
     ///
     /// # Example
     ///
     /// ```rust,ignore
-    /// let mut agent = Agent::new("claude-sonnet-4-6", 10);
+    /// let agent = Agent::new("claude-sonnet-4-6");
     ///
     /// tokio::spawn(async move {
     ///     agent.query("Do a lot of work").await.unwrap();
@@ -1300,18 +1450,23 @@ impl Agent {
     /// agent.interrupt(); // Cancel the running prompt
     /// ```
     pub fn interrupt(&self) {
-        self.abort_controller.abort(None);
-        // Also interrupt the persisted engine if it exists
-        if let Some(ref engine) = self.persist_engine {
-            if let Ok(mut eng) = engine.try_lock() {
-                eng.interrupt();
+        {
+            let inner = &*self.inner.lock().unwrap();
+            inner.abort_controller.abort(None);
+            if let Some(ref engine) = inner.engine {
+                if let Ok(mut eng) = engine.try_lock() {
+                    eng.interrupt();
+                }
             }
         }
     }
 }
 
 /// Build system prompt for subagent based on agent type
-pub(super) fn build_agent_system_prompt(agent_description: &str, agent_type: Option<&str>) -> String {
+pub(super) fn build_agent_system_prompt(
+    agent_description: &str,
+    agent_type: Option<&str>,
+) -> String {
     let base_prompt = "You are an agent that helps users with software engineering tasks. Use the tools available to you to assist the user.\n\nComplete the task fully—don't gold-plate, but don't leave it half-done. When you complete the task, respond with a concise report covering what was done and any key findings.";
 
     match agent_type {
@@ -1335,10 +1490,7 @@ pub(super) fn build_agent_system_prompt(agent_description: &str, agent_type: Opt
         }
         _ => {
             // General purpose agent
-            format!(
-                "{}\n\nTask description: {}",
-                base_prompt, agent_description
-            )
+            format!("{}\n\nTask description: {}", base_prompt, agent_description)
         }
     }
 }

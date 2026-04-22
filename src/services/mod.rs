@@ -42,8 +42,8 @@ pub mod skill_search;
 pub mod streaming;
 pub mod team_memory_sync;
 pub mod tips;
-pub mod tool_execution;
 pub mod token_estimation;
+pub mod tool_execution;
 pub mod tool_use_summary;
 pub mod vcr;
 pub mod voice;
@@ -56,14 +56,14 @@ pub use api::usage::*;
 pub use api::with_retry::*;
 
 pub use compact::{
+    CompactDirection, CompactOptions, CompactResult, CompactWarningInfo, WarningLevel,
     calculate_messages_to_remove, compact_messages, create_compact_warning_info,
-    get_recommended_direction, CompactDirection, CompactOptions, CompactResult, CompactWarningInfo,
-    WarningLevel,
+    get_recommended_direction,
 };
 
 pub use model_cost::{
-    calculate_cost, format_cost, get_available_models, CostSummary, ModelCostRegistry, ModelCosts,
-    ModelInfo, TokenUsage,
+    CostSummary, ModelCostRegistry, ModelCosts, ModelInfo, TokenUsage, calculate_cost, format_cost,
+    get_available_models,
 };
 
 pub use rate_limit::{
@@ -71,20 +71,19 @@ pub use rate_limit::{
 };
 
 pub use retry::{
-    is_rate_limit_error, is_retryable_error, is_service_unavailable_error, retry_async,
-    retry_with_retry_after, RetryConfig, RetryError, DEFAULT_MAX_RETRIES,
+    DEFAULT_MAX_RETRIES, RetryConfig, RetryError, is_rate_limit_error, is_retryable_error,
+    is_service_unavailable_error, retry_async, retry_with_retry_after,
 };
 
 pub use token_estimation::{
-    calculate_padding, estimate_conversation, estimate_tokens, estimate_tokens_characters,
-    estimate_tokens_words, estimate_tool_definitions, fits_in_context, EstimationMethod,
-    TokenEstimate,
+    EstimationMethod, TokenEstimate, calculate_padding, estimate_conversation, estimate_tokens,
+    estimate_tokens_characters, estimate_tokens_words, estimate_tool_definitions, fits_in_context,
 };
 
 pub use streaming::{
-    calculate_streaming_cost, cleanup_stream, get_nonstreaming_fallback_timeout_ms,
-    is_404_stream_creation_error, is_api_timeout_error, is_nonstreaming_fallback_disabled,
-    is_user_abort_error, release_stream_resources, validate_stream_completion, StallStats,
-    StreamingResult, StreamingToolExecutor, StreamWatchdog, ToolStatus, TrackedTool,
-    STALL_THRESHOLD_MS,
+    STALL_THRESHOLD_MS, StallStats, StreamWatchdog, StreamingResult, StreamingToolExecutor,
+    ToolStatus, TrackedTool, calculate_streaming_cost, cleanup_stream,
+    get_nonstreaming_fallback_timeout_ms, is_404_stream_creation_error, is_api_timeout_error,
+    is_nonstreaming_fallback_disabled, is_user_abort_error, release_stream_resources,
+    validate_stream_completion,
 };

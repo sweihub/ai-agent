@@ -5,13 +5,12 @@
 //!
 //! Handles tilde expansion, glob pattern validation, and path resolution.
 
-use std::path::{Path, MAIN_SEPARATOR};
-use crate::types::permissions::{PermissionDecisionReason, ToolPermissionContext};
 use super::filesystem::{
-    expand_tilde, is_path_allowed, to_posix_path,
-    get_glob_base_directory, contains_path_traversal,
-    FileOperationType, PathCheckResult,
+    FileOperationType, PathCheckResult, contains_path_traversal, expand_tilde,
+    get_glob_base_directory, is_path_allowed, to_posix_path,
 };
+use crate::types::permissions::{PermissionDecisionReason, ToolPermissionContext};
+use std::path::{MAIN_SEPARATOR, Path};
 
 /// Maximum number of directories to list in error messages.
 const MAX_DIRS_TO_LIST: usize = 5;
@@ -44,7 +43,12 @@ pub fn validate_glob_pattern(
             format!("{}/{}", cwd, clean_path)
         };
         let resolved_path = absolute_path.clone();
-        let result = is_path_allowed(&resolved_path, tool_permission_context, operation_type, None);
+        let result = is_path_allowed(
+            &resolved_path,
+            tool_permission_context,
+            operation_type,
+            None,
+        );
         return ResolvedPathCheckResult {
             allowed: result.allowed,
             resolved_path,
@@ -59,7 +63,12 @@ pub fn validate_glob_pattern(
         format!("{}/{}", cwd, base_path)
     };
     let resolved_path = absolute_base_path.clone();
-    let result = is_path_allowed(&resolved_path, tool_permission_context, operation_type, None);
+    let result = is_path_allowed(
+        &resolved_path,
+        tool_permission_context,
+        operation_type,
+        None,
+    );
     ResolvedPathCheckResult {
         allowed: result.allowed,
         resolved_path,
@@ -97,7 +106,8 @@ pub fn validate_path(
             allowed: false,
             resolved_path: clean_path.clone(),
             decision_reason: Some(PermissionDecisionReason::Other {
-                reason: "Tilde expansion variants (~user, ~+, ~-) in paths require manual approval".to_string(),
+                reason: "Tilde expansion variants (~user, ~+, ~-) in paths require manual approval"
+                    .to_string(),
             }),
         };
     }
@@ -115,7 +125,10 @@ pub fn validate_path(
 
     // Handle glob patterns
     if has_glob_pattern(&clean_path) {
-        if matches!(operation_type, FileOperationType::Write | FileOperationType::Create) {
+        if matches!(
+            operation_type,
+            FileOperationType::Write | FileOperationType::Create
+        ) {
             return ResolvedPathCheckResult {
                 allowed: false,
                 resolved_path: clean_path.clone(),
@@ -124,12 +137,7 @@ pub fn validate_path(
                 }),
             };
         }
-        return validate_glob_pattern(
-            &clean_path,
-            cwd,
-            tool_permission_context,
-            operation_type,
-        );
+        return validate_glob_pattern(&clean_path, cwd, tool_permission_context, operation_type);
     }
 
     // Resolve path
@@ -140,7 +148,12 @@ pub fn validate_path(
     };
     let resolved_path = absolute_path.clone();
 
-    let result = is_path_allowed(&resolved_path, tool_permission_context, operation_type, None);
+    let result = is_path_allowed(
+        &resolved_path,
+        tool_permission_context,
+        operation_type,
+        None,
+    );
     ResolvedPathCheckResult {
         allowed: result.allowed,
         resolved_path,

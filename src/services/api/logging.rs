@@ -159,16 +159,22 @@ fn get_gateway_fingerprints() -> HashMap<&'static str, Vec<&'static str>> {
 /// Gateway host suffixes for detection
 fn get_gateway_host_suffixes() -> HashMap<&'static str, Vec<&'static str>> {
     let mut suffixes = HashMap::new();
-    suffixes.insert("databricks", vec![
-        ".cloud.databricks.com",
-        ".azuredatabricks.net",
-        ".gcp.databricks.com",
-    ]);
+    suffixes.insert(
+        "databricks",
+        vec![
+            ".cloud.databricks.com",
+            ".azuredatabricks.net",
+            ".gcp.databricks.com",
+        ],
+    );
     suffixes
 }
 
 /// Detect gateway from response headers or base URL
-pub fn detect_gateway(headers: Option<&HashMap<String, String>>, base_url: Option<&str>) -> Option<KnownGateway> {
+pub fn detect_gateway(
+    headers: Option<&HashMap<String, String>>,
+    base_url: Option<&str>,
+) -> Option<KnownGateway> {
     // Check headers for gateway fingerprints
     if let Some(hdrs) = headers {
         let fingerprint_map = get_gateway_fingerprints();
@@ -195,7 +201,10 @@ pub fn detect_gateway(headers: Option<&HashMap<String, String>>, base_url: Optio
     // Check base URL for gateway host suffixes
     if let Some(url) = base_url {
         if let Ok(parsed) = url::Url::parse(url) {
-            let host = parsed.host_str().map(|h| h.to_lowercase()).unwrap_or_default();
+            let host = parsed
+                .host_str()
+                .map(|h| h.to_lowercase())
+                .unwrap_or_default();
             let suffix_map = get_gateway_host_suffixes();
             for (key, suffixes) in suffix_map {
                 for suffix in suffixes {
@@ -221,7 +230,10 @@ pub fn get_anthropic_env_metadata() -> serde_json::Value {
         metadata.insert("envModel".to_string(), serde_json::Value::String(model));
     }
     if let Ok(small_fast_model) = std::env::var("AI_CODE_SMALL_FAST_MODEL") {
-        metadata.insert("envSmallFastModel".to_string(), serde_json::Value::String(small_fast_model));
+        metadata.insert(
+            "envSmallFastModel".to_string(),
+            serde_json::Value::String(small_fast_model),
+        );
     }
 
     serde_json::Value::Object(metadata)
@@ -242,8 +254,7 @@ pub fn is_non_interactive_session() -> bool {
 
 /// Get API provider for statsig
 pub fn get_api_provider_for_statsig() -> String {
-    std::env::var("AI_CODE_PROVIDER")
-        .unwrap_or_else(|_| "firstParty".to_string())
+    std::env::var("AI_CODE_PROVIDER").unwrap_or_else(|_| "firstParty".to_string())
 }
 
 /// Log API query event

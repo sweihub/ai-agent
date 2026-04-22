@@ -12,16 +12,14 @@ use std::collections::HashMap;
 use std::process;
 
 use super::plugin_operations::{
-    disable_all_plugins_op, disable_plugin_op, enable_plugin_op, install_plugin_op,
-    uninstall_plugin_op, update_plugin_op, InstallableScope, PluginOperationResult,
-    PluginUpdateResult,
+    InstallableScope, PluginOperationResult, PluginUpdateResult, disable_all_plugins_op,
+    disable_plugin_op, enable_plugin_op, install_plugin_op, uninstall_plugin_op, update_plugin_op,
 };
 use crate::utils::plugins::loader::parse_plugin_identifier;
 
 pub use super::plugin_operations::{VALID_INSTALLABLE_SCOPES, VALID_UPDATE_SCOPES};
 
-type PluginCliCommand =
-    &'static str; // "install" | "uninstall" | "enable" | "disable" | "disable-all" | "update"
+type PluginCliCommand = &'static str; // "install" | "uninstall" | "enable" | "disable" | "disable-all" | "update"
 
 /// Telemetry fields for plugin operations
 #[derive(Debug, Clone, Default)]
@@ -129,7 +127,10 @@ fn handle_plugin_command_error(
 
     if let Some((name, marketplace, telemetry)) = telemetry_fields {
         if let Some(n) = name {
-            properties.insert("_PROTO_plugin_name".to_string(), serde_json::Value::String(n));
+            properties.insert(
+                "_PROTO_plugin_name".to_string(),
+                serde_json::Value::String(n),
+            );
         }
         if let Some(m) = marketplace {
             properties.insert(
@@ -171,15 +172,14 @@ pub async fn install_plugin(
     println!("{} {}", figures::TICK, result.message);
 
     // Log analytics
-    let (name, marketplace) = parse_plugin_identifier(
-        result
-            .plugin_id
-            .as_deref()
-            .unwrap_or(plugin),
-    );
+    let (name, marketplace) =
+        parse_plugin_identifier(result.plugin_id.as_deref().unwrap_or(plugin));
     let mut properties: HashMap<String, serde_json::Value> = HashMap::new();
     if let Some(n) = &name {
-        properties.insert("_PROTO_plugin_name".to_string(), serde_json::Value::String(n.clone()));
+        properties.insert(
+            "_PROTO_plugin_name".to_string(),
+            serde_json::Value::String(n.clone()),
+        );
     }
     if let Some(m) = &marketplace {
         properties.insert(
@@ -234,15 +234,14 @@ pub async fn uninstall_plugin(
     println!("{} {}", figures::TICK, result.message);
 
     // Log analytics
-    let (name, marketplace) = parse_plugin_identifier(
-        result
-            .plugin_id
-            .as_deref()
-            .unwrap_or(plugin),
-    );
+    let (name, marketplace) =
+        parse_plugin_identifier(result.plugin_id.as_deref().unwrap_or(plugin));
     let mut properties: HashMap<String, serde_json::Value> = HashMap::new();
     if let Some(n) = &name {
-        properties.insert("_PROTO_plugin_name".to_string(), serde_json::Value::String(n.clone()));
+        properties.insert(
+            "_PROTO_plugin_name".to_string(),
+            serde_json::Value::String(n.clone()),
+        );
     }
     if let Some(m) = &marketplace {
         properties.insert(
@@ -291,15 +290,14 @@ pub async fn enable_plugin(
     println!("{} {}", figures::TICK, result.message);
 
     // Log analytics
-    let (name, marketplace) = parse_plugin_identifier(
-        result
-            .plugin_id
-            .as_deref()
-            .unwrap_or(plugin),
-    );
+    let (name, marketplace) =
+        parse_plugin_identifier(result.plugin_id.as_deref().unwrap_or(plugin));
     let mut properties: HashMap<String, serde_json::Value> = HashMap::new();
     if let Some(n) = &name {
-        properties.insert("_PROTO_plugin_name".to_string(), serde_json::Value::String(n.clone()));
+        properties.insert(
+            "_PROTO_plugin_name".to_string(),
+            serde_json::Value::String(n.clone()),
+        );
     }
     if let Some(m) = &marketplace {
         properties.insert(
@@ -347,15 +345,14 @@ pub async fn disable_plugin(
     println!("{} {}", figures::TICK, result.message);
 
     // Log analytics
-    let (name, marketplace) = parse_plugin_identifier(
-        result
-            .plugin_id
-            .as_deref()
-            .unwrap_or(plugin),
-    );
+    let (name, marketplace) =
+        parse_plugin_identifier(result.plugin_id.as_deref().unwrap_or(plugin));
     let mut properties: HashMap<String, serde_json::Value> = HashMap::new();
     if let Some(n) = &name {
-        properties.insert("_PROTO_plugin_name".to_string(), serde_json::Value::String(n.clone()));
+        properties.insert(
+            "_PROTO_plugin_name".to_string(),
+            serde_json::Value::String(n.clone()),
+        );
     }
     if let Some(m) = &marketplace {
         properties.insert(
@@ -426,12 +423,8 @@ pub async fn update_plugin_cli(
     println!("{} {}", figures::TICK, result.message);
 
     if !result.already_up_to_date.unwrap_or(false) {
-        let (name, marketplace) = parse_plugin_identifier(
-            result
-                .plugin_id
-                .as_deref()
-                .unwrap_or(plugin),
-        );
+        let (name, marketplace) =
+            parse_plugin_identifier(result.plugin_id.as_deref().unwrap_or(plugin));
         let mut properties: HashMap<String, serde_json::Value> = HashMap::new();
         if let Some(n) = &name {
             properties.insert(
@@ -496,10 +489,7 @@ mod tests {
     #[test]
     fn test_classify_plugin_command_error_permission() {
         let err = std::io::Error::new(std::io::ErrorKind::PermissionDenied, "permission denied");
-        assert_eq!(
-            classify_plugin_command_error(&err),
-            "permission_denied"
-        );
+        assert_eq!(classify_plugin_command_error(&err), "permission_denied");
     }
 
     #[test]

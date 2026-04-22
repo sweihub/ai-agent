@@ -9,7 +9,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use tokio::fs;
 
 use super::installed_plugins_manager::load_installed_plugins_from_disk;
-use super::loader::{get_plugin_cache_path, clear_plugin_cache};
+use super::loader::{clear_plugin_cache, get_plugin_cache_path};
 
 const ORPHANED_AT_FILENAME: &str = ".orphaned_at";
 const CLEANUP_AGE_MS: u64 = 7 * 24 * 60 * 60 * 1000; // 7 days
@@ -30,14 +30,22 @@ pub fn clear_all_caches() {
 }
 
 /// Mark a plugin version as orphaned by writing a .orphaned_at timestamp file.
-pub async fn mark_plugin_version_orphaned(version_path: &Path) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+pub async fn mark_plugin_version_orphaned(
+    version_path: &Path,
+) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let orphaned_at_path = version_path.join(ORPHANED_AT_FILENAME);
     let now = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .unwrap_or_default()
         .as_millis();
-    fs::write(&orphaned_at_path, now.to_string()).await
-        .map_err(|e| format!("Failed to write .orphaned_at at {:?}: {}", orphaned_at_path, e))?;
+    fs::write(&orphaned_at_path, now.to_string())
+        .await
+        .map_err(|e| {
+            format!(
+                "Failed to write .orphaned_at at {:?}: {}",
+                orphaned_at_path, e
+            )
+        })?;
     Ok(())
 }
 
@@ -66,12 +74,17 @@ async fn do_cleanup() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     }
 
     // Pass 2: Process orphaned versions (stub - simplified)
-    log::debug!("Orphaned cleanup: {} installed versions, cache at {:?}", installed_versions.len(), cache_path);
+    log::debug!(
+        "Orphaned cleanup: {} installed versions, cache at {:?}",
+        installed_versions.len(),
+        cache_path
+    );
     let _ = now; // suppress warning
     Ok(())
 }
 
-fn get_installed_version_paths() -> Result<HashSet<PathBuf>, Box<dyn std::error::Error + Send + Sync>> {
+fn get_installed_version_paths()
+-> Result<HashSet<PathBuf>, Box<dyn std::error::Error + Send + Sync>> {
     let mut paths = HashSet::new();
     let disk_data = load_installed_plugins_from_disk()?;
     for installations in disk_data.plugins.values() {
@@ -86,7 +99,11 @@ async fn remove_orphaned_at_marker(version_path: &Path) {
     let orphaned_at_path = version_path.join(ORPHANED_AT_FILENAME);
     if let Err(e) = fs::remove_file(&orphaned_at_path).await {
         if e.kind() != std::io::ErrorKind::NotFound {
-            log::debug!("Failed to remove .orphaned_at at {:?}: {}", orphaned_at_path, e);
+            log::debug!(
+                "Failed to remove .orphaned_at at {:?}: {}",
+                orphaned_at_path,
+                e
+            );
         }
     }
 }
@@ -99,6 +116,8 @@ async fn _remove_if_empty(_dir_path: &Path) {
     // Stub
 }
 
-async fn _read_subdirs(_dir_path: &Path) -> Result<Vec<String>, Box<dyn std::error::Error + Send + Sync>> {
+async fn _read_subdirs(
+    _dir_path: &Path,
+) -> Result<Vec<String>, Box<dyn std::error::Error + Send + Sync>> {
     Ok(Vec::new())
 }

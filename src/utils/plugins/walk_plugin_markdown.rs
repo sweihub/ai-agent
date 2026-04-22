@@ -19,7 +19,11 @@ pub struct WalkPluginMarkdownError {
 
 impl std::fmt::Display for WalkPluginMarkdownError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "walk_plugin_markdown error at {}: {}", self.path, self.message)
+        write!(
+            f,
+            "walk_plugin_markdown error at {}: {}",
+            self.path, self.message
+        )
     }
 }
 

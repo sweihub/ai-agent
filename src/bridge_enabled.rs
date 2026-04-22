@@ -218,7 +218,11 @@ pub fn check_bridge_min_version() -> Option<String> {
         );
         if !config.min_version.is_empty() && version_lt(&get_current_version(), &config.min_version)
         {
-            return Some(format!("Your version of AI Code ({}) is too old for Remote Control.\nVersion {} or higher is required. Run `ai update` to update.", get_current_version(), config.min_version));
+            return Some(format!(
+                "Your version of AI Code ({}) is too old for Remote Control.\nVersion {} or higher is required. Run `ai update` to update.",
+                get_current_version(),
+                config.min_version
+            ));
         }
     }
     None

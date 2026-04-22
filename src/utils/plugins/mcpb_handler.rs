@@ -8,7 +8,9 @@ use serde::{Deserialize, Serialize};
 
 use crate::utils::http::get_user_agent;
 
-use super::fetch_telemetry::{classify_fetch_error, log_plugin_fetch, PluginFetchOutcome, PluginFetchSource};
+use super::fetch_telemetry::{
+    PluginFetchOutcome, PluginFetchSource, classify_fetch_error, log_plugin_fetch,
+};
 
 /// Result of loading an MCPB file (success case).
 pub struct McpbLoadResult {
@@ -150,7 +152,10 @@ pub fn validate_user_config(
             "string" => {
                 if value.is_array() {
                     if !field_schema.multiple.unwrap_or(false) {
-                        errors.push(format!("{} must be a string, not an array", field_schema.title));
+                        errors.push(format!(
+                            "{} must be a string, not an array",
+                            field_schema.title
+                        ));
                     }
                 } else if !value.is_string() {
                     errors.push(format!("{} must be a string", field_schema.title));
@@ -235,7 +240,10 @@ pub async fn check_mcpb_changed(source: &str, plugin_path: &Path) -> bool {
 }
 
 /// Download MCPB file from URL.
-async fn download_mcpb(url: &str, dest_path: &Path) -> Result<Vec<u8>, Box<dyn std::error::Error + Send + Sync>> {
+async fn download_mcpb(
+    url: &str,
+    dest_path: &Path,
+) -> Result<Vec<u8>, Box<dyn std::error::Error + Send + Sync>> {
     log::debug!("Downloading MCPB from {}", url);
 
     let started = std::time::Instant::now();
@@ -266,7 +274,8 @@ pub async fn load_mcpb_file(
     source: &str,
     plugin_path: &Path,
     _plugin_id: &str,
-) -> Result<Result<McpbLoadResult, McpbNeedsConfigResult>, Box<dyn std::error::Error + Send + Sync>> {
+) -> Result<Result<McpbLoadResult, McpbNeedsConfigResult>, Box<dyn std::error::Error + Send + Sync>>
+{
     let cache_dir = get_mcpb_cache_dir(plugin_path);
     tokio::fs::create_dir_all(&cache_dir).await?;
 

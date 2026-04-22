@@ -17,8 +17,8 @@ use std::collections::HashMap;
 use std::sync::{LazyLock, Mutex};
 
 // Re-export commonly used types
-pub use load_agents_dir::AgentDefinition;
 pub use agent_color_manager::AgentColorName;
+pub use load_agents_dir::AgentDefinition;
 
 /// Global agent color map
 static AGENT_COLOR_MAP: LazyLock<Mutex<HashMap<String, String>>> =

@@ -181,11 +181,7 @@ pub fn extract_title_text(
 
     // Strip display tags (simplified - would need full implementation)
     let clean = strip_display_tags_allow_empty(content);
-    if clean.is_empty() {
-        None
-    } else {
-        Some(clean)
-    }
+    if clean.is_empty() { None } else { Some(clean) }
 }
 
 /// Strip display tags from text (simplified implementation).

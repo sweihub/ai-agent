@@ -39,14 +39,18 @@ pub fn is_official_marketplace_name(marketplace: Option<&str>) -> bool {
     match marketplace {
         Some(m) => {
             let lowercase = m.to_lowercase();
-            super::schemas::allowed_official_marketplace_names().iter().any(|&s| s == lowercase)
+            super::schemas::allowed_official_marketplace_names()
+                .iter()
+                .any(|&s| s == lowercase)
         }
         None => false,
     }
 }
 
 /// Map from installable plugin scope to editable setting source.
-pub fn scope_to_setting_source(scope: &PluginScope) -> Result<&'static str, Box<dyn std::error::Error + Send + Sync>> {
+pub fn scope_to_setting_source(
+    scope: &PluginScope,
+) -> Result<&'static str, Box<dyn std::error::Error + Send + Sync>> {
     match scope {
         PluginScope::User => Ok("userSettings"),
         PluginScope::Project => Ok("projectSettings"),

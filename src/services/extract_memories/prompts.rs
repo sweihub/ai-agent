@@ -193,7 +193,8 @@ pub fn build_extract_combined_prompt(
     existing_memories: &str,
     skip_index: bool,
 ) -> String {
-    let mut prompt = build_extract_auto_only_prompt(new_message_count, existing_memories, skip_index);
+    let mut prompt =
+        build_extract_auto_only_prompt(new_message_count, existing_memories, skip_index);
     // Add sensitive data warning for combined mode
     prompt.insert_str(0, "- You MUST avoid saving sensitive data within shared team memories. For example, never save API keys or user credentials.\n\n");
     prompt

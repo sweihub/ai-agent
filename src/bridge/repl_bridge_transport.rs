@@ -5,8 +5,8 @@
 //! This module defines the transport abstraction used by the REPL bridge.
 //! The SDK can use custom transports by implementing this trait.
 
-use crate::bridge::repl_bridge_handle::SessionState;
 use crate::bridge::SDKMessage;
+use crate::bridge::repl_bridge_handle::SessionState;
 use std::pin::Pin;
 use std::sync::Arc;
 

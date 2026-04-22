@@ -4,9 +4,11 @@ use std::sync::Arc;
 
 use std::path::PathBuf;
 
-use super::agent_tool_utils::{finalize_agent_tool, extract_partial_result};
+use super::agent_tool_utils::{extract_partial_result, finalize_agent_tool};
 use super::load_agents_dir::AgentDefinition;
-use super::run_agent::{run_agent, RunAgentParams, ToolContext, AgentOverrides, filter_incomplete_tool_calls};
+use super::run_agent::{
+    AgentOverrides, RunAgentParams, ToolContext, filter_incomplete_tool_calls, run_agent,
+};
 
 /// Result from resuming an agent.
 pub struct ResumeAgentResult {
@@ -44,32 +46,27 @@ pub async fn resume_agent_background(
 
     // Filter messages for resume
     let resumed_messages = filter_whitespace_only_assistant_messages(
-        filter_orphaned_thinking_only_messages(
-            filter_unresolved_tool_uses(&transcript.messages),
-        ),
+        filter_orphaned_thinking_only_messages(filter_unresolved_tool_uses(&transcript.messages)),
     );
 
     // Check if worktree still exists
-    let resumed_worktree_path = meta
-        .worktree_path
-        .as_ref()
-        .and_then(|p| {
-            let path = PathBuf::from(p);
-            if path.is_dir() {
-                // Bump mtime so stale-worktree cleanup doesn't delete a just-resumed worktree
-                // Using a simple touch-equivalent via std::fs
-                let _ = std::fs::File::options()
-                    .write(true)
-                    .open(path.join(".claude_resume_marker"));
-                Some(p.clone())
-            } else {
-                log::debug!(
-                    "Resumed worktree {} no longer exists; falling back to parent cwd",
-                    p
-                );
-                None
-            }
-        });
+    let resumed_worktree_path = meta.worktree_path.as_ref().and_then(|p| {
+        let path = PathBuf::from(p);
+        if path.is_dir() {
+            // Bump mtime so stale-worktree cleanup doesn't delete a just-resumed worktree
+            // Using a simple touch-equivalent via std::fs
+            let _ = std::fs::File::options()
+                .write(true)
+                .open(path.join(".claude_resume_marker"));
+            Some(p.clone())
+        } else {
+            log::debug!(
+                "Resumed worktree {} no longer exists; falling back to parent cwd",
+                p
+            );
+            None
+        }
+    });
 
     // Determine which agent definition to use
     let selected_agent = select_agent_for_resume(&meta, &tool_context);
@@ -122,7 +119,9 @@ pub async fn resume_agent_background(
 }
 
 /// Load transcript and metadata for an agent.
-fn load_transcript_and_metadata(agent_id: &str) -> Result<(AgentTranscript, AgentMetadata), String> {
+fn load_transcript_and_metadata(
+    agent_id: &str,
+) -> Result<(AgentTranscript, AgentMetadata), String> {
     let transcript_path = std::env::current_dir()
         .map_err(|e| e.to_string())?
         .join(".claude")
@@ -152,9 +151,18 @@ fn load_transcript_and_metadata(agent_id: &str) -> Result<(AgentTranscript, Agen
         let meta_json: serde_json::Value = serde_json::from_str(&meta_content)
             .map_err(|e| format!("Failed to parse metadata: {}", e))?;
         AgentMetadata {
-            agent_type: meta_json.get("agentType").and_then(|v| v.as_str()).map(|s| s.to_string()),
-            worktree_path: meta_json.get("worktreePath").and_then(|v| v.as_str()).map(|s| s.to_string()),
-            description: meta_json.get("description").and_then(|v| v.as_str()).map(|s| s.to_string()),
+            agent_type: meta_json
+                .get("agentType")
+                .and_then(|v| v.as_str())
+                .map(|s| s.to_string()),
+            worktree_path: meta_json
+                .get("worktreePath")
+                .and_then(|v| v.as_str())
+                .map(|s| s.to_string()),
+            description: meta_json
+                .get("description")
+                .and_then(|v| v.as_str())
+                .map(|s| s.to_string()),
         }
     } else {
         AgentMetadata {
@@ -205,7 +213,9 @@ fn filter_whitespace_only_assistant_messages(
 }
 
 /// Filter out orphaned thinking-only messages (thinking without tool use or text).
-fn filter_orphaned_thinking_only_messages(messages: Vec<serde_json::Value>) -> Vec<serde_json::Value> {
+fn filter_orphaned_thinking_only_messages(
+    messages: Vec<serde_json::Value>,
+) -> Vec<serde_json::Value> {
     messages
         .into_iter()
         .filter(|msg| {
@@ -279,10 +289,7 @@ fn filter_unresolved_tool_uses(messages: &[serde_json::Value]) -> Vec<serde_json
 }
 
 /// Select the appropriate agent definition for resume.
-fn select_agent_for_resume(
-    meta: &AgentMetadata,
-    tool_context: &ToolContext,
-) -> AgentDefinition {
+fn select_agent_for_resume(meta: &AgentMetadata, tool_context: &ToolContext) -> AgentDefinition {
     if let Some(ref agent_type) = meta.agent_type {
         // Look up the agent definition
         if let Some(found) = tool_context

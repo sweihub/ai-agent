@@ -5,10 +5,10 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use super::marketplace_helpers::is_source_allowed_by_policy;
 use super::marketplace_manager::{
-    add_marketplace_source, get_marketplaces_cache_dir, load_known_marketplaces_config,
-    save_known_marketplaces_config, DeclaredMarketplace,
+    DeclaredMarketplace, add_marketplace_source, get_marketplaces_cache_dir,
+    load_known_marketplaces_config, save_known_marketplaces_config,
 };
-use super::official_marketplace::{get_official_marketplace_source, OFFICIAL_MARKETPLACE_NAME};
+use super::official_marketplace::{OFFICIAL_MARKETPLACE_NAME, get_official_marketplace_source};
 
 /// Configuration for retry logic.
 struct RetryConfig {
@@ -50,7 +50,7 @@ pub struct OfficialMarketplaceCheckResult {
 
 /// Check and install the official marketplace on startup.
 pub async fn check_and_install_official_marketplace()
-    -> Result<OfficialMarketplaceCheckResult, Box<dyn std::error::Error + Send + Sync>> {
+-> Result<OfficialMarketplaceCheckResult, Box<dyn std::error::Error + Send + Sync>> {
     // Stub: implementation simplified
     Ok(OfficialMarketplaceCheckResult {
         installed: false,

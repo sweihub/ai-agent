@@ -35,8 +35,8 @@ fn test_find_tool_by_name() {
             always_load: None,
             is_mcp: None,
             search_hint: None,
-        aliases: None,
-        user_facing_name: None,
+            aliases: None,
+            user_facing_name: None,
         },
         ToolDefinition {
             name: "Read".to_string(),
@@ -51,8 +51,8 @@ fn test_find_tool_by_name() {
             always_load: None,
             is_mcp: None,
             search_hint: None,
-        aliases: None,
-        user_facing_name: None,
+            aliases: None,
+            user_facing_name: None,
         },
     ];
 
@@ -144,19 +144,15 @@ fn test_tool_builder_defaults() {
                 })
             })
         })
-        .map_tool_result_fn(|content, tool_use_id| {
-            ToolResultBlockParam {
-                block_type: "tool_result".to_string(),
-                tool_use_id: tool_use_id.to_string(),
-                content: vec![ContentBlockParam::Text {
-                    text: content.to_string(),
-                }],
-                is_error: None,
-            }
+        .map_tool_result_fn(|content, tool_use_id| ToolResultBlockParam {
+            block_type: "tool_result".to_string(),
+            tool_use_id: tool_use_id.to_string(),
+            content: vec![ContentBlockParam::Text {
+                text: content.to_string(),
+            }],
+            is_error: None,
         })
-        .render_tool_use_message_fn(|_input, _options| {
-            "Test tool use".to_string()
-        })
+        .render_tool_use_message_fn(|_input, _options| "Test tool use".to_string())
         .build();
 
     assert_eq!(tool.name(), "test_tool");
@@ -201,7 +197,10 @@ fn test_validation_result_invalid() {
         error_code: 400,
     };
     match result {
-        ValidationResult::Invalid { message, error_code } => {
+        ValidationResult::Invalid {
+            message,
+            error_code,
+        } => {
             assert_eq!(message, "Bad input");
             assert_eq!(error_code, 400);
         }

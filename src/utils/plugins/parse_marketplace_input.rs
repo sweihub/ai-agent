@@ -81,8 +81,8 @@ fn parse_http_url(input: &str) -> MarketplaceSource {
     };
 
     // Check if it looks like a git repo
-    let looks_like_git = url_without_fragment.ends_with(".git")
-        || url_without_fragment.contains("/_git/");
+    let looks_like_git =
+        url_without_fragment.ends_with(".git") || url_without_fragment.contains("/_git/");
 
     if looks_like_git {
         return MarketplaceSource::Git {
@@ -94,9 +94,10 @@ fn parse_http_url(input: &str) -> MarketplaceSource {
 
     // Check if it's a GitHub HTTPS URL
     if let Ok(url) = url::Url::parse(url_without_fragment) {
-        if url.host_str().map_or(false, |h| {
-            h == "github.com" || h == "www.github.com"
-        }) {
+        if url
+            .host_str()
+            .map_or(false, |h| h == "github.com" || h == "www.github.com")
+        {
             let path = url.path();
             if let Some(captures) = regex::Regex::new(r"^/([^/]+/[^/]+?)(/|\.git|$)")
                 .ok()
@@ -152,9 +153,8 @@ fn parse_local_path(input: &str) -> Result<Option<MarketplaceSource>, String> {
         }
     })?;
 
-    let metadata = std::fs::metadata(&resolved).map_err(|e| {
-        format!("Cannot stat path: {} ({})", resolved.display(), e)
-    })?;
+    let metadata = std::fs::metadata(&resolved)
+        .map_err(|e| format!("Cannot stat path: {} ({})", resolved.display(), e))?;
 
     if metadata.is_file() {
         if resolved.extension().map_or(false, |e| e == "json") {

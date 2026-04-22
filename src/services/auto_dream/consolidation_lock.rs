@@ -11,7 +11,7 @@
 //! - HOLDER_STALE_MS = 1 hour (PID reuse guard)
 
 use crate::memdir::paths::get_auto_mem_path;
-use crate::session::{list_sessions, SessionMetadata};
+use crate::session::{SessionMetadata, list_sessions};
 use std::fs;
 use std::io::Write;
 use std::path::PathBuf;
@@ -29,14 +29,12 @@ pub(crate) fn lock_path() -> PathBuf {
 pub async fn read_last_consolidated_at() -> u64 {
     let path = lock_path();
     match fs::metadata(&path) {
-        Ok(metadata) => {
-            metadata
-                .modified()
-                .ok()
-                .and_then(|t| t.duration_since(UNIX_EPOCH).ok())
-                .map(|d| d.as_millis() as u64)
-                .unwrap_or(0)
-        }
+        Ok(metadata) => metadata
+            .modified()
+            .ok()
+            .and_then(|t| t.duration_since(UNIX_EPOCH).ok())
+            .map(|d| d.as_millis() as u64)
+            .unwrap_or(0),
         Err(_) => 0,
     }
 }
@@ -154,13 +152,20 @@ pub async fn rollback_consolidation_lock(prior_mtime: u64) -> Result<(), String>
             let usecs = ((prior_mtime % 1000) * 1_000) as libc::suseconds_t;
 
             let times = [
-                libc::timeval { tv_sec: secs, tv_usec: usecs },
-                libc::timeval { tv_sec: secs, tv_usec: usecs },
+                libc::timeval {
+                    tv_sec: secs,
+                    tv_usec: usecs,
+                },
+                libc::timeval {
+                    tv_sec: secs,
+                    tv_usec: usecs,
+                },
             ];
 
             let c_path = std::ffi::CString::new(path.to_string_lossy().as_bytes())
                 .map_err(|e| format!("rollback path conversion: {e}"))?;
-            let ret = unsafe { libc::utimes(c_path.as_ptr(), times.as_ptr() as *const libc::timeval) };
+            let ret =
+                unsafe { libc::utimes(c_path.as_ptr(), times.as_ptr() as *const libc::timeval) };
             if ret != 0 {
                 let err = std::io::Error::last_os_error();
                 log::debug!(

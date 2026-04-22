@@ -6,7 +6,7 @@
  *
  * Run: cargo run --example 11_custom_mcp_tools
  */
-use ai_agent::{create_tool_with_annotations, sdk_tool_to_tool_definition, Agent, AgentOptions, ToolAnnotations};
+use ai_agent::{Agent, ToolAnnotations, create_tool_with_annotations, sdk_tool_to_tool_definition};
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -69,17 +69,15 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     all_tools.push(get_temperature);
     all_tools.push(convert_units);
 
-    let mut agent = Agent::create(AgentOptions {
-        model: Some(std::env::var("AI_MODEL").unwrap_or_else(|_| "claude-sonnet-4-6".to_string())),
-        tools: all_tools,
-        ..Default::default()
-    });
+    let agent =
+        Agent::new(&std::env::var("AI_MODEL").unwrap_or_else(|_| "claude-sonnet-4-6".to_string()))
+            .tools(all_tools);
 
     println!("Loaded {} tools\n", agent.get_tools().len());
 
-    let result = agent.query(
-        "What is the temperature in Tokyo and Paris? Also convert 10 km to miles. Be brief."
-    ).await?;
+    let result = agent
+        .query("What is the temperature in Tokyo and Paris? Also convert 10 km to miles. Be brief.")
+        .await?;
 
     println!("Answer: {}", result.text);
 

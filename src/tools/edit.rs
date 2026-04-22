@@ -1,6 +1,6 @@
+use crate::tool::{Tool, ToolResultRenderOptions};
 use crate::types::*;
 use crate::utils::diff::{self, StructuredPatchHunk};
-use crate::tool::{Tool, ToolResultRenderOptions};
 use std::fs;
 
 pub const FILE_EDIT_TOOL_NAME: &str = "Edit";
@@ -121,7 +121,10 @@ impl FileEditTool {
                 return Ok(ToolResult {
                     result_type: "text".to_string(),
                     tool_use_id: "".to_string(),
-                    content: format!("Error: old_string not found in {}. Make sure it matches exactly including whitespace.", file_path.display()),
+                    content: format!(
+                        "Error: old_string not found in {}. Make sure it matches exactly including whitespace.",
+                        file_path.display()
+                    ),
                     is_error: Some(true),
                     was_persisted: None,
                 });
@@ -136,7 +139,10 @@ impl FileEditTool {
                     return Ok(ToolResult {
                         result_type: "text".to_string(),
                         tool_use_id: "".to_string(),
-                        content: format!("Error: old_string appears {} times in the file. Provide more context to make it unique, or set replace_all: true.", count),
+                        content: format!(
+                            "Error: old_string appears {} times in the file. Provide more context to make it unique, or set replace_all: true.",
+                            count
+                        ),
                         is_error: Some(true),
                         was_persisted: None,
                     });
@@ -162,8 +168,9 @@ impl FileEditTool {
             removals,
         };
 
-        let content_json = serde_json::to_string(&result)
-            .map_err(|e| crate::error::AgentError::Tool(format!("Failed to serialize result: {}", e)))?;
+        let content_json = serde_json::to_string(&result).map_err(|e| {
+            crate::error::AgentError::Tool(format!("Failed to serialize result: {}", e))
+        })?;
 
         Ok(ToolResult {
             result_type: "text".to_string(),
@@ -196,10 +203,7 @@ impl FileEditTool {
     }
 
     /// Renders the tool result for display.
-    pub fn render_tool_result_message(
-        &self,
-        content: &serde_json::Value,
-    ) -> Option<String> {
+    pub fn render_tool_result_message(&self, content: &serde_json::Value) -> Option<String> {
         let result: FileEditResult = serde_json::from_value(content.clone()).ok()?;
 
         // For plan files, show a hint
@@ -219,9 +223,26 @@ impl FileEditTool {
             return Some(format!("No visible changes to {}", file_path));
         }
 
-        let mut msg = format!("Updated {} ({} {})", file_path, result.additions, if result.additions == 1 { "line" } else { "lines" });
+        let mut msg = format!(
+            "Updated {} ({} {})",
+            file_path,
+            result.additions,
+            if result.additions == 1 {
+                "line"
+            } else {
+                "lines"
+            }
+        );
         if result.removals > 0 {
-            msg.push_str(&format!(", {} {} removed", result.removals, if result.removals == 1 { "line" } else { "lines" }));
+            msg.push_str(&format!(
+                ", {} {} removed",
+                result.removals,
+                if result.removals == 1 {
+                    "line"
+                } else {
+                    "lines"
+                }
+            ));
         }
         Some(msg)
     }
@@ -273,7 +294,10 @@ mod tests {
             "old_string": "test",
             "new_string": "value"
         });
-        assert_eq!(tool.get_tool_use_summary(Some(&input)), Some("/path/to/file.rs".to_string()));
+        assert_eq!(
+            tool.get_tool_use_summary(Some(&input)),
+            Some("/path/to/file.rs".to_string())
+        );
     }
 
     #[test]

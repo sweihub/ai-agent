@@ -5,8 +5,8 @@ use std::collections::{HashMap, HashSet};
 
 /// Plugin names locked by org policy.
 pub fn get_managed_plugin_names() -> Option<HashSet<String>> {
-    let enabled_plugins = get_settings_for_source("policySettings")
-        .and_then(|settings| settings.enabled_plugins)?;
+    let enabled_plugins =
+        get_settings_for_source("policySettings").and_then(|settings| settings.enabled_plugins)?;
 
     if enabled_plugins.is_empty() {
         return None;
@@ -25,11 +25,7 @@ pub fn get_managed_plugin_names() -> Option<HashSet<String>> {
         }
     }
 
-    if names.is_empty() {
-        None
-    } else {
-        Some(names)
-    }
+    if names.is_empty() { None } else { Some(names) }
 }
 
 /// Settings from a specific source.

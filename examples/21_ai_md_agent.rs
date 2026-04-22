@@ -9,7 +9,7 @@
  * 1. Loading AI.md from current directory
  * 2. Agent following the instructions from AI.md
  */
-use ai_agent::{Agent, load_ai_md, get_ai_md_files, AiMdType};
+use ai_agent::{Agent, AiMdType, get_ai_md_files, load_ai_md};
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -50,10 +50,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Create agent and run with AI.md injected
     println!("\n--- Creating Agent with AI.md ---");
-    let mut agent = Agent::new("MiniMaxAI/MiniMax-M2.5", 3);
+    let agent = Agent::new("MiniMaxAI/MiniMax-M2.5").max_turns(3);
 
     // Ask about the project - agent should follow AI.md instructions
-    let result = agent.query("Tell me about this project in one sentence.").await?;
+    let result = agent
+        .query("Tell me about this project in one sentence.")
+        .await?;
 
     println!("\n--- Agent Response ---");
     println!("{}", result.text);

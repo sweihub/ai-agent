@@ -6,8 +6,8 @@ use crate::error::AgentError;
 use crate::types::TokenUsage;
 use crate::types::*;
 use std::collections::HashMap;
-use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 
 // ─── Streaming Constants (matching TypeScript) ───
 
@@ -112,12 +112,7 @@ impl StreamWatchdog {
 
     pub fn from_env() -> Self {
         let enabled = std::env::var(crate::constants::env::ai_code::ENABLE_STREAM_WATCHDOG)
-            .map(|v| {
-                matches!(
-                    v.to_lowercase().as_str(),
-                    "1" | "true" | "yes" | "on"
-                )
-            })
+            .map(|v| matches!(v.to_lowercase().as_str(), "1" | "true" | "yes" | "on"))
             .unwrap_or(false);
 
         let timeout_ms = std::env::var(crate::constants::env::ai_code::STREAM_IDLE_TIMEOUT_MS)
@@ -172,12 +167,7 @@ impl StreamWatchdog {
 pub fn is_nonstreaming_fallback_disabled() -> bool {
     // Check env var first
     if std::env::var(crate::constants::env::ai_code::DISABLE_NONSTREAMING_FALLBACK)
-        .map(|v| {
-            matches!(
-                v.to_lowercase().as_str(),
-                "1" | "true" | "yes" | "on"
-            )
-        })
+        .map(|v| matches!(v.to_lowercase().as_str(), "1" | "true" | "yes" | "on"))
         .unwrap_or(false)
     {
         return true;
@@ -185,10 +175,7 @@ pub fn is_nonstreaming_fallback_disabled() -> bool {
 
     // Check GrowthBook feature flag
     if let Ok(value) = std::env::var("AI_CODE_TENGU_DISABLE_STREAMING_FALLBACK") {
-        if matches!(
-            value.to_lowercase().as_str(),
-            "1" | "true" | "yes" | "on"
-        ) {
+        if matches!(value.to_lowercase().as_str(), "1" | "true" | "yes" | "on") {
             return true;
         }
     }
@@ -307,13 +294,18 @@ pub fn calculate_streaming_cost(usage: &TokenUsage, model: &str) -> f64 {
 
 // ─── Streaming Tool Executor ───
 
-use std::sync::Mutex;
 use futures_util::{FutureExt, StreamExt};
+use std::sync::Mutex;
 
 /// Thread-safe shared executor state.
 /// Uses a tokio async channel to route tool execution requests.
 struct SharedExecutorInner {
-    tx: tokio::sync::mpsc::Sender<(String, serde_json::Value, String, tokio::sync::mpsc::Sender<crate::types::ToolResult>)>,
+    tx: tokio::sync::mpsc::Sender<(
+        String,
+        serde_json::Value,
+        String,
+        tokio::sync::mpsc::Sender<crate::types::ToolResult>,
+    )>,
 }
 
 /// A clonable, thread-safe tool executor function wrapper.
@@ -349,9 +341,18 @@ impl SharedExecutorFn {
         (Self { inner }, handle)
     }
 
-    pub async fn call(&self, name: String, args: serde_json::Value, tool_call_id: String) -> crate::types::ToolResult {
+    pub async fn call(
+        &self,
+        name: String,
+        args: serde_json::Value,
+        tool_call_id: String,
+    ) -> crate::types::ToolResult {
         let (resp_tx, mut resp_rx) = tokio::sync::mpsc::channel(1);
-        self.inner.tx.send((name, args, tool_call_id, resp_tx)).await.expect("dispatcher disconnected");
+        self.inner
+            .tx
+            .send((name, args, tool_call_id, resp_tx))
+            .await
+            .expect("dispatcher disconnected");
         resp_rx.recv().await.expect("dispatcher dropped response")
     }
 }
@@ -427,7 +428,10 @@ impl StreamingToolExecutor {
     /// Discard all pending and in-progress tools.
     /// Called when streaming fallback occurs.
     pub fn discard(&self) {
-        self.state.lock().expect("StreamingToolExecutor mutex poisoned").discarded = true;
+        self.state
+            .lock()
+            .expect("StreamingToolExecutor mutex poisoned")
+            .discarded = true;
     }
 
     /// Add a tool to the execution queue.
@@ -438,7 +442,10 @@ impl StreamingToolExecutor {
             .unwrap_or("")
             .to_string();
 
-        let mut state = self.state.lock().expect("StreamingToolExecutor mutex poisoned");
+        let mut state = self
+            .state
+            .lock()
+            .expect("StreamingToolExecutor mutex poisoned");
         state.tools.push(TrackedTool {
             id: tool_id,
             block: tool_use_block,
@@ -452,7 +459,10 @@ impl StreamingToolExecutor {
 
     /// Check if a tool can execute based on current concurrency state.
     fn can_execute_tool(&self, is_concurrency_safe: bool) -> bool {
-        let state = self.state.lock().expect("StreamingToolExecutor mutex poisoned");
+        let state = self
+            .state
+            .lock()
+            .expect("StreamingToolExecutor mutex poisoned");
         let executing_safe: Vec<bool> = state
             .tools
             .iter()
@@ -461,13 +471,15 @@ impl StreamingToolExecutor {
             .collect();
         drop(state);
 
-        executing_safe.is_empty()
-            || (is_concurrency_safe && executing_safe.iter().all(|s| *s))
+        executing_safe.is_empty() || (is_concurrency_safe && executing_safe.iter().all(|s| *s))
     }
 
     /// Check abort reasons for a tool.
     fn get_abort_reason_inner(&self) -> Option<&'static str> {
-        let state = self.state.lock().expect("StreamingToolExecutor mutex poisoned");
+        let state = self
+            .state
+            .lock()
+            .expect("StreamingToolExecutor mutex poisoned");
         if state.discarded {
             return Some("streaming_fallback");
         }
@@ -482,24 +494,33 @@ impl StreamingToolExecutor {
 
     /// Get the number of currently executing tools
     fn executing_count(&self) -> usize {
-        let state = self.state.lock().expect("StreamingToolExecutor mutex poisoned");
-        state.tools
+        let state = self
+            .state
+            .lock()
+            .expect("StreamingToolExecutor mutex poisoned");
+        state
+            .tools
             .iter()
             .filter(|t| t.status == ToolStatus::Executing)
             .count()
     }
 
-
     /// Check if there are any unfinished tools
     pub fn has_unfinished_tools(&self) -> bool {
-        let state = self.state.lock().expect("StreamingToolExecutor mutex poisoned");
+        let state = self
+            .state
+            .lock()
+            .expect("StreamingToolExecutor mutex poisoned");
         state.tools.iter().any(|t| t.status != ToolStatus::Yielded)
     }
 
     /// Get completed results that haven't been yielded.
     /// Stops on non-concurrency-safe executing tool (yielding order).
     pub fn get_completed_results(&self) -> Vec<(String, serde_json::Value)> {
-        let mut state = self.state.lock().expect("StreamingToolExecutor mutex poisoned");
+        let mut state = self
+            .state
+            .lock()
+            .expect("StreamingToolExecutor mutex poisoned");
         if state.discarded {
             return Vec::new();
         }
@@ -526,7 +547,10 @@ impl StreamingToolExecutor {
 
     /// Mark a tool as having errored (cascading error for sibling tools).
     pub fn mark_tool_errored(&self, tool_id: &str, _description: &str) {
-        let mut state = self.state.lock().expect("StreamingToolExecutor mutex poisoned");
+        let mut state = self
+            .state
+            .lock()
+            .expect("StreamingToolExecutor mutex poisoned");
         state.has_errored = true;
 
         if let Some(tool) = state.tools.iter_mut().find(|t| t.id == tool_id) {
@@ -536,11 +560,30 @@ impl StreamingToolExecutor {
 
     /// Get the current state summary for debugging
     pub fn summary(&self) -> String {
-        let state = self.state.lock().expect("StreamingToolExecutor mutex poisoned");
-        let queued = state.tools.iter().filter(|t| t.status == ToolStatus::Queued).count();
-        let executing = state.tools.iter().filter(|t| t.status == ToolStatus::Executing).count();
-        let completed = state.tools.iter().filter(|t| t.status == ToolStatus::Completed).count();
-        let yielded = state.tools.iter().filter(|t| t.status == ToolStatus::Yielded).count();
+        let state = self
+            .state
+            .lock()
+            .expect("StreamingToolExecutor mutex poisoned");
+        let queued = state
+            .tools
+            .iter()
+            .filter(|t| t.status == ToolStatus::Queued)
+            .count();
+        let executing = state
+            .tools
+            .iter()
+            .filter(|t| t.status == ToolStatus::Executing)
+            .count();
+        let completed = state
+            .tools
+            .iter()
+            .filter(|t| t.status == ToolStatus::Completed)
+            .count();
+        let yielded = state
+            .tools
+            .iter()
+            .filter(|t| t.status == ToolStatus::Yielded)
+            .count();
         let discarded = state.discarded;
         drop(state);
         format!(
@@ -558,33 +601,50 @@ impl StreamingToolExecutor {
     ) -> Vec<(String, Result<crate::types::ToolResult, crate::AgentError>)> {
         // ── Synchronous phase: collect can-run tools and mark them executing ──
         let (can_run, max_concurrency) = {
-            let state = self.state.lock().expect("StreamingToolExecutor mutex poisoned");
+            let state = self
+                .state
+                .lock()
+                .expect("StreamingToolExecutor mutex poisoned");
 
             let mut can_run: Vec<(String, serde_json::Value, serde_json::Value, bool)> = Vec::new();
 
             for tool in &state.tools {
-                if tool.status != ToolStatus::Queued { continue; }
-                if tool.has_errored { continue; }
+                if tool.status != ToolStatus::Queued {
+                    continue;
+                }
+                if tool.has_errored {
+                    continue;
+                }
 
                 let block = tool.block.clone();
                 let tool_id = tool.id.clone();
 
-                let blocked = state.tools.iter().any(|t| {
-                    t.status == ToolStatus::Executing && !t.is_concurrency_safe
-                });
+                let blocked = state
+                    .tools
+                    .iter()
+                    .any(|t| t.status == ToolStatus::Executing && !t.is_concurrency_safe);
                 if blocked && !tool.is_concurrency_safe {
                     continue;
                 }
 
-                let executing_in_state = state.tools.iter()
+                let executing_in_state = state
+                    .tools
+                    .iter()
                     .filter(|t| t.status == ToolStatus::Executing)
                     .count();
                 if executing_in_state >= state.max_concurrency {
                     continue;
                 }
 
-                let name = block.get("name").and_then(|n| n.as_str()).unwrap_or("").to_string();
-                let args = block.get("arguments").cloned().unwrap_or(serde_json::Value::Null);
+                let name = block
+                    .get("name")
+                    .and_then(|n| n.as_str())
+                    .unwrap_or("")
+                    .to_string();
+                let args = block
+                    .get("arguments")
+                    .cloned()
+                    .unwrap_or(serde_json::Value::Null);
                 can_run.push((tool_id, block, args, tool.is_concurrency_safe));
             }
 
@@ -593,7 +653,10 @@ impl StreamingToolExecutor {
 
             // Mark can-run tools as executing
             {
-                let mut state = self.state.lock().expect("StreamingToolExecutor mutex poisoned");
+                let mut state = self
+                    .state
+                    .lock()
+                    .expect("StreamingToolExecutor mutex poisoned");
                 for (tool_id, _, _, _) in &can_run {
                     if let Some(tool) = state.tools.iter_mut().find(|t| t.id == *tool_id) {
                         tool.status = ToolStatus::Executing;
@@ -616,7 +679,11 @@ impl StreamingToolExecutor {
             let mut handles = Vec::new();
 
             for (tool_id, block, args, _is_safe) in &can_run[chunk_start..chunk_end] {
-                let name = block.get("name").and_then(|n| n.as_str()).unwrap_or("").to_string();
+                let name = block
+                    .get("name")
+                    .and_then(|n| n.as_str())
+                    .unwrap_or("")
+                    .to_string();
                 let tid = tool_id.clone();
                 let args = args.clone();
                 let exec = executor_fn.clone();
@@ -627,15 +694,24 @@ impl StreamingToolExecutor {
 
                     // Mark as completed
                     {
-                        let mut st = state_arc.lock().expect("StreamingToolExecutor mutex poisoned");
+                        let mut st = state_arc
+                            .lock()
+                            .expect("StreamingToolExecutor mutex poisoned");
                         if let Some(tool) = st.tools.iter_mut().find(|t| t.id == tid) {
                             tool.status = ToolStatus::Completed;
                         }
                     }
 
                     let result = Ok(tool_result);
-                    if result.as_ref().map(|r| r.is_error == Some(true)).unwrap_or(false) {
-                        state_arc.lock().expect("StreamingToolExecutor mutex poisoned").has_errored = true;
+                    if result
+                        .as_ref()
+                        .map(|r| r.is_error == Some(true))
+                        .unwrap_or(false)
+                    {
+                        state_arc
+                            .lock()
+                            .expect("StreamingToolExecutor mutex poisoned")
+                            .has_errored = true;
                     }
 
                     (tid, result)
@@ -646,9 +722,10 @@ impl StreamingToolExecutor {
             // Collect results for this chunk
             for handle in handles {
                 let (tool_id, result) = handle.await.unwrap_or_else(|e| {
-                    ("unknown".to_string(), Err(crate::AgentError::Tool(format!(
-                        "Task panicked: {}", e
-                    ))))
+                    (
+                        "unknown".to_string(),
+                        Err(crate::AgentError::Tool(format!("Task panicked: {}", e))),
+                    )
                 });
                 results.push((tool_id, result));
             }
@@ -657,7 +734,6 @@ impl StreamingToolExecutor {
         results
     }
 }
-
 
 #[cfg(test)]
 mod tests {
@@ -748,7 +824,9 @@ mod tests {
     #[test]
     fn test_is_user_abort_error() {
         assert!(is_user_abort_error(&AgentError::UserAborted));
-        assert!(!is_user_abort_error(&AgentError::Api("timeout".to_string())));
+        assert!(!is_user_abort_error(&AgentError::Api(
+            "timeout".to_string()
+        )));
     }
 
     #[test]
@@ -788,10 +866,7 @@ mod tests {
         assert!(executor.can_execute_tool(false));
 
         // Simulate a concurrency-safe tool executing
-        executor.add_tool(
-            serde_json::json!({"id": "tool_1", "name": "Bash"}),
-            true,
-        );
+        executor.add_tool(serde_json::json!({"id": "tool_1", "name": "Bash"}), true);
         {
             let mut state = executor.state.lock().expect("mutex poisoned");
             state.tools[0].status = ToolStatus::Executing;
@@ -808,10 +883,7 @@ mod tests {
         let abort = Arc::new(AtomicBool::new(false));
         let mut executor = StreamingToolExecutor::new(abort);
 
-        executor.add_tool(
-            serde_json::json!({"id": "tool_1", "name": "Bash"}),
-            true,
-        );
+        executor.add_tool(serde_json::json!({"id": "tool_1", "name": "Bash"}), true);
         executor.discard();
 
         let results = executor.get_completed_results();

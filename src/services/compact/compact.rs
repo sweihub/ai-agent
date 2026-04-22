@@ -200,7 +200,8 @@ pub async fn compact_messages(
     };
 
     // Select which groups to compact
-    let (kept_groups, compacted_groups) = select_groups_to_compact(&groups, target_tokens, direction);
+    let (kept_groups, compacted_groups) =
+        select_groups_to_compact(&groups, target_tokens, direction);
 
     // Build the result
     let messages_to_keep: Vec<Message> = kept_groups
@@ -214,7 +215,10 @@ pub async fn compact_messages(
     let summary = create_compact_summary(&compacted_groups);
 
     // Calculate tokens after compaction
-    let tokens_after: u64 = messages_to_keep.iter().map(estimate_tokens_for_message).sum();
+    let tokens_after: u64 = messages_to_keep
+        .iter()
+        .map(estimate_tokens_for_message)
+        .sum();
 
     log::info!(
         "[compact] Compacted {} messages: {} -> {} tokens (direction: {:?})",
@@ -243,9 +247,7 @@ fn select_groups_to_compact(
     direction: CompactDirection,
 ) -> (Vec<&MessageGroup>, Vec<&MessageGroup>) {
     // Always keep the boundary group (most recent conversation)
-    let (boundary, non_boundary): (Vec<_>, Vec<_>) = groups
-        .iter()
-        .partition(|g| g.is_boundary);
+    let (boundary, non_boundary): (Vec<_>, Vec<_>) = groups.iter().partition(|g| g.is_boundary);
 
     // Calculate remaining budget after keeping boundary
     let boundary_tokens: u64 = boundary.iter().map(|g| g.token_count).sum();
@@ -474,20 +476,20 @@ mod tests {
 
     #[tokio::test]
     async fn test_compact_messages_empty() {
-        let result = compact_messages(&[], CompactOptions::default()).await.unwrap();
+        let result = compact_messages(&[], CompactOptions::default())
+            .await
+            .unwrap();
         assert!(result.success);
         assert_eq!(result.messages_removed, 0);
     }
 
     #[tokio::test]
     async fn test_compact_messages_within_budget() {
-        let messages = vec![
-            Message {
-                role: MessageRole::User,
-                content: "Short message".to_string(),
-                ..Default::default()
-            },
-        ];
+        let messages = vec![Message {
+            role: MessageRole::User,
+            content: "Short message".to_string(),
+            ..Default::default()
+        }];
         let options = CompactOptions {
             max_tokens: Some(1000000),
             ..Default::default()

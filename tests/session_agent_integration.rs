@@ -8,9 +8,9 @@
 //! - Context compaction (token estimation, thresholds, truncation)
 //! - Session memory (threshold checks, state management)
 
-use ai_agent::types::{AgentOptions, Message, MessageRole, ToolDefinition, ToolInputSchema};
 use ai_agent::Agent;
 use ai_agent::env::EnvConfig;
+use ai_agent::types::{Message, MessageRole, ToolDefinition, ToolInputSchema};
 use std::sync::Mutex;
 
 // ============================================================================
@@ -65,7 +65,9 @@ async fn test_session_save_load_roundtrip() {
 /// Loading a nonexistent session returns None.
 #[tokio::test]
 async fn test_load_nonexistent_session() {
-    let loaded = ai_agent::session::load_session("int-nonexistent-xyz").await.unwrap();
+    let loaded = ai_agent::session::load_session("int-nonexistent-xyz")
+        .await
+        .unwrap();
     assert!(loaded.is_none());
 }
 
@@ -73,7 +75,9 @@ async fn test_load_nonexistent_session() {
 #[tokio::test]
 async fn test_append_to_session() {
     let sid = "int-append-session";
-    ai_agent::session::save_session(sid, vec![], None).await.unwrap();
+    ai_agent::session::save_session(sid, vec![], None)
+        .await
+        .unwrap();
 
     ai_agent::session::append_to_session(
         sid,
@@ -120,12 +124,16 @@ async fn test_fork_session() {
     assert!(fork_id.is_some());
     let fork_id = fork_id.unwrap();
 
-    let fork_msgs = ai_agent::session::get_session_messages(&fork_id).await.unwrap();
+    let fork_msgs = ai_agent::session::get_session_messages(&fork_id)
+        .await
+        .unwrap();
     assert_eq!(fork_msgs.len(), 2);
     assert_eq!(fork_msgs[0].content, "Original message");
 
     // Source should still be intact
-    let src_msgs = ai_agent::session::get_session_messages(source).await.unwrap();
+    let src_msgs = ai_agent::session::get_session_messages(source)
+        .await
+        .unwrap();
     assert_eq!(src_msgs.len(), 2);
 
     ai_agent::session::delete_session(source).await.unwrap();
@@ -136,12 +144,22 @@ async fn test_fork_session() {
 #[tokio::test]
 async fn test_rename_session() {
     let sid = "int-rename-session";
-    ai_agent::session::save_session(sid, vec![], None).await.unwrap();
+    ai_agent::session::save_session(sid, vec![], None)
+        .await
+        .unwrap();
 
-    ai_agent::session::rename_session(sid, "My Integration Test Session").await.unwrap();
+    ai_agent::session::rename_session(sid, "My Integration Test Session")
+        .await
+        .unwrap();
 
-    let info = ai_agent::session::get_session_info(sid).await.unwrap().unwrap();
-    assert_eq!(info.summary, Some("My Integration Test Session".to_string()));
+    let info = ai_agent::session::get_session_info(sid)
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(
+        info.summary,
+        Some("My Integration Test Session".to_string())
+    );
 
     ai_agent::session::delete_session(sid).await.unwrap();
 }
@@ -150,16 +168,26 @@ async fn test_rename_session() {
 #[tokio::test]
 async fn test_tag_session() {
     let sid = "int-tag-session";
-    ai_agent::session::save_session(sid, vec![], None).await.unwrap();
+    ai_agent::session::save_session(sid, vec![], None)
+        .await
+        .unwrap();
 
-    ai_agent::session::tag_session(sid, Some("integration")).await.unwrap();
+    ai_agent::session::tag_session(sid, Some("integration"))
+        .await
+        .unwrap();
 
-    let info = ai_agent::session::get_session_info(sid).await.unwrap().unwrap();
+    let info = ai_agent::session::get_session_info(sid)
+        .await
+        .unwrap()
+        .unwrap();
     assert_eq!(info.tag, Some("integration".to_string()));
 
     // Untag
     ai_agent::session::tag_session(sid, None).await.unwrap();
-    let info = ai_agent::session::get_session_info(sid).await.unwrap().unwrap();
+    let info = ai_agent::session::get_session_info(sid)
+        .await
+        .unwrap()
+        .unwrap();
     assert!(info.tag.is_none());
 
     ai_agent::session::delete_session(sid).await.unwrap();
@@ -170,8 +198,12 @@ async fn test_tag_session() {
 async fn test_list_sessions() {
     let sid1 = "int-list-1";
     let sid2 = "int-list-2";
-    ai_agent::session::save_session(sid1, vec![], None).await.unwrap();
-    ai_agent::session::save_session(sid2, vec![], None).await.unwrap();
+    ai_agent::session::save_session(sid1, vec![], None)
+        .await
+        .unwrap();
+    ai_agent::session::save_session(sid2, vec![], None)
+        .await
+        .unwrap();
 
     let sessions = ai_agent::session::list_sessions().await.unwrap();
     let found_ids: Vec<&str> = sessions.iter().map(|s| s.id.as_str()).collect();
@@ -186,7 +218,9 @@ async fn test_list_sessions() {
 #[tokio::test]
 async fn test_delete_session() {
     let sid = "int-delete-session";
-    ai_agent::session::save_session(sid, sample_messages(), None).await.unwrap();
+    ai_agent::session::save_session(sid, sample_messages(), None)
+        .await
+        .unwrap();
 
     let result = ai_agent::session::delete_session(sid).await.unwrap();
     assert!(result);
@@ -206,7 +240,7 @@ async fn test_delete_session() {
 /// An agent gets a UUID session ID and can be inspected.
 #[test]
 fn test_agent_creates_session_id() {
-    let agent = Agent::new("test-model", 5);
+    let agent = Agent::new("test-model").max_turns(5);
     let sid = agent.get_session_id();
     assert!(!sid.is_empty());
     // UUID v4 format: 8-4-4-4-12 hex chars
@@ -223,12 +257,10 @@ async fn test_agent_accumulates_messages_on_prompt() {
     }
 
     let config = EnvConfig::load();
-    let mut agent = Agent::create(AgentOptions {
-        model: config.model.clone(),
-        max_turns: Some(1),
-        system_prompt: Some("You are a helpful assistant.".to_string()),
-        ..Default::default()
-    });
+    let agent = Agent::new("test-model")
+        .model(config.model.clone().unwrap().as_str())
+        .max_turns(1)
+        .system_prompt("You are a helpful assistant.");
 
     let result = agent
         .query("Say 'Hello Integration Test' and nothing else.")
@@ -239,7 +271,11 @@ async fn test_agent_accumulates_messages_on_prompt() {
     assert!(!resp.text.is_empty());
 
     let messages = agent.get_messages();
-    assert!(messages.len() >= 2, "Should have at least user+assistant messages, got {}", messages.len());
+    assert!(
+        messages.len() >= 2,
+        "Should have at least user+assistant messages, got {}",
+        messages.len()
+    );
 
     // First message should be the user prompt
     assert_eq!(messages[0].role, MessageRole::User);
@@ -260,26 +296,23 @@ async fn test_agent_emits_done_event() {
         std::sync::Arc::new(Mutex::new(Vec::new()));
     let events_clone = events.clone();
 
-    let mut agent = Agent::create(AgentOptions {
-        model: config.model.clone(),
-        max_turns: Some(1),
-        on_event: Some(std::sync::Arc::new(move |event| {
+    let agent = Agent::new("test-model")
+        .model(config.model.clone().unwrap().as_str())
+        .max_turns(1)
+        .on_event(move |event| {
             events_clone.lock().unwrap().push(event);
-        })),
-        ..Default::default()
-    });
+        });
 
-    let result = agent
-        .query("Say 'Done event test' and nothing else.")
-        .await;
+    let result = agent.query("Say 'Done event test' and nothing else.").await;
 
     assert!(result.is_ok());
     let events = events.lock().unwrap();
 
     // Done event may or may not be emitted depending on the response path
     // The important thing is the agent completed without panicking
-    let event_types: Vec<&str> = events.iter().map(|e| {
-        match e {
+    let event_types: Vec<&str> = events
+        .iter()
+        .map(|e| match e {
             ai_agent::types::AgentEvent::Done { .. } => "Done",
             ai_agent::types::AgentEvent::Thinking { .. } => "Thinking",
             ai_agent::types::AgentEvent::MessageStart { .. } => "MessageStart",
@@ -291,8 +324,8 @@ async fn test_agent_emits_done_event() {
             ai_agent::types::AgentEvent::ToolComplete { .. } => "ToolComplete",
             ai_agent::types::AgentEvent::ToolError { .. } => "ToolError",
             _ => "Other",
-        }
-    }).collect();
+        })
+        .collect();
 
     eprintln!("Events received: {:?}", event_types);
     assert!(!event_types.is_empty(), "Should have received some events");
@@ -308,19 +341,20 @@ async fn test_agent_max_turns_reason() {
 
     let config = EnvConfig::load();
 
-    let result = Agent::create(AgentOptions {
-        model: config.model.clone(),
-        max_turns: Some(1),
-        ..Default::default()
-    })
-    .query("Run `echo hello` and return the output.")
-    .await;
+    let result = Agent::new("test-model")
+        .model(config.model.clone().unwrap().as_str())
+        .max_turns(1)
+        .query("Run `echo hello` and return the output.")
+        .await;
 
-    assert!(result.is_ok(), "Agent should return a result even with max_turns=1");
+    assert!(
+        result.is_ok(),
+        "Agent should return a result even with max_turns=1"
+    );
     let resp = result.unwrap();
     // With max_turns=1, the agent might complete or hit the limit depending on the model
     match resp.exit_reason {
-        ai_agent::types::ExitReason::Completed | ai_agent::types::ExitReason::MaxTurns { .. } => {},
+        ai_agent::types::ExitReason::Completed | ai_agent::types::ExitReason::MaxTurns { .. } => {}
         other => eprintln!("Unexpected exit reason: {:?}", other),
     }
 }
@@ -339,29 +373,32 @@ async fn test_agent_session_persists_to_disk() {
 
     let config = EnvConfig::load();
 
-    let mut agent = Agent::create(AgentOptions {
-        model: config.model.clone(),
-        max_turns: Some(1),
-        system_prompt: Some("You are a test assistant.".to_string()),
-        ..Default::default()
-    });
+    let agent = Agent::new("test-model")
+        .model(config.model.clone().unwrap().as_str())
+        .max_turns(1)
+        .system_prompt("You are a test assistant.");
 
     let agent_sid = agent.get_session_id().to_string();
     let messages_before = agent.get_messages().len();
 
-    let result = agent
-        .query("Say 'PersistTest' and nothing else.")
-        .await;
+    let result = agent.query("Say 'PersistTest' and nothing else.").await;
 
     assert!(result.is_ok(), "Prompt should succeed");
     let messages_after = agent.get_messages().len();
-    assert!(messages_after > messages_before, "Agent should have accumulated messages");
+    assert!(
+        messages_after > messages_before,
+        "Agent should have accumulated messages"
+    );
 
     // Load the session from disk - the agent may or may not persist depending on config
     let loaded = ai_agent::session::load_session(&agent_sid).await.unwrap();
     match loaded {
         Some(data) => {
-            assert!(data.messages.len() >= 2, "Disk session should have messages, got {}", data.messages.len());
+            assert!(
+                data.messages.len() >= 2,
+                "Disk session should have messages, got {}",
+                data.messages.len()
+            );
         }
         None => {
             // Agent might not persist to disk automatically in all configurations
@@ -383,12 +420,10 @@ async fn test_agent_session_continuation() {
     let config = EnvConfig::load();
 
     // First agent: create a conversation
-    let mut agent1 = Agent::create(AgentOptions {
-        model: config.model.clone(),
-        max_turns: Some(1),
-        system_prompt: Some("You are a test assistant.".to_string()),
-        ..Default::default()
-    });
+    let agent1 = Agent::new("test-model")
+        .model(config.model.clone().unwrap().as_str())
+        .max_turns(1)
+        .system_prompt("You are a test assistant.");
 
     // Manually set the session ID to a known value
     // Since Agent doesn't expose a session_id setter, we use a different approach:
@@ -396,18 +431,13 @@ async fn test_agent_session_continuation() {
     let _ = agent1.get_session_id(); // just to get the ID for logging
 
     // We verify session persistence instead: first agent saves, second agent continues
-    let result1 = agent1
-        .query("Say 'FirstAgentSaid' and nothing else.")
-        .await;
-    assert!(result1.is_ok());
+    let _result1 = agent1.query("Say 'FirstAgentSaid' and nothing else.").await;
 
     // Second agent instance: same session, should continue
-    let mut agent2 = Agent::create(AgentOptions {
-        model: config.model.clone(),
-        max_turns: Some(1),
-        system_prompt: Some("You are a test assistant.".to_string()),
-        ..Default::default()
-    });
+    let agent2 = Agent::new("test-model")
+        .model(config.model.clone().unwrap().as_str())
+        .max_turns(1)
+        .system_prompt("You are a test assistant.");
 
     let result2 = agent2
         .query("What did the first agent say? Reply with 'Continued' and nothing else.")
@@ -529,14 +559,23 @@ fn test_compact_near_auto_compact() {
 /// should_compact returns false for small conversations.
 #[test]
 fn test_should_compact_small() {
-    assert!(!ai_agent::compact::should_compact(10_000, "claude-sonnet-4-6"));
-    assert!(!ai_agent::compact::should_compact(50_000, "claude-sonnet-4-6"));
+    assert!(!ai_agent::compact::should_compact(
+        10_000,
+        "claude-sonnet-4-6"
+    ));
+    assert!(!ai_agent::compact::should_compact(
+        50_000,
+        "claude-sonnet-4-6"
+    ));
 }
 
 /// should_compact returns true for large conversations.
 #[test]
 fn test_should_compact_large() {
-    assert!(ai_agent::compact::should_compact(170_000, "claude-sonnet-4-6"));
+    assert!(ai_agent::compact::should_compact(
+        170_000,
+        "claude-sonnet-4-6"
+    ));
 }
 
 /// Token estimation for a list of messages produces positive count.
@@ -570,7 +609,8 @@ fn test_truncate_messages_for_summary() {
         })
         .collect();
 
-    let (truncated, _tokens) = ai_agent::compact::truncate_messages_for_summary(&messages, "claude-sonnet-4-6", 20_000);
+    let (truncated, _tokens) =
+        ai_agent::compact::truncate_messages_for_summary(&messages, "claude-sonnet-4-6", 20_000);
     // Should fit most messages
     assert!(truncated.len() <= messages.len());
     // Should preserve message order (oldest first in truncated)
@@ -620,7 +660,11 @@ fn test_strip_reinjected_attachments() {
 
     let stripped = ai_agent::compact::strip_reinjected_attachments(&messages);
     assert_eq!(stripped.len(), 2);
-    assert!(stripped[0].content.contains("Skill attachment content cleared"));
+    assert!(
+        stripped[0]
+            .content
+            .contains("Skill attachment content cleared")
+    );
     assert_eq!(stripped[1].content, "Normal system prompt");
 }
 
@@ -677,9 +721,15 @@ fn test_session_memory_init_threshold() {
         ..Default::default()
     });
 
-    assert!(ai_agent::session_memory::has_met_initialization_threshold(1000));
-    assert!(ai_agent::session_memory::has_met_initialization_threshold(5000));
-    assert!(!ai_agent::session_memory::has_met_initialization_threshold(999));
+    assert!(ai_agent::session_memory::has_met_initialization_threshold(
+        1000
+    ));
+    assert!(ai_agent::session_memory::has_met_initialization_threshold(
+        5000
+    ));
+    assert!(!ai_agent::session_memory::has_met_initialization_threshold(
+        999
+    ));
 
     // Restore
     state.set_config(ai_agent::session_memory::DEFAULT_SESSION_MEMORY_CONFIG);
@@ -744,7 +794,9 @@ fn test_should_extract_memory_not_ready() {
         },
     ];
 
-    assert!(!ai_agent::session_memory::should_extract_memory(&short_messages));
+    assert!(!ai_agent::session_memory::should_extract_memory(
+        &short_messages
+    ));
 
     state.set_config(original);
 }
@@ -768,7 +820,10 @@ fn test_session_memory_paths() {
 #[test]
 fn test_tool_definition_with_schema() {
     let mut props = std::collections::HashMap::new();
-    props.insert("prompt".to_string(), serde_json::json!({ "type": "string" }));
+    props.insert(
+        "prompt".to_string(),
+        serde_json::json!({ "type": "string" }),
+    );
 
     let tool = ToolDefinition {
         name: "test_tool".to_string(),
@@ -809,15 +864,13 @@ async fn test_agent_message_accumulation() {
         std::sync::Arc::new(Mutex::new(Vec::new()));
     let events_clone = events.clone();
 
-    let mut agent = Agent::create(AgentOptions {
-        model: config.model.clone(),
-        max_turns: Some(3),
-        on_event: Some(std::sync::Arc::new(move |event| {
+    let agent = Agent::new("test-model")
+        .model(config.model.clone().unwrap().as_str())
+        .max_turns(3)
+        .on_event(move |event| {
             events_clone.lock().unwrap().push(event);
-        })),
-        system_prompt: Some("You are a concise assistant. Respond briefly.".to_string()),
-        ..Default::default()
-    });
+        })
+        .system_prompt("You are a concise assistant. Respond briefly.");
 
     let result = agent
         .query("Count from 1 to 3. Say '1 2 3' and nothing else.")
@@ -829,7 +882,11 @@ async fn test_agent_message_accumulation() {
 
     // Agent should have accumulated at least user + assistant messages
     let messages = agent.get_messages();
-    assert!(messages.len() >= 2, "Expected at least 2 messages, got {}", messages.len());
+    assert!(
+        messages.len() >= 2,
+        "Expected at least 2 messages, got {}",
+        messages.len()
+    );
     assert_eq!(messages[0].role, MessageRole::User);
     assert_eq!(messages[1].role, MessageRole::Assistant);
 }
@@ -844,12 +901,10 @@ async fn test_token_estimation_on_agent_messages() {
 
     let config = EnvConfig::load();
 
-    let mut agent = Agent::create(AgentOptions {
-        model: config.model.clone(),
-        max_turns: Some(1),
-        system_prompt: Some("You are concise.".to_string()),
-        ..Default::default()
-    });
+    let agent = Agent::new("test-model")
+        .model(config.model.clone().unwrap().as_str())
+        .max_turns(1)
+        .system_prompt("You are concise.");
 
     let _ = agent
         .query("Say 'TokenEstimationTest' and nothing else.")
@@ -859,7 +914,11 @@ async fn test_token_estimation_on_agent_messages() {
     let token_count = ai_agent::compact::estimate_token_count(&messages, 20_000);
     assert!(token_count > 0, "Token count should be positive");
     // estimate_token_count adds max_output_tokens (20000) as buffer, so total is ~20000+ for short convos
-    assert!(token_count < 30000, "Token count should be reasonable, got {}", token_count);
+    assert!(
+        token_count < 30000,
+        "Token count should be reasonable, got {}",
+        token_count
+    );
 }
 
 // ============================================================================
@@ -893,16 +952,25 @@ async fn test_fork_preserves_conversation() {
         },
     ];
 
-    ai_agent::session::save_session(source, messages.clone(), None).await.unwrap();
+    ai_agent::session::save_session(source, messages.clone(), None)
+        .await
+        .unwrap();
 
-    let fork_id = ai_agent::session::fork_session(source, None).await.unwrap().unwrap();
+    let fork_id = ai_agent::session::fork_session(source, None)
+        .await
+        .unwrap()
+        .unwrap();
 
     // Source should have all 4 messages
-    let src_messages = ai_agent::session::get_session_messages(source).await.unwrap();
+    let src_messages = ai_agent::session::get_session_messages(source)
+        .await
+        .unwrap();
     assert_eq!(src_messages.len(), 4);
 
     // Fork should also have all 4 messages
-    let fork_messages = ai_agent::session::get_session_messages(&fork_id).await.unwrap();
+    let fork_messages = ai_agent::session::get_session_messages(&fork_id)
+        .await
+        .unwrap();
     assert_eq!(fork_messages.len(), 4);
 
     // Message content should match
@@ -922,19 +990,20 @@ async fn test_fork_preserves_conversation() {
 /// Agent with no model either errors or returns a result (no panic).
 #[tokio::test]
 async fn test_agent_prompt_without_model_fails_gracefully() {
-    let result = Agent::create(AgentOptions {
-        model: None,
-        max_turns: Some(1),
-        ..Default::default()
-    })
-    .query("This should fail or be handled gracefully.")
-    .await;
+    let result = Agent::new("test-model")
+        .max_turns(1)
+        .query("This should fail or be handled gracefully.")
+        .await;
 
     // Depending on implementation, this either errors or the agent handles missing model
     // The key is it doesn't panic
     match result {
         Ok(resp) => {
-            eprintln!("No-model agent returned result (exit_reason={:?}): {}", resp.exit_reason, resp.text.chars().take(50).collect::<String>());
+            eprintln!(
+                "No-model agent returned result (exit_reason={:?}): {}",
+                resp.exit_reason,
+                resp.text.chars().take(50).collect::<String>()
+            );
         }
         Err(_) => {
             // Expected: error when no model is set
@@ -952,19 +1021,21 @@ async fn test_agent_zero_max_turns() {
 
     let config = EnvConfig::load();
 
-    let result = Agent::create(AgentOptions {
-        model: config.model.clone(),
-        max_turns: Some(0),
-        ..Default::default()
-    })
-    .query("This should hit max turns.")
-    .await;
+    let result = Agent::new("test-model")
+        .model(config.model.clone().unwrap().as_str())
+        .max_turns(0)
+        .query("This should hit max turns.")
+        .await;
 
     // With 0 max turns, the agent might still get a response from the API
     // (it checks max turns before starting the loop, but the prompt might succeed)
     match result {
         Ok(resp) => {
-            eprintln!("Zero max turns still got a response (exit_reason={:?}): {}", resp.exit_reason, resp.text.chars().take(50).collect::<String>());
+            eprintln!(
+                "Zero max turns still got a response (exit_reason={:?}): {}",
+                resp.exit_reason,
+                resp.text.chars().take(50).collect::<String>()
+            );
         }
         Err(e) => {
             eprintln!("Zero max turns returned error as expected: {:?}", e);
@@ -980,10 +1051,15 @@ async fn test_agent_zero_max_turns() {
 #[tokio::test]
 async fn test_session_metadata_message_count() {
     let sid = "int-metadata-count";
-    ai_agent::session::save_session(sid, vec![], None).await.unwrap();
+    ai_agent::session::save_session(sid, vec![], None)
+        .await
+        .unwrap();
 
     // Initial: 0 messages
-    let info = ai_agent::session::get_session_info(sid).await.unwrap().unwrap();
+    let info = ai_agent::session::get_session_info(sid)
+        .await
+        .unwrap()
+        .unwrap();
     assert_eq!(info.message_count, 0);
 
     // After append: 1 message
@@ -998,7 +1074,10 @@ async fn test_session_metadata_message_count() {
     .await
     .unwrap();
 
-    let info = ai_agent::session::get_session_info(sid).await.unwrap().unwrap();
+    let info = ai_agent::session::get_session_info(sid)
+        .await
+        .unwrap()
+        .unwrap();
     assert_eq!(info.message_count, 1);
 
     // After append: 2 messages
@@ -1013,7 +1092,10 @@ async fn test_session_metadata_message_count() {
     .await
     .unwrap();
 
-    let info = ai_agent::session::get_session_info(sid).await.unwrap().unwrap();
+    let info = ai_agent::session::get_session_info(sid)
+        .await
+        .unwrap()
+        .unwrap();
     assert_eq!(info.message_count, 2);
 
     ai_agent::session::delete_session(sid).await.unwrap();
@@ -1023,9 +1105,14 @@ async fn test_session_metadata_message_count() {
 #[tokio::test]
 async fn test_session_metadata_timestamps() {
     let sid = "int-metadata-timestamps";
-    ai_agent::session::save_session(sid, vec![], None).await.unwrap();
+    ai_agent::session::save_session(sid, vec![], None)
+        .await
+        .unwrap();
 
-    let info = ai_agent::session::get_session_info(sid).await.unwrap().unwrap();
+    let info = ai_agent::session::get_session_info(sid)
+        .await
+        .unwrap()
+        .unwrap();
     assert!(!info.created_at.is_empty());
     assert!(!info.updated_at.is_empty());
 
@@ -1047,7 +1134,10 @@ async fn test_session_metadata_timestamps() {
     .await
     .unwrap();
 
-    let info = ai_agent::session::get_session_info(sid).await.unwrap().unwrap();
+    let info = ai_agent::session::get_session_info(sid)
+        .await
+        .unwrap()
+        .unwrap();
     let updated = chrono::DateTime::parse_from_rfc3339(&info.updated_at).unwrap();
     assert!(updated > created, "updated_at should be after created_at");
 
@@ -1100,7 +1190,10 @@ async fn test_query_engine_with_custom_tool() {
     use ai_agent::query_engine::{QueryEngine, QueryEngineConfig};
 
     let mut engine = QueryEngine::new(QueryEngineConfig {
-        cwd: std::env::current_dir().unwrap().to_string_lossy().to_string(),
+        cwd: std::env::current_dir()
+            .unwrap()
+            .to_string_lossy()
+            .to_string(),
         model: "test-model".to_string(),
         api_key: Some("test-key".to_string()),
         base_url: Some("http://localhost:9999".to_string()), // Invalid URL - should fail gracefully
@@ -1120,7 +1213,11 @@ async fn test_query_engine_with_custom_tool() {
 
     // Should fail with connection error (no real API server)
     let result = engine.submit_message("Hello").await;
-    assert!(result.is_err(), "Should fail without real API server: {:?}", result.err());
+    assert!(
+        result.is_err(),
+        "Should fail without real API server: {:?}",
+        result.err()
+    );
 }
 
 // ============================================================================

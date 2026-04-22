@@ -5,11 +5,7 @@
 use crate::memdir::memdir::{DIR_EXISTS_GUIDANCE, ENTRYPOINT_NAME, MAX_ENTRYPOINT_LINES};
 
 /// Build the consolidation prompt for the /dream background subagent.
-pub fn build_consolidation_prompt(
-    memory_root: &str,
-    transcript_dir: &str,
-    extra: &str,
-) -> String {
+pub fn build_consolidation_prompt(memory_root: &str, transcript_dir: &str, extra: &str) -> String {
     let extra_section = if extra.trim().is_empty() {
         String::new()
     } else {

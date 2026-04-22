@@ -18,6 +18,7 @@ use futures_util::Stream;
 /// # Example
 ///
 /// ```rust,ignore
+/// let agent = Agent::new("claude-sonnet-4-6");
 /// let (mut sub, _guard) = agent.subscribe();
 ///
 /// tokio::spawn(async move {

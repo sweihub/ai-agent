@@ -15,13 +15,34 @@ pub struct AgentSourceGroup {
 
 /// Ordered list of agent source groups for display.
 pub const AGENT_SOURCE_GROUPS: &[AgentSourceGroup] = &[
-    AgentSourceGroup { label: "User agents", source: "userSettings" },
-    AgentSourceGroup { label: "Project agents", source: "projectSettings" },
-    AgentSourceGroup { label: "Local agents", source: "localSettings" },
-    AgentSourceGroup { label: "Managed agents", source: "policySettings" },
-    AgentSourceGroup { label: "Plugin agents", source: "plugin" },
-    AgentSourceGroup { label: "CLI arg agents", source: "flagSettings" },
-    AgentSourceGroup { label: "Built-in agents", source: "built-in" },
+    AgentSourceGroup {
+        label: "User agents",
+        source: "userSettings",
+    },
+    AgentSourceGroup {
+        label: "Project agents",
+        source: "projectSettings",
+    },
+    AgentSourceGroup {
+        label: "Local agents",
+        source: "localSettings",
+    },
+    AgentSourceGroup {
+        label: "Managed agents",
+        source: "policySettings",
+    },
+    AgentSourceGroup {
+        label: "Plugin agents",
+        source: "plugin",
+    },
+    AgentSourceGroup {
+        label: "CLI arg agents",
+        source: "flagSettings",
+    },
+    AgentSourceGroup {
+        label: "Built-in agents",
+        source: "built-in",
+    },
 ];
 
 /// Agent definition with override information.
@@ -74,7 +95,10 @@ pub fn resolve_agent_overrides(
 
 /// Resolve the display model string for an agent.
 pub fn resolve_agent_model_display(agent: &AgentDefinition) -> Option<String> {
-    let model = agent.model.as_deref().unwrap_or_else(|| get_default_subagent_model().unwrap_or("sonnet"));
+    let model = agent
+        .model
+        .as_deref()
+        .unwrap_or_else(|| get_default_subagent_model().unwrap_or("sonnet"));
     if model.is_empty() {
         return None;
     }

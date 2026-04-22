@@ -507,10 +507,7 @@ pub fn create_session_spawner(
         // Build env
         let mut env = deps.env.clone();
         env.remove("AI_CODE_OAUTH_TOKEN");
-        env.insert(
-            "AI_CODE_ENVIRONMENT_KIND".to_string(),
-            "bridge".to_string(),
-        );
+        env.insert("AI_CODE_ENVIRONMENT_KIND".to_string(), "bridge".to_string());
 
         if deps.sandbox {
             env.insert("AI_CODE_FORCE_SANDBOX".to_string(), "1".to_string());

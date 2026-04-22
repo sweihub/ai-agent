@@ -4,7 +4,7 @@
 //! Provides a tool for the agent to invoke external skills with inline or forked execution.
 
 use crate::error::AgentError;
-use crate::skills::loader::{load_skills_from_dir, LoadedSkill};
+use crate::skills::loader::{LoadedSkill, load_skills_from_dir};
 use crate::types::*;
 use std::collections::HashMap;
 use std::path::Path;
@@ -158,7 +158,7 @@ impl SkillTool {
                         self.get_skill_groups()
                     ),
                     is_error: Some(true),
-                was_persisted: None,
+                    was_persisted: None,
                 });
             }
 
@@ -168,7 +168,11 @@ impl SkillTool {
                 content: format!(
                     "Skills matching '{}':\n{}",
                     prefix,
-                    matching.iter().map(|s| format!("  - {}", s)).collect::<Vec<_>>().join("\n")
+                    matching
+                        .iter()
+                        .map(|s| format!("  - {}", s))
+                        .collect::<Vec<_>>()
+                        .join("\n")
                 ),
                 is_error: Some(false),
                 was_persisted: None,
@@ -183,10 +187,7 @@ impl SkillTool {
                 Mode: {}\n\
                 \n{}\n\n\
                 You can now use tools to complete the task.",
-                skill_name,
-                &skill.metadata.description,
-                mode,
-                skill.content
+                skill_name, &skill.metadata.description, mode, skill.content
             );
 
             // In fork mode, we would spawn a sub-agent with this skill
@@ -204,7 +205,7 @@ impl SkillTool {
                         content.len()
                     ),
                     is_error: Some(false),
-                was_persisted: None,
+                    was_persisted: None,
                 });
             }
 
@@ -227,8 +228,7 @@ impl SkillTool {
                     "Remote skill '{}' loaded successfully.\n\
                     \n{}\n\n\
                     You can now use tools to complete the task.",
-                    skill_name,
-                    remote_content
+                    skill_name, remote_content
                 ),
                 is_error: Some(false),
                 was_persisted: None,
@@ -250,11 +250,7 @@ impl SkillTool {
             for name in &available {
                 let guard = get_skills_map().lock().unwrap();
                 if let Some(skill) = guard.get(name) {
-                    content.push_str(&format!(
-                        "  - {}: {}\n",
-                        name,
-                        &skill.metadata.description
-                    ));
+                    content.push_str(&format!("  - {}: {}\n", name, &skill.metadata.description));
                 } else {
                     content.push_str(&format!("  - {}\n", name));
                 }
@@ -353,6 +349,13 @@ mod tests {
         let content = result.unwrap().content;
         // The content should mention either skills matching or not found
         let lower = content.to_lowercase();
-        assert!(lower.contains("skill") || lower.contains("matching") || lower.contains("found") || lower.contains("available"), "Content: {}", content);
+        assert!(
+            lower.contains("skill")
+                || lower.contains("matching")
+                || lower.contains("found")
+                || lower.contains("available"),
+            "Content: {}",
+            content
+        );
     }
 }

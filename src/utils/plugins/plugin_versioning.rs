@@ -36,7 +36,11 @@ pub async fn calculate_plugin_version(
     // 3. Use pre-resolved git SHA
     if let Some(sha) = git_commit_sha {
         let short_sha = &sha[..sha.len().min(12)];
-        log::debug!("Using pre-resolved git SHA for {}: {}", plugin_id, short_sha);
+        log::debug!(
+            "Using pre-resolved git SHA for {}: {}",
+            plugin_id,
+            short_sha
+        );
         return short_sha.to_string();
     }
 
@@ -55,7 +59,9 @@ pub async fn calculate_plugin_version(
 }
 
 /// Get the git commit SHA for a directory.
-pub fn get_git_commit_sha(_dir_path: &str) -> Result<Option<String>, Box<dyn std::error::Error + Send + Sync>> {
+pub fn get_git_commit_sha(
+    _dir_path: &str,
+) -> Result<Option<String>, Box<dyn std::error::Error + Send + Sync>> {
     Ok(None)
 }
 
@@ -63,9 +69,7 @@ pub fn get_git_commit_sha(_dir_path: &str) -> Result<Option<String>, Box<dyn std
 pub fn get_version_from_path(install_path: &str) -> Option<String> {
     let parts: Vec<&str> = install_path.split('/').filter(|p| !p.is_empty()).collect();
 
-    let cache_index = parts
-        .iter()
-        .position(|&p| p == "cache");
+    let cache_index = parts.iter().position(|&p| p == "cache");
 
     if let Some(idx) = cache_index {
         let components_after_cache = &parts[idx + 1..];

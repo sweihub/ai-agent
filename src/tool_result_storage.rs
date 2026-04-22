@@ -59,7 +59,10 @@ pub fn maybe_persist_large_result(
                 PREVIEW_SIZE_BYTES,
                 preview.text,
                 if persisted.has_more {
-                    format!("... [{} more bytes] ...", persisted.original_size - PREVIEW_SIZE_BYTES)
+                    format!(
+                        "... [{} more bytes] ...",
+                        persisted.original_size - PREVIEW_SIZE_BYTES
+                    )
                 } else {
                     String::new()
                 },
@@ -69,7 +72,10 @@ pub fn maybe_persist_large_result(
         Err(_) => {
             // If persistence fails, just truncate
             let truncated = if content.len() > threshold * 2 {
-                format!("{}... [truncated]", &content[..threshold.min(content.len())])
+                format!(
+                    "{}... [truncated]",
+                    &content[..threshold.min(content.len())]
+                )
             } else {
                 content.to_string()
             };
@@ -193,14 +199,8 @@ mod tests {
 
     #[test]
     fn test_empty_content_returns_message() {
-        let (content, _) = maybe_persist_large_result(
-            "",
-            "tool1",
-            "Bash",
-            Some("/tmp"),
-            Some("sess1"),
-            100,
-        );
+        let (content, _) =
+            maybe_persist_large_result("", "tool1", "Bash", Some("/tmp"), Some("sess1"), 100);
         assert_eq!(content, "(Bash completed with no output)");
     }
 

@@ -197,11 +197,21 @@ pub struct PluginInfo {
 /// Resolution result for install
 #[derive(Debug)]
 pub enum InstallResolutionResult {
-    Success { dep_note: String },
-    LocalSourceNoLocation { plugin_name: String },
-    SettingsWriteFailed { message: String },
-    ResolutionFailed { resolution: String },
-    BlockedByPolicy { plugin_name: String },
+    Success {
+        dep_note: String,
+    },
+    LocalSourceNoLocation {
+        plugin_name: String,
+    },
+    SettingsWriteFailed {
+        message: String,
+    },
+    ResolutionFailed {
+        resolution: String,
+    },
+    BlockedByPolicy {
+        plugin_name: String,
+    },
     DependencyBlockedByPolicy {
         plugin_name: String,
         blocked_dependency: String,
@@ -306,11 +316,7 @@ fn load_installed_plugins_v2() -> InstalledPluginsV2 {
 }
 
 /// Remove a plugin installation from disk
-fn remove_plugin_installation(
-    _plugin_id: &str,
-    _scope: &str,
-    _project_path: Option<&str>,
-) {
+fn remove_plugin_installation(_plugin_id: &str, _scope: &str, _project_path: Option<&str>) {
     // In production, this would update installed_plugins_v2.json
     log::debug!(
         "Removing plugin installation: {} scope={} project_path={:?}",
@@ -492,10 +498,7 @@ fn get_plugin_editable_scopes() -> BTreeSet<String> {
 // ============================================================================
 
 /// Find reverse dependents of a plugin
-fn find_reverse_dependents(
-    _plugin_id: &str,
-    _all_plugins: &[LoadedPlugin],
-) -> Vec<String> {
+fn find_reverse_dependents(_plugin_id: &str, _all_plugins: &[LoadedPlugin]) -> Vec<String> {
     Vec::new()
 }
 
@@ -578,7 +581,11 @@ struct PluginInSettingsResult {
 fn find_plugin_in_settings(plugin: &str) -> Option<PluginInSettingsResult> {
     let has_marketplace = plugin.contains('@');
     // Most specific first -- first match wins
-    let search_order = [InstallableScope::Local, InstallableScope::Project, InstallableScope::User];
+    let search_order = [
+        InstallableScope::Local,
+        InstallableScope::Project,
+        InstallableScope::User,
+    ];
 
     for scope in search_order {
         let source = scope_to_setting_source(scope);
@@ -688,18 +695,20 @@ pub fn get_plugin_installation_from_v2(plugin_id: &str) -> (String, Option<Strin
         .map(|p| p.to_string_lossy().to_string());
 
     // Find installations by priority: local > project > user > managed
-    if let Some(local_install) = installations.iter().find(|inst| {
-        inst.scope == "local" && inst.project_path == current_project_path
-    }) {
+    if let Some(local_install) = installations
+        .iter()
+        .find(|inst| inst.scope == "local" && inst.project_path == current_project_path)
+    {
         return (
             local_install.scope.clone(),
             local_install.project_path.clone(),
         );
     }
 
-    if let Some(project_install) = installations.iter().find(|inst| {
-        inst.scope == "project" && inst.project_path == current_project_path
-    }) {
+    if let Some(project_install) = installations
+        .iter()
+        .find(|inst| inst.scope == "project" && inst.project_path == current_project_path)
+    {
         return (
             project_install.scope.clone(),
             project_install.project_path.clone(),
@@ -707,7 +716,10 @@ pub fn get_plugin_installation_from_v2(plugin_id: &str) -> (String, Option<Strin
     }
 
     if let Some(user_install) = installations.iter().find(|inst| inst.scope == "user") {
-        return (user_install.scope.clone(), user_install.project_path.clone());
+        return (
+            user_install.scope.clone(),
+            user_install.project_path.clone(),
+        );
     }
 
     // Fall back to first installation (could be managed)
@@ -738,10 +750,7 @@ pub fn get_plugin_installation_from_v2(plugin_id: &str) -> (String, Option<Strin
 ///
 /// # Returns
 /// Result indicating success/failure
-pub async fn install_plugin_op(
-    plugin: &str,
-    scope: InstallableScope,
-) -> PluginOperationResult {
+pub async fn install_plugin_op(plugin: &str, scope: InstallableScope) -> PluginOperationResult {
     let (plugin_name, marketplace_name) = parse_plugin_identifier(plugin);
     let plugin_name = plugin_name.unwrap_or_else(|| plugin.to_string());
 
@@ -763,7 +772,9 @@ pub async fn install_plugin_op(
                 tokio::time::timeout(std::time::Duration::from_secs(5), get_marketplace(mkt_name))
                     .await
             {
-                if let Some(plugin_entry) = marketplace.plugins.iter().find(|p| p.name == plugin_name) {
+                if let Some(plugin_entry) =
+                    marketplace.plugins.iter().find(|p| p.name == plugin_name)
+                {
                     found_plugin = Some(plugin_entry.clone());
                     found_marketplace = Some(mkt_name.clone());
                     marketplace_install_location = mkt_config
@@ -815,29 +826,25 @@ pub async fn install_plugin_op(
             scope: Some(scope.to_string()),
             reverse_dependents: None,
         },
-        InstallResolutionResult::LocalSourceNoLocation { plugin_name } => {
-            PluginOperationResult {
-                success: false,
-                message: format!(
-                    "Cannot install local plugin \"{}\" without marketplace install location",
-                    plugin_name
-                ),
-                plugin_id: None,
-                plugin_name: None,
-                scope: None,
-                reverse_dependents: None,
-            }
-        }
-        InstallResolutionResult::SettingsWriteFailed { message } => {
-            PluginOperationResult {
-                success: false,
-                message: format!("Failed to update settings: {}", message),
-                plugin_id: None,
-                plugin_name: None,
-                scope: None,
-                reverse_dependents: None,
-            }
-        }
+        InstallResolutionResult::LocalSourceNoLocation { plugin_name } => PluginOperationResult {
+            success: false,
+            message: format!(
+                "Cannot install local plugin \"{}\" without marketplace install location",
+                plugin_name
+            ),
+            plugin_id: None,
+            plugin_name: None,
+            scope: None,
+            reverse_dependents: None,
+        },
+        InstallResolutionResult::SettingsWriteFailed { message } => PluginOperationResult {
+            success: false,
+            message: format!("Failed to update settings: {}", message),
+            plugin_id: None,
+            plugin_name: None,
+            scope: None,
+            reverse_dependents: None,
+        },
         InstallResolutionResult::ResolutionFailed { resolution } => PluginOperationResult {
             success: false,
             message: format_resolution_error(&resolution),
@@ -846,19 +853,17 @@ pub async fn install_plugin_op(
             scope: None,
             reverse_dependents: None,
         },
-        InstallResolutionResult::BlockedByPolicy { plugin_name } => {
-            PluginOperationResult {
-                success: false,
-                message: format!(
-                    "Plugin \"{}\" is blocked by your organization's policy and cannot be installed",
-                    plugin_name
-                ),
-                plugin_id: None,
-                plugin_name: None,
-                scope: None,
-                reverse_dependents: None,
-            }
-        }
+        InstallResolutionResult::BlockedByPolicy { plugin_name } => PluginOperationResult {
+            success: false,
+            message: format!(
+                "Plugin \"{}\" is blocked by your organization's policy and cannot be installed",
+                plugin_name
+            ),
+            plugin_id: None,
+            plugin_name: None,
+            scope: None,
+            reverse_dependents: None,
+        },
         InstallResolutionResult::DependencyBlockedByPolicy {
             plugin_name,
             blocked_dependency,
@@ -891,10 +896,7 @@ pub async fn uninstall_plugin_op(
     delete_data_dir: bool,
 ) -> PluginOperationResult {
     let (enabled, disabled) = load_all_plugins().await;
-    let all_plugins: Vec<LoadedPlugin> = enabled
-        .into_iter()
-        .chain(disabled.into_iter())
-        .collect();
+    let all_plugins: Vec<LoadedPlugin> = enabled.into_iter().chain(disabled.into_iter()).collect();
 
     // Find the plugin
     let found_plugin = find_plugin_by_identifier(plugin, &all_plugins);
@@ -945,9 +947,9 @@ pub async fn uninstall_plugin_op(
     let installations = installed_data.plugins.get(&plugin_id);
 
     let scope_installation = installations.and_then(|insts| {
-        insts.iter().find(|i| {
-            i.scope == scope.to_string() && i.project_path == project_path
-        })
+        insts
+            .iter()
+            .find(|i| i.scope == scope.to_string() && i.project_path == project_path)
     });
 
     let scope_installation = match scope_installation {
@@ -955,9 +957,7 @@ pub async fn uninstall_plugin_op(
         None => {
             // Try to find where the plugin is actually installed
             let (actual_scope, _) = get_plugin_installation_from_v2(&plugin_id);
-            if actual_scope != scope.to_string()
-                && installations.map_or(false, |i| !i.is_empty())
-            {
+            if actual_scope != scope.to_string() && installations.map_or(false, |i| !i.is_empty()) {
                 // Project scope is special
                 if actual_scope == "project" {
                     return PluginOperationResult {
@@ -1010,14 +1010,17 @@ pub async fn uninstall_plugin_op(
         .collect();
     new_enabled_plugins.insert(plugin_id.to_string(), None);
 
-    let _ = update_settings_for_source(setting_source, &SettingsJson {
-        enabled_plugins: Some(
-            new_enabled_plugins
-                .into_iter()
-                .filter_map(|(k, v)| v.map(|val| (k, val)))
-                .collect(),
-        ),
-    });
+    let _ = update_settings_for_source(
+        setting_source,
+        &SettingsJson {
+            enabled_plugins: Some(
+                new_enabled_plugins
+                    .into_iter()
+                    .filter_map(|(k, v)| v.map(|val| (k, val)))
+                    .collect(),
+            ),
+        },
+    );
 
     clear_all_caches();
 
@@ -1091,10 +1094,7 @@ pub async fn set_plugin_enabled_op(
         let mut enabled_plugins = current_settings
             .and_then(|s| s.enabled_plugins)
             .unwrap_or_default();
-        enabled_plugins.insert(
-            plugin.to_string(),
-            serde_json::Value::Bool(enabled),
-        );
+        enabled_plugins.insert(plugin.to_string(), serde_json::Value::Bool(enabled));
 
         match update_settings_for_source(
             SettingSource::UserSettings,
@@ -1228,12 +1228,14 @@ pub async fn set_plugin_enabled_op(
 
     if scope.is_some()
         && scope_settings_value.is_none()
-        && find_plugin_in_settings(plugin).as_ref().is_some_and(|found| {
-            let found_scope = found.scope;
-            scope
-                .map(|s| s != found_scope && !is_override)
-                .unwrap_or(false)
-        })
+        && find_plugin_in_settings(plugin)
+            .as_ref()
+            .is_some_and(|found| {
+                let found_scope = found.scope;
+                scope
+                    .map(|s| s != found_scope && !is_override)
+                    .unwrap_or(false)
+            })
     {
         let found = find_plugin_in_settings(plugin).unwrap();
         return PluginOperationResult {
@@ -1257,7 +1259,9 @@ pub async fn set_plugin_enabled_op(
     };
 
     if enabled == is_currently_enabled {
-        let scope_suffix = scope.map(|s| format!(" at {} scope", s)).unwrap_or_default();
+        let scope_suffix = scope
+            .map(|s| format!(" at {} scope", s))
+            .unwrap_or_default();
         return PluginOperationResult {
             success: false,
             message: format!(
@@ -1292,10 +1296,7 @@ pub async fn set_plugin_enabled_op(
     let mut enabled_plugins = current_settings
         .and_then(|s| s.enabled_plugins)
         .unwrap_or_default();
-    enabled_plugins.insert(
-        plugin_id.clone(),
-        serde_json::Value::Bool(enabled),
-    );
+    enabled_plugins.insert(plugin_id.clone(), serde_json::Value::Bool(enabled));
 
     if let Err(error) = update_settings_for_source(
         setting_source,
@@ -1441,10 +1442,7 @@ pub async fn disable_all_plugins_op() -> PluginOperationResult {
 ///
 /// # Returns
 /// Result indicating success/failure with version info
-pub async fn update_plugin_op(
-    plugin: &str,
-    scope: &str,
-) -> PluginUpdateResult {
+pub async fn update_plugin_op(plugin: &str, scope: &str) -> PluginUpdateResult {
     // Parse the plugin identifier to get the full plugin ID
     let (plugin_name, marketplace_name) = parse_plugin_identifier(plugin);
     let plugin_name = plugin_name.unwrap_or_else(|| plugin.to_string());
@@ -1507,9 +1505,9 @@ pub async fn update_plugin_op(
 
     // Find the installation for this scope
     let installations = installations.unwrap();
-    let installation = installations.iter().find(|inst| {
-        inst.scope == scope.to_string() && inst.project_path == project_path
-    });
+    let installation = installations
+        .iter()
+        .find(|inst| inst.scope == scope.to_string() && inst.project_path == project_path);
 
     let installation = match installation {
         Some(inst) => inst,
@@ -1557,95 +1555,51 @@ async fn perform_plugin_update(
 ) -> PluginUpdateResult {
     let old_version = installation.version.clone();
 
-    let (source_path, new_version, should_cleanup_source, git_commit_sha) =
-        match &entry.source {
-            PluginSource::Npm { .. }
-            | PluginSource::Pip { .. }
-            | PluginSource::Github { .. }
-            | PluginSource::GitSubdir { .. }
-            | PluginSource::Git { .. }
-            | PluginSource::Url { .. } => {
-                // Remote plugin: download to temp directory first
-                match cache_plugin(
-                    &entry.source,
-                    CachePluginOptions {
-                        manifest: None,
-                    },
-                )
-                .await
-                {
-                    Ok(cache_result) => {
-                        // Calculate version from downloaded plugin
-                        let new_version = match calculate_plugin_version(
-                            plugin_id,
-                            &entry.source,
-                            Some(cache_result.manifest.clone()),
-                            &cache_result.path,
-                            entry.version.as_deref(),
-                            cache_result.git_commit_sha.as_deref(),
-                        )
-                        .await
-                        {
-                            Ok(v) => v,
-                            Err(e) => {
-                                return PluginUpdateResult {
-                                    success: false,
-                                    message: format!("Failed to calculate version: {}", e),
-                                    plugin_id: Some(plugin_id.to_string()),
-                                    new_version: None,
-                                    old_version: old_version.clone(),
-                                    already_up_to_date: None,
-                                    scope: Some(scope.to_string()),
-                                };
-                            }
-                        };
-                        (
-                            cache_result.path,
-                            new_version,
-                            true,
-                            cache_result.git_commit_sha,
-                        )
-                    }
-                    Err(e) => {
-                        return PluginUpdateResult {
-                            success: false,
-                            message: format!("Failed to cache plugin: {}", e),
-                            plugin_id: Some(plugin_id.to_string()),
-                            new_version: None,
-                            old_version: old_version.clone(),
-                            already_up_to_date: None,
-                            scope: Some(scope.to_string()),
-                        };
-                    }
+    let (source_path, new_version, should_cleanup_source, git_commit_sha) = match &entry.source {
+        PluginSource::Npm { .. }
+        | PluginSource::Pip { .. }
+        | PluginSource::Github { .. }
+        | PluginSource::GitSubdir { .. }
+        | PluginSource::Git { .. }
+        | PluginSource::Url { .. } => {
+            // Remote plugin: download to temp directory first
+            match cache_plugin(&entry.source, CachePluginOptions { manifest: None }).await {
+                Ok(cache_result) => {
+                    // Calculate version from downloaded plugin
+                    let new_version = match calculate_plugin_version(
+                        plugin_id,
+                        &entry.source,
+                        Some(cache_result.manifest.clone()),
+                        &cache_result.path,
+                        entry.version.as_deref(),
+                        cache_result.git_commit_sha.as_deref(),
+                    )
+                    .await
+                    {
+                        Ok(v) => v,
+                        Err(e) => {
+                            return PluginUpdateResult {
+                                success: false,
+                                message: format!("Failed to calculate version: {}", e),
+                                plugin_id: Some(plugin_id.to_string()),
+                                new_version: None,
+                                old_version: old_version.clone(),
+                                already_up_to_date: None,
+                                scope: Some(scope.to_string()),
+                            };
+                        }
+                    };
+                    (
+                        cache_result.path,
+                        new_version,
+                        true,
+                        cache_result.git_commit_sha,
+                    )
                 }
-            }
-            PluginSource::Relative(_) => {
-                // Local plugin: use path from marketplace
-                let marketplace_path = PathBuf::from(marketplace_install_location);
-                let marketplace_dir = if marketplace_path.is_dir() {
-                    marketplace_path
-                } else {
-                    marketplace_path
-                        .parent()
-                        .unwrap_or(&marketplace_path)
-                        .to_path_buf()
-                };
-                let source_path = marketplace_dir.join(
-                    if let PluginSource::Relative(rel) = &entry.source {
-                        rel
-                    } else {
-                        ""
-                    },
-                );
-
-                // Verify source_path exists
-                if !source_path.exists() {
+                Err(e) => {
                     return PluginUpdateResult {
                         success: false,
-                        message: format!(
-                            "Plugin source not found at {}",
-                            source_path.display()
-                        ),
+                        message: format!("Failed to cache plugin: {}", e),
                         plugin_id: Some(plugin_id.to_string()),
                         new_version: None,
                         old_version: old_version.clone(),
@@ -1653,59 +1607,31 @@ async fn perform_plugin_update(
                         scope: Some(scope.to_string()),
                     };
                 }
-
-                // Try to load manifest from plugin directory
-                let plugin_manifest = load_plugin_manifest(
-                    &source_path.join(".claude-plugin").join("plugin.json").to_string_lossy(),
-                    &entry.name,
-                    if let PluginSource::Relative(rel) = &entry.source {
-                        rel
-                    } else {
-                        ""
-                    },
-                )
-                .await
-                .ok();
-
-                // Calculate version from plugin source path
-                let new_version = match calculate_plugin_version(
-                    plugin_id,
-                    &entry.source,
-                    plugin_manifest,
-                    &source_path.to_string_lossy(),
-                    entry.version.as_deref(),
-                    None,
-                )
-                .await
-                {
-                    Ok(v) => v,
-                    Err(e) => {
-                        return PluginUpdateResult {
-                            success: false,
-                            message: format!("Failed to calculate version: {}", e),
-                            plugin_id: Some(plugin_id.to_string()),
-                            new_version: None,
-                            old_version: old_version.clone(),
-                            already_up_to_date: None,
-                            scope: Some(scope.to_string()),
-                        };
-                    }
-                };
-
-                (
-                    source_path.to_string_lossy().to_string(),
-                    new_version,
-                    false,
-                    None,
-                )
             }
-            PluginSource::Settings { .. } => {
+        }
+        PluginSource::Relative(_) => {
+            // Local plugin: use path from marketplace
+            let marketplace_path = PathBuf::from(marketplace_install_location);
+            let marketplace_dir = if marketplace_path.is_dir() {
+                marketplace_path
+            } else {
+                marketplace_path
+                    .parent()
+                    .unwrap_or(&marketplace_path)
+                    .to_path_buf()
+            };
+            let source_path =
+                marketplace_dir.join(if let PluginSource::Relative(rel) = &entry.source {
+                    rel
+                } else {
+                    ""
+                });
+
+            // Verify source_path exists
+            if !source_path.exists() {
                 return PluginUpdateResult {
                     success: false,
-                    message: format!(
-                        "Cannot update plugin \"{}\" with settings source",
-                        plugin_name
-                    ),
+                    message: format!("Plugin source not found at {}", source_path.display()),
                     plugin_id: Some(plugin_id.to_string()),
                     new_version: None,
                     old_version: old_version.clone(),
@@ -1713,7 +1639,70 @@ async fn perform_plugin_update(
                     scope: Some(scope.to_string()),
                 };
             }
-        };
+
+            // Try to load manifest from plugin directory
+            let plugin_manifest = load_plugin_manifest(
+                &source_path
+                    .join(".claude-plugin")
+                    .join("plugin.json")
+                    .to_string_lossy(),
+                &entry.name,
+                if let PluginSource::Relative(rel) = &entry.source {
+                    rel
+                } else {
+                    ""
+                },
+            )
+            .await
+            .ok();
+
+            // Calculate version from plugin source path
+            let new_version = match calculate_plugin_version(
+                plugin_id,
+                &entry.source,
+                plugin_manifest,
+                &source_path.to_string_lossy(),
+                entry.version.as_deref(),
+                None,
+            )
+            .await
+            {
+                Ok(v) => v,
+                Err(e) => {
+                    return PluginUpdateResult {
+                        success: false,
+                        message: format!("Failed to calculate version: {}", e),
+                        plugin_id: Some(plugin_id.to_string()),
+                        new_version: None,
+                        old_version: old_version.clone(),
+                        already_up_to_date: None,
+                        scope: Some(scope.to_string()),
+                    };
+                }
+            };
+
+            (
+                source_path.to_string_lossy().to_string(),
+                new_version,
+                false,
+                None,
+            )
+        }
+        PluginSource::Settings { .. } => {
+            return PluginUpdateResult {
+                success: false,
+                message: format!(
+                    "Cannot update plugin \"{}\" with settings source",
+                    plugin_name
+                ),
+                plugin_id: Some(plugin_id.to_string()),
+                new_version: None,
+                old_version: old_version.clone(),
+                already_up_to_date: None,
+                scope: Some(scope.to_string()),
+            };
+        }
+    };
 
     // Check if this version already exists in cache
     let versioned_path = get_versioned_cache_path(plugin_id, &new_version);
@@ -1740,27 +1729,21 @@ async fn perform_plugin_update(
     }
 
     // Copy to versioned cache
-    let versioned_path = match copy_plugin_to_versioned_cache(
-        &source_path,
-        plugin_id,
-        &new_version,
-        entry,
-    )
-    .await
-    {
-        Ok(path) => path,
-        Err(e) => {
-            return PluginUpdateResult {
-                success: false,
-                message: format!("Failed to copy plugin to cache: {}", e),
-                plugin_id: Some(plugin_id.to_string()),
-                new_version: Some(new_version),
-                old_version,
-                already_up_to_date: None,
-                scope: Some(scope.to_string()),
-            };
-        }
-    };
+    let versioned_path =
+        match copy_plugin_to_versioned_cache(&source_path, plugin_id, &new_version, entry).await {
+            Ok(path) => path,
+            Err(e) => {
+                return PluginUpdateResult {
+                    success: false,
+                    message: format!("Failed to copy plugin to cache: {}", e),
+                    plugin_id: Some(plugin_id.to_string()),
+                    new_version: Some(new_version),
+                    old_version,
+                    already_up_to_date: None,
+                    scope: Some(scope.to_string()),
+                };
+            }
+        };
 
     // Store old version path for potential cleanup
     let old_version_path = installation.install_path.clone();
@@ -1777,13 +1760,15 @@ async fn perform_plugin_update(
 
     // Check if old version is still referenced
     let updated_disk_data = load_installed_plugins_from_disk();
-    let is_old_version_still_referenced = updated_disk_data.plugins.values().any(
-        |plugin_installations| {
-            plugin_installations
-                .iter()
-                .any(|inst| inst.install_path == old_version_path)
-        },
-    );
+    let is_old_version_still_referenced =
+        updated_disk_data
+            .plugins
+            .values()
+            .any(|plugin_installations| {
+                plugin_installations
+                    .iter()
+                    .any(|inst| inst.install_path == old_version_path)
+            });
 
     if !is_old_version_still_referenced && !old_version_path.is_empty() {
         mark_plugin_version_orphaned(&old_version_path).await;
@@ -1795,7 +1780,10 @@ async fn perform_plugin_update(
     let message = format!(
         "Plugin \"{}\" updated from {} to {} for scope {}. Restart to apply changes.",
         plugin_name,
-        old_version.as_ref().cloned().unwrap_or_else(|| "unknown".to_string()),
+        old_version
+            .as_ref()
+            .cloned()
+            .unwrap_or_else(|| "unknown".to_string()),
         new_version,
         scope_desc
     );
@@ -1815,4 +1803,3 @@ async fn perform_plugin_update(
         scope: Some(scope.to_string()),
     }
 }
-

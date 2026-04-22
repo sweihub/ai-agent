@@ -64,7 +64,9 @@ pub fn get_terminal_focus_state() -> TerminalFocusState {
 /// Subscribe to terminal focus changes.
 /// Returns an Arc-wrapped subscription handle that removes itself on drop.
 pub fn subscribe_terminal_focus(cb: impl Fn() + Send + Sync + 'static) -> Arc<FocusUnsubscribe> {
-    let callback = Arc::new(Mutex::new(Some(Box::new(cb) as Box<dyn Fn() + Send + Sync>)));
+    let callback = Arc::new(Mutex::new(
+        Some(Box::new(cb) as Box<dyn Fn() + Send + Sync>),
+    ));
     let callback_clone = callback.clone();
     let instance = get_instance();
     {

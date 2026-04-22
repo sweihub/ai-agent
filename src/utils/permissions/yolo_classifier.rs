@@ -5,13 +5,13 @@
 //!
 //! Uses an LLM to classify whether agent actions should be allowed or blocked.
 
+use super::bash_classifier::{
+    get_bash_prompt_allow_descriptions, get_bash_prompt_deny_descriptions,
+};
+use super::classifier_shared::{ContentBlock, extract_tool_use_block};
+use crate::types::permissions::{ClassifierUsage, ToolPermissionContext, YoloClassifierResult};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use crate::types::permissions::{
-    ClassifierUsage, ToolPermissionContext, YoloClassifierResult,
-};
-use super::bash_classifier::{get_bash_prompt_allow_descriptions, get_bash_prompt_deny_descriptions};
-use super::classifier_shared::{extract_tool_use_block, ContentBlock};
 
 /// YOLO classifier tool name.
 pub const YOLO_CLASSIFIER_TOOL_NAME: &str = "classify_result";
@@ -19,8 +19,13 @@ pub const YOLO_CLASSIFIER_TOOL_NAME: &str = "classify_result";
 /// Transcript block for the classifier.
 #[derive(Debug, Clone)]
 pub enum TranscriptBlock {
-    Text { text: String },
-    ToolUse { name: String, input: serde_json::Value },
+    Text {
+        text: String,
+    },
+    ToolUse {
+        name: String,
+        input: serde_json::Value,
+    },
 }
 
 /// Transcript entry.
@@ -31,9 +36,7 @@ pub struct TranscriptEntry {
 }
 
 /// Builds transcript entries from messages.
-pub fn build_transcript_entries(
-    messages: &[serde_json::Value],
-) -> Vec<TranscriptEntry> {
+pub fn build_transcript_entries(messages: &[serde_json::Value]) -> Vec<TranscriptEntry> {
     let mut transcript = Vec::new();
 
     for msg in messages {
@@ -161,9 +164,7 @@ pub struct YoloClassifierResponse {
 }
 
 /// Builds the YOLO system prompt.
-pub async fn build_yolo_system_prompt(
-    context: &ToolPermissionContext,
-) -> String {
+pub async fn build_yolo_system_prompt(context: &ToolPermissionContext) -> String {
     let base_prompt = get_base_prompt();
     let permissions_template = get_permissions_template(context);
 
@@ -232,7 +233,11 @@ fn get_auto_mode_allow(context: &ToolPermissionContext) -> String {
     allow.sort();
     allow.dedup();
 
-    allow.iter().map(|d| format!("- {}", d)).collect::<Vec<_>>().join("\n")
+    allow
+        .iter()
+        .map(|d| format!("- {}", d))
+        .collect::<Vec<_>>()
+        .join("\n")
 }
 
 fn get_auto_mode_deny(context: &ToolPermissionContext) -> String {
@@ -252,7 +257,10 @@ fn get_auto_mode_deny(context: &ToolPermissionContext) -> String {
     deny.sort();
     deny.dedup();
 
-    deny.iter().map(|d| format!("- {}", d)).collect::<Vec<_>>().join("\n")
+    deny.iter()
+        .map(|d| format!("- {}", d))
+        .collect::<Vec<_>>()
+        .join("\n")
 }
 
 fn get_auto_mode_environment(context: &ToolPermissionContext) -> String {

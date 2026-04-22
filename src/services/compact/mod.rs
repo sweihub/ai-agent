@@ -33,6 +33,6 @@ pub use time_based_mc_config::*;
 
 // Re-export compactable tools list for other modules
 pub use microcompact::{
-    collect_compactable_tool_ids, maybe_time_based_microcompact, reset_microcompact_state,
-    truncate_tool_result_content, TimeBasedMCResult, TIME_BASED_MC_CLEARED_MESSAGE,
+    TIME_BASED_MC_CLEARED_MESSAGE, TimeBasedMCResult, collect_compactable_tool_ids,
+    maybe_time_based_microcompact, reset_microcompact_state, truncate_tool_result_content,
 };

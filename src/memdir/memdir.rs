@@ -3,10 +3,10 @@
 //!
 //! Provides the memory system prompt building and management.
 
+use crate::memdir::memory_types::EntrypointTruncation;
 use crate::memdir::paths::{
     ensure_memory_dir_exists, get_auto_mem_entrypoint, get_auto_mem_path, is_auto_memory_enabled,
 };
-use crate::memdir::memory_types::EntrypointTruncation;
 
 /// Entrypoint filename
 pub const ENTRYPOINT_NAME: &str = "MEMORY.md";
@@ -20,12 +20,10 @@ pub const MAX_ENTRYPOINT_BYTES: usize = 25_000;
 /// Shared guidance text appended to each memory directory prompt line.
 /// Shipped because Claude was burning turns on `ls`/`mkdir -p` before writing.
 /// Harness guarantees the directory exists via ensure_memory_dir_exists().
-pub const DIR_EXISTS_GUIDANCE: &str =
-    "This directory already exists — write to it directly with the Write tool (do not run mkdir or check for its existence).";
+pub const DIR_EXISTS_GUIDANCE: &str = "This directory already exists — write to it directly with the Write tool (do not run mkdir or check for its existence).";
 
 /// Shared guidance for when both directories exist.
-pub const DIRS_EXISTS_GUIDANCE: &str =
-    "Both directories already exist — write to them directly with the Write tool (do not run mkdir or check for their existence).";
+pub const DIRS_EXISTS_GUIDANCE: &str = "Both directories already exist — write to them directly with the Write tool (do not run mkdir or check for their existence).";
 
 /// Truncate MEMORY.md content to the line AND byte caps, appending a warning
 /// that names which cap fired. Line-truncates first (natural boundary), then

@@ -55,8 +55,14 @@ pub fn get_auth_headers() -> AuthHeaders {
         if !token.is_empty() {
             let mut headers = HashMap::new();
             headers.insert("Authorization".to_string(), format!("Bearer {}", token));
-            headers.insert("anthropic-beta".to_string(), "oauth-mcp-servers-2025-01-16".to_string());
-            return AuthHeaders { headers, error: None };
+            headers.insert(
+                "anthropic-beta".to_string(),
+                "oauth-mcp-servers-2025-01-16".to_string(),
+            );
+            return AuthHeaders {
+                headers,
+                error: None,
+            };
         }
     }
 
@@ -65,7 +71,10 @@ pub fn get_auth_headers() -> AuthHeaders {
         if !api_key.is_empty() {
             let mut headers = HashMap::new();
             headers.insert("x-api-key".to_string(), api_key);
-            return AuthHeaders { headers, error: None };
+            return AuthHeaders {
+                headers,
+                error: None,
+            };
         }
     }
 

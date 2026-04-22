@@ -4,9 +4,12 @@
 use std::collections::HashMap;
 use std::path::Path;
 
-use super::mcpb_handler::{is_mcpb_source, load_mcpb_file, McpServerConfig};
+use super::mcpb_handler::{McpServerConfig, is_mcpb_source, load_mcpb_file};
 use super::plugin_directories::get_plugin_data_dir;
-use super::plugin_options_storage::{get_plugin_storage_id, load_plugin_options, substitute_plugin_variables, substitute_user_config_variables};
+use super::plugin_options_storage::{
+    get_plugin_storage_id, load_plugin_options, substitute_plugin_variables,
+    substitute_user_config_variables,
+};
 use crate::plugin::types::{LoadedPlugin, PluginError};
 
 /// Scoped MCP server configuration.
@@ -27,7 +30,9 @@ pub async fn load_plugin_mcp_servers(
     // Check for .mcp.json in plugin directory first
     let default_mcp_path = Path::new(&plugin.path).join(".mcp.json");
     if default_mcp_path.exists() {
-        if let Ok(Some(default_servers)) = load_mcp_servers_from_file(&plugin.path, ".mcp.json").await {
+        if let Ok(Some(default_servers)) =
+            load_mcp_servers_from_file(&plugin.path, ".mcp.json").await
+        {
             servers.extend(default_servers);
         }
     }
@@ -36,8 +41,7 @@ pub async fn load_plugin_mcp_servers(
     if let Some(ref mcp_servers_spec) = plugin.manifest.mcp_servers {
         if let Some(s) = mcp_servers_spec.as_str() {
             if is_mcpb_source(s) {
-                if let Ok(Some(mcpb_servers)) =
-                    load_mcp_servers_from_mcpb(plugin, s, errors).await
+                if let Ok(Some(mcpb_servers)) = load_mcp_servers_from_mcpb(plugin, s, errors).await
                 {
                     servers.extend(mcpb_servers);
                 }
@@ -89,17 +93,11 @@ async fn load_mcp_servers_from_mcpb(
     match load_mcpb_file(mcpb_path, Path::new(&plugin.path), plugin_id).await {
         Ok(Ok(result)) => {
             let server_name = result.manifest.name;
-            log::debug!(
-                "Loaded MCP server \"{}\" from MCPB",
-                server_name
-            );
+            log::debug!("Loaded MCP server \"{}\" from MCPB", server_name);
             Ok(Some(result.mcp_config))
         }
         Ok(Err(_needs_config)) => {
-            log::debug!(
-                "MCPB {} requires user configuration",
-                mcpb_path
-            );
+            log::debug!("MCPB {} requires user configuration", mcpb_path);
             Ok(None)
         }
         Err(e) => {

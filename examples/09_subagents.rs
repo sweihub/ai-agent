@@ -22,10 +22,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     println!("Using model: {}\n", model);
 
-    let mut agent = Agent::new(&model, 10);
+    let agent = Agent::new(&model).max_turns(10);
 
     // The main agent can still use subagents via the Agent tool
-    let result = agent.query("Review the code in src/agent.rs for best practices. Be concise.").await?;
+    let result = agent
+        .query("Review the code in src/agent.rs for best practices. Be concise.")
+        .await?;
 
     println!("{}", result.text);
     println!("\n--- done ---");

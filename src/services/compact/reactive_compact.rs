@@ -79,9 +79,11 @@ fn remove_group(all: &[Message], group: &[Message]) -> Vec<Message> {
 
     // Find the group as a contiguous slice in all
     for i in 0..=all.len().saturating_sub(group.len()) {
-        if all[i..i + group.len()].iter().zip(group.iter()).all(|(a, b)| {
-            a.content == b.content && a.role == b.role
-        }) {
+        if all[i..i + group.len()]
+            .iter()
+            .zip(group.iter())
+            .all(|(a, b)| a.content == b.content && a.role == b.role)
+        {
             let mut result = all[..i].to_vec();
             result.extend_from_slice(&all[i + group.len()..]);
             return result;

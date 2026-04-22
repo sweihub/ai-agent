@@ -48,7 +48,12 @@ fn normalize_git_path_arg(arg: &str) -> String {
     // Drive-relative C:foo (no separator after colon) is cwd-relative
     // C:\foo (WITH separator) is absolute
     if s.len() >= 2 && s.chars().nth(1) == Some(':') {
-        if !s.chars().nth(2).map(|c| c == '/' || c == '\\').unwrap_or(false) {
+        if !s
+            .chars()
+            .nth(2)
+            .map(|c| c == '/' || c == '\\')
+            .unwrap_or(false)
+        {
             s = s[2..].to_string();
         }
     }
@@ -58,7 +63,8 @@ fn normalize_git_path_arg(arg: &str) -> String {
 
     // Win32 CreateFileW per-component: strip trailing spaces, then trailing dots
     // But preserve . and ..
-    let parts: Vec<String> = s.split('/')
+    let parts: Vec<String> = s
+        .split('/')
         .map(|c| {
             if c.is_empty() || c == "." || c == ".." {
                 c.to_string()
@@ -100,7 +106,11 @@ fn normalize_path(path: &str) -> String {
         }
     }
     let result = result.join("/");
-    if result.is_empty() { ".".to_string() } else { result }
+    if result.is_empty() {
+        ".".to_string()
+    } else {
+        result
+    }
 }
 
 /// Get cwd basename
@@ -240,7 +250,10 @@ mod tests {
 
     #[test]
     fn test_normalize_git_path() {
-        assert_eq!(normalize_git_path_arg("hooks/pre-commit"), "hooks/pre-commit");
+        assert_eq!(
+            normalize_git_path_arg("hooks/pre-commit"),
+            "hooks/pre-commit"
+        );
         assert_eq!(normalize_git_path_arg(".git/hooks"), ".git/hooks");
     }
 }

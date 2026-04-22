@@ -105,10 +105,7 @@ pub async fn validate_plugin_manifest(file_path: &str) -> ValidationResult {
     {
         warnings.push(ValidationWarning {
             path: "name".to_string(),
-            message: format!(
-                "Plugin name \"{}\" is not kebab-case.",
-                manifest.name
-            ),
+            message: format!("Plugin name \"{}\" is not kebab-case.", manifest.name),
         });
     }
 

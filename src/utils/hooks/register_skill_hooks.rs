@@ -3,8 +3,8 @@
 
 use std::collections::HashMap;
 
-use crate::utils::hooks::hooks_settings::HookEvent;
 use crate::utils::hooks::hooks_settings::HookCommand;
+use crate::utils::hooks::hooks_settings::HookEvent;
 use crate::utils::hooks::session_hooks::{add_session_hook, remove_session_hook};
 
 /// Hooks settings structure
@@ -92,7 +92,10 @@ fn parse_hook_command(value: &serde_json::Value) -> Result<HookCommand, String> 
     if let Some(command) = value.get("command").and_then(|v| v.as_str()) {
         return Ok(HookCommand::Command {
             command: command.to_string(),
-            shell: value.get("shell").and_then(|v| v.as_str()).map(|s| s.to_string()),
+            shell: value
+                .get("shell")
+                .and_then(|v| v.as_str())
+                .map(|s| s.to_string()),
             if_condition: value
                 .get("if")
                 .and_then(|v| v.as_str())
@@ -105,7 +108,10 @@ fn parse_hook_command(value: &serde_json::Value) -> Result<HookCommand, String> 
         if value.get("model").is_some() {
             return Ok(HookCommand::Agent {
                 prompt: prompt.to_string(),
-                model: value.get("model").and_then(|v| v.as_str()).map(|s| s.to_string()),
+                model: value
+                    .get("model")
+                    .and_then(|v| v.as_str())
+                    .map(|s| s.to_string()),
                 if_condition: value
                     .get("if")
                     .and_then(|v| v.as_str())
@@ -195,7 +201,8 @@ pub fn register_skill_hooks(
                 // For once: true hooks, the on_hook_success callback would remove the hook
                 // after first successful execution. In a full implementation, we'd use
                 // the session hook removal mechanism. For now, pass None.
-                let on_hook_success: Option<crate::utils::hooks::session_hooks::OnHookSuccess> = None;
+                let on_hook_success: Option<crate::utils::hooks::session_hooks::OnHookSuccess> =
+                    None;
 
                 add_session_hook(
                     set_app_state,
@@ -264,13 +271,7 @@ mod tests {
             call_count.set(call_count.get() + 1);
         };
 
-        register_skill_hooks(
-            &set_app_state,
-            "test-session",
-            &hooks,
-            "test-skill",
-            None,
-        );
+        register_skill_hooks(&set_app_state, "test-session", &hooks, "test-skill", None);
 
         assert_eq!(call_count.get(), 0);
     }

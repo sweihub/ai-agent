@@ -128,11 +128,7 @@ pub fn get_prompt_too_long_token_gap(msg: &ApiErrorMessage) -> Option<i64> {
     let limit = limit_tokens?;
 
     let gap = actual as i64 - limit as i64;
-    if gap > 0 {
-        Some(gap)
-    } else {
-        None
-    }
+    if gap > 0 { Some(gap) } else { None }
 }
 
 /// Is this raw API error text a media-size rejection?
@@ -170,12 +166,10 @@ pub const INVALID_API_KEY_ERROR_MESSAGE: &str = "Not logged in · Please run /lo
 pub const INVALID_API_KEY_ERROR_MESSAGE_EXTERNAL: &str = "Invalid API key · Fix external API key";
 
 /// Organization disabled error message (env key with OAuth)
-pub const ORG_DISABLED_ERROR_MESSAGE_ENV_KEY_WITH_OAUTH: &str =
-    "Your ANTHROPIC_API_KEY belongs to a disabled organization · Unset the environment variable to use your subscription instead";
+pub const ORG_DISABLED_ERROR_MESSAGE_ENV_KEY_WITH_OAUTH: &str = "Your ANTHROPIC_API_KEY belongs to a disabled organization · Unset the environment variable to use your subscription instead";
 
 /// Organization disabled error message (env key)
-pub const ORG_DISABLED_ERROR_MESSAGE_ENV_KEY: &str =
-    "Your ANTHROPIC_API_KEY belongs to a disabled organization · Update or unset the environment variable";
+pub const ORG_DISABLED_ERROR_MESSAGE_ENV_KEY: &str = "Your ANTHROPIC_API_KEY belongs to a disabled organization · Update or unset the environment variable";
 
 /// Token revoked error message
 pub const TOKEN_REVOKED_ERROR_MESSAGE: &str = "OAuth token revoked · Please run /login";

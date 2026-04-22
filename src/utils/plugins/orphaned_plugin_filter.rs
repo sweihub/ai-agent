@@ -11,13 +11,10 @@ use super::plugin_directories::get_plugins_directory;
 const ORPHANED_AT_FILENAME: &str = ".orphaned_at";
 
 /// Session-scoped cache. Frozen once computed.
-static CACHED_EXCLUSIONS: Lazy<Mutex<Option<Vec<String>>>> =
-    Lazy::new(|| Mutex::new(None));
+static CACHED_EXCLUSIONS: Lazy<Mutex<Option<Vec<String>>>> = Lazy::new(|| Mutex::new(None));
 
 /// Get ripgrep glob exclusion patterns for orphaned plugin versions.
-pub async fn get_glob_exclusions_for_plugin_cache(
-    search_path: Option<&str>,
-) -> Vec<String> {
+pub async fn get_glob_exclusions_for_plugin_cache(search_path: Option<&str>) -> Vec<String> {
     let cache_path = PathBuf::from(get_plugins_directory()).join("cache");
 
     // If search_path is provided, check if it overlaps the cache
@@ -41,12 +38,8 @@ pub async fn get_glob_exclusions_for_plugin_cache(
             .iter()
             .map(|marker_path| {
                 let version_dir = marker_path.parent().unwrap_or(Path::new(""));
-                let rel = version_dir
-                    .strip_prefix(&cache_path)
-                    .unwrap_or(version_dir);
-                let posix_relative = rel
-                    .to_string_lossy()
-                    .replace('\\', "/");
+                let rel = version_dir.strip_prefix(&cache_path).unwrap_or(version_dir);
+                let posix_relative = rel.to_string_lossy().replace('\\', "/");
                 format!("!**/{}/**", posix_relative)
             })
             .collect(),
@@ -62,7 +55,9 @@ pub async fn get_glob_exclusions_for_plugin_cache(
     exclusions
 }
 
-async fn find_orphaned_markers(cache_path: &Path) -> Result<Vec<PathBuf>, Box<dyn std::error::Error + Send + Sync>> {
+async fn find_orphaned_markers(
+    cache_path: &Path,
+) -> Result<Vec<PathBuf>, Box<dyn std::error::Error + Send + Sync>> {
     let mut markers = Vec::new();
 
     // Walk the cache directory looking for .orphaned_at files

@@ -9,8 +9,8 @@ pub mod edit;
 pub mod glob;
 pub mod grep;
 pub mod lsp;
-pub mod mcp_resources;
 pub mod mcp_resource_reader;
+pub mod mcp_resources;
 pub mod monitor;
 pub mod notebook_edit;
 pub mod orchestration;
@@ -36,7 +36,7 @@ pub mod worktree;
 pub mod write;
 
 pub use types::{
-    filter_tools, get_all_base_tools, Tool, ToolDefinition, ToolFuture, ToolInputSchema,
+    Tool, ToolDefinition, ToolFuture, ToolInputSchema, filter_tools, get_all_base_tools,
 };
 
 #[cfg(test)]
@@ -136,8 +136,8 @@ mod tests {
                 always_load: None,
                 is_mcp: None,
                 search_hint: None,
-            aliases: None,
-        user_facing_name: None,
+                aliases: None,
+                user_facing_name: None,
             },
             ToolDefinition {
                 name: "FileRead".to_string(),
@@ -152,8 +152,8 @@ mod tests {
                 always_load: None,
                 is_mcp: None,
                 search_hint: None,
-            aliases: None,
-        user_facing_name: None,
+                aliases: None,
+                user_facing_name: None,
             },
         ];
         let filtered = filter_tools(tools, Some(vec!["Bash".to_string()]), None);
@@ -177,8 +177,8 @@ mod tests {
                 always_load: None,
                 is_mcp: None,
                 search_hint: None,
-            aliases: None,
-        user_facing_name: None,
+                aliases: None,
+                user_facing_name: None,
             },
             ToolDefinition {
                 name: "FileRead".to_string(),
@@ -193,8 +193,8 @@ mod tests {
                 always_load: None,
                 is_mcp: None,
                 search_hint: None,
-            aliases: None,
-        user_facing_name: None,
+                aliases: None,
+                user_facing_name: None,
             },
         ];
         let filtered = filter_tools(tools, None, Some(vec!["Bash".to_string()]));

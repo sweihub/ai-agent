@@ -45,10 +45,18 @@ pub fn get_session_memory_compact_config() -> SessionMemoryCompactConfig {
 /// Check if session memory compaction should be used
 pub fn should_use_session_memory_compaction() -> bool {
     // Allow env override for testing
-    if env_utils::is_env_truthy(std::env::var("ENABLE_CLAUDE_CODE_SM_COMPACT").ok().as_deref()) {
+    if env_utils::is_env_truthy(
+        std::env::var("ENABLE_CLAUDE_CODE_SM_COMPACT")
+            .ok()
+            .as_deref(),
+    ) {
         return true;
     }
-    if env_utils::is_env_truthy(std::env::var("DISABLE_CLAUDE_CODE_SM_COMPACT").ok().as_deref()) {
+    if env_utils::is_env_truthy(
+        std::env::var("DISABLE_CLAUDE_CODE_SM_COMPACT")
+            .ok()
+            .as_deref(),
+    ) {
         return false;
     }
 
@@ -68,7 +76,9 @@ pub fn has_text_blocks(message: &Message) -> bool {
 /// Check if a message is a compact boundary message
 pub fn is_compact_boundary_message(message: &Message) -> bool {
     matches!(message.role, MessageRole::System)
-        && (message.content.contains("[Previous conversation summarized]")
+        && (message
+            .content
+            .contains("[Previous conversation summarized]")
             || message.content.contains("compacted")
             || message.content.contains("summarized"))
 }
@@ -82,7 +92,10 @@ fn get_tool_result_ids(message: &Message) -> Vec<String> {
 }
 
 /// Check if an assistant message contains tool_use blocks with any of the given ids
-fn has_tool_use_with_ids(message: &Message, tool_use_ids: &std::collections::HashSet<String>) -> bool {
+fn has_tool_use_with_ids(
+    message: &Message,
+    tool_use_ids: &std::collections::HashSet<String>,
+) -> bool {
     if !matches!(message.role, MessageRole::Assistant) {
         return false;
     }
@@ -98,10 +111,7 @@ fn has_tool_use_with_ids(message: &Message, tool_use_ids: &std::collections::Has
 
 /// Adjust the start index to ensure we don't split tool_use/tool_result pairs
 /// or thinking blocks that share the same message.id with kept assistant messages.
-pub fn adjust_index_to_preserve_api_invariants(
-    messages: &[Message],
-    start_index: usize,
-) -> usize {
+pub fn adjust_index_to_preserve_api_invariants(messages: &[Message], start_index: usize) -> usize {
     if start_index <= 0 || start_index >= messages.len() {
         return start_index;
     }

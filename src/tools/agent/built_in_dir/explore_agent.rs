@@ -24,7 +24,10 @@ pub fn has_embedded_search_tools() -> bool {
 pub fn get_explore_system_prompt() -> String {
     let embedded = has_embedded_search_tools();
     let glob_guidance = if embedded {
-        format!("- Use `find` via {} for broad file pattern matching", BASH_TOOL_NAME)
+        format!(
+            "- Use `find` via {} for broad file pattern matching",
+            BASH_TOOL_NAME
+        )
     } else {
         format!("- Use {} for broad file pattern matching", GLOB_TOOL_NAME)
     };
@@ -34,7 +37,10 @@ pub fn get_explore_system_prompt() -> String {
             BASH_TOOL_NAME
         )
     } else {
-        format!("- Use {} for searching file contents with regex", GREP_TOOL_NAME)
+        format!(
+            "- Use {} for searching file contents with regex",
+            GREP_TOOL_NAME
+        )
     };
 
     let embedded_note = if embedded { ", grep" } else { "" };

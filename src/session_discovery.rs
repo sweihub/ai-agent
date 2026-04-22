@@ -55,16 +55,8 @@ fn get_oauth_token() -> Option<String> {
                 .ok()
                 .filter(|t| !t.is_empty())
         })
-        .or_else(|| {
-            std::env::var(ai::AUTH_TOKEN)
-                .ok()
-                .filter(|t| !t.is_empty())
-        })
-        .or_else(|| {
-            std::env::var(ai::API_KEY)
-                .ok()
-                .filter(|t| !t.is_empty())
-        })
+        .or_else(|| std::env::var(ai::AUTH_TOKEN).ok().filter(|t| !t.is_empty()))
+        .or_else(|| std::env::var(ai::API_KEY).ok().filter(|t| !t.is_empty()))
 }
 
 /// Build HTTP headers for the discovery request
@@ -211,14 +203,15 @@ pub async fn discover_sessions_with_result() -> DiscoveryResult {
 
     match response.json::<serde_json::Value>().await {
         Ok(json) => {
-            let sessions = if let Some(sessions_arr) = json.get("sessions").and_then(|s| s.as_array()) {
-                sessions_arr
-                    .iter()
-                    .filter_map(|s| serde_json::from_value::<AssistantSession>(s.clone()).ok())
-                    .collect()
-            } else {
-                Vec::new()
-            };
+            let sessions =
+                if let Some(sessions_arr) = json.get("sessions").and_then(|s| s.as_array()) {
+                    sessions_arr
+                        .iter()
+                        .filter_map(|s| serde_json::from_value::<AssistantSession>(s.clone()).ok())
+                        .collect()
+                } else {
+                    Vec::new()
+                };
 
             let total_count = json
                 .get("totalCount")

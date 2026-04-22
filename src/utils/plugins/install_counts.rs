@@ -11,13 +11,14 @@ use tokio::fs;
 
 use crate::utils::http::get_user_agent;
 
-use super::fetch_telemetry::{classify_fetch_error, log_plugin_fetch, PluginFetchOutcome, PluginFetchSource};
+use super::fetch_telemetry::{
+    PluginFetchOutcome, PluginFetchSource, classify_fetch_error, log_plugin_fetch,
+};
 use super::plugin_directories::get_plugins_directory;
 
 const INSTALL_COUNTS_CACHE_VERSION: u32 = 1;
 const INSTALL_COUNTS_CACHE_FILENAME: &str = "install-counts-cache.json";
-const INSTALL_COUNTS_URL: &str =
-    "https://raw.githubusercontent.com/anthropics/claude-plugins-official/refs/heads/stats/stats/plugin-installs.json";
+const INSTALL_COUNTS_URL: &str = "https://raw.githubusercontent.com/anthropics/claude-plugins-official/refs/heads/stats/stats/plugin-installs.json";
 const CACHE_TTL_MS: u64 = 24 * 60 * 60 * 1000; // 24 hours
 
 static LAST_FETCH_TIME: AtomicU64 = AtomicU64::new(0);
@@ -48,7 +49,8 @@ fn get_install_counts_cache_path() -> PathBuf {
 }
 
 /// Load the install counts cache from disk.
-async fn load_install_counts_cache() -> Result<Option<InstallCountsCache>, Box<dyn std::error::Error + Send + Sync>> {
+async fn load_install_counts_cache()
+-> Result<Option<InstallCountsCache>, Box<dyn std::error::Error + Send + Sync>> {
     let cache_path = get_install_counts_cache_path();
 
     let content = match fs::read_to_string(&cache_path).await {
@@ -78,7 +80,10 @@ async fn load_install_counts_cache() -> Result<Option<InstallCountsCache>, Box<d
         );
 
     let now = SystemTime::now();
-    if now.duration_since(fetched_at).map_or(true, |d| d.as_millis() as u64 > CACHE_TTL_MS) {
+    if now
+        .duration_since(fetched_at)
+        .map_or(true, |d| d.as_millis() as u64 > CACHE_TTL_MS)
+    {
         log::debug!("Install counts cache is stale (>24h old)");
         return Ok(None);
     }
@@ -87,7 +92,9 @@ async fn load_install_counts_cache() -> Result<Option<InstallCountsCache>, Box<d
 }
 
 /// Save the install counts cache to disk atomically.
-async fn save_install_counts_cache(cache: &InstallCountsCache) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+async fn save_install_counts_cache(
+    cache: &InstallCountsCache,
+) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let cache_path = get_install_counts_cache_path();
     let temp_path = PathBuf::from(format!(
         "{}.{}.tmp",
@@ -108,7 +115,8 @@ async fn save_install_counts_cache(cache: &InstallCountsCache) -> Result<(), Box
 }
 
 /// Fetch install counts from GitHub stats repository.
-async fn fetch_install_counts_from_github() -> Result<Vec<CountEntry>, Box<dyn std::error::Error + Send + Sync>> {
+async fn fetch_install_counts_from_github()
+-> Result<Vec<CountEntry>, Box<dyn std::error::Error + Send + Sync>> {
     log::debug!("Fetching install counts from {}", INSTALL_COUNTS_URL);
 
     let started = std::time::Instant::now();
@@ -137,7 +145,8 @@ async fn fetch_install_counts_from_github() -> Result<Vec<CountEntry>, Box<dyn s
 }
 
 /// Get plugin install counts as a HashMap.
-pub async fn get_install_counts() -> Result<Option<HashMap<String, u64>>, Box<dyn std::error::Error + Send + Sync>> {
+pub async fn get_install_counts()
+-> Result<Option<HashMap<String, u64>>, Box<dyn std::error::Error + Send + Sync>> {
     // Try to load from cache first
     if let Some(cache) = load_install_counts_cache().await? {
         log::debug!("Using cached install counts");

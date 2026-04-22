@@ -3,10 +3,10 @@
 //!
 //! Help when stuck on a problem.
 
-use crate::skills::bundled_skills::{
-    register_bundled_skill, BundledSkillDefinition, ContentBlock, SkillContext,
-};
 use crate::AgentError;
+use crate::skills::bundled_skills::{
+    BundledSkillDefinition, ContentBlock, SkillContext, register_bundled_skill,
+};
 
 const STUCK_PROMPT: &str = r#"# Stuck Skill
 

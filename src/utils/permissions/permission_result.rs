@@ -7,12 +7,8 @@ use crate::types::permissions::PermissionBehavior;
 
 // Re-exports for backwards compatibility
 pub use crate::types::permissions::{
-    PermissionAllowDecision,
-    PermissionAskDecision,
-    PermissionDecision,
-    PermissionDecisionReason,
-    PermissionDenyDecision,
-    PermissionMetadata,
+    PermissionAllowDecision, PermissionAskDecision, PermissionDecision, PermissionDecisionReason,
+    PermissionDenyDecision, PermissionMetadata,
 };
 
 /// Helper function to get the appropriate prose description for rule behavior.

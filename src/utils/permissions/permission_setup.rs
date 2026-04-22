@@ -4,22 +4,18 @@
 //! Permission setup — dangerous permission detection, auto-mode preparation,
 //! and mode transition logic.
 
-use std::path::{Path, MAIN_SEPARATOR};
-use crate::types::permissions::{
-    PermissionRule, PermissionRuleSource, PermissionRuleValue,
-    ToolPermissionContext, ToolPermissionRulesBySource,
-};
 use super::dangerous_patterns::{CROSS_PLATFORM_CODE_EXEC, dangerous_bash_patterns};
 use super::permission_rule_parser::{
-    normalize_legacy_tool_name, permission_rule_value_from_string,
-    permission_rule_value_to_string,
+    normalize_legacy_tool_name, permission_rule_value_from_string, permission_rule_value_to_string,
 };
+use crate::types::permissions::{
+    PermissionRule, PermissionRuleSource, PermissionRuleValue, ToolPermissionContext,
+    ToolPermissionRulesBySource,
+};
+use std::path::{MAIN_SEPARATOR, Path};
 
 /// Checks if a Bash permission rule is dangerous for auto mode.
-pub fn is_dangerous_bash_permission(
-    tool_name: &str,
-    rule_content: Option<&str>,
-) -> bool {
+pub fn is_dangerous_bash_permission(tool_name: &str, rule_content: Option<&str>) -> bool {
     if tool_name != "Bash" {
         return false;
     }
@@ -58,10 +54,7 @@ pub fn is_dangerous_bash_permission(
 }
 
 /// Checks if a PowerShell permission rule is dangerous for auto mode.
-pub fn is_dangerous_power_shell_permission(
-    tool_name: &str,
-    rule_content: Option<&str>,
-) -> bool {
+pub fn is_dangerous_power_shell_permission(tool_name: &str, rule_content: Option<&str>) -> bool {
     if tool_name != "PowerShell" {
         return false;
     }
@@ -79,22 +72,48 @@ pub fn is_dangerous_power_shell_permission(
     // PS-specific patterns
     let mut patterns: Vec<&str> = CROSS_PLATFORM_CODE_EXEC.to_vec();
     patterns.extend(&[
-        "pwsh", "powershell", "cmd", "wsl",
-        "iex", "invoke-expression", "icm", "invoke-command",
-        "start-process", "saps", "start", "start-job", "sajb",
+        "pwsh",
+        "powershell",
+        "cmd",
+        "wsl",
+        "iex",
+        "invoke-expression",
+        "icm",
+        "invoke-command",
+        "start-process",
+        "saps",
+        "start",
+        "start-job",
+        "sajb",
         "start-threadjob",
-        "register-objectevent", "register-engineevent",
-        "register-wmievent", "register-scheduledjob",
-        "new-pssession", "nsn", "enter-pssession", "etsn",
-        "add-type", "new-object",
+        "register-objectevent",
+        "register-engineevent",
+        "register-wmievent",
+        "register-scheduledjob",
+        "new-pssession",
+        "nsn",
+        "enter-pssession",
+        "etsn",
+        "add-type",
+        "new-object",
     ]);
 
     for pattern in patterns {
-        if content == pattern { return true; }
-        if content == format!("{}:*", pattern) { return true; }
-        if content == format!("{}*", pattern) { return true; }
-        if content == format!("{} *", pattern) { return true; }
-        if content.starts_with(&format!("{} -", pattern)) && content.ends_with('*') { return true; }
+        if content == pattern {
+            return true;
+        }
+        if content == format!("{}:*", pattern) {
+            return true;
+        }
+        if content == format!("{}*", pattern) {
+            return true;
+        }
+        if content == format!("{} *", pattern) {
+            return true;
+        }
+        if content.starts_with(&format!("{} -", pattern)) && content.ends_with('*') {
+            return true;
+        }
 
         // .exe variants
         let sp = pattern.find(' ');
@@ -102,21 +121,28 @@ pub fn is_dangerous_power_shell_permission(
             None => format!("{}.exe", pattern),
             Some(idx) => format!("{}.exe{}", &pattern[..idx], &pattern[idx..]),
         };
-        if content == exe { return true; }
-        if content == format!("{}:*", exe) { return true; }
-        if content == format!("{}*", exe) { return true; }
-        if content == format!("{} *", exe) { return true; }
-        if content.starts_with(&format!("{} -", exe)) && content.ends_with('*') { return true; }
+        if content == exe {
+            return true;
+        }
+        if content == format!("{}:*", exe) {
+            return true;
+        }
+        if content == format!("{}*", exe) {
+            return true;
+        }
+        if content == format!("{} *", exe) {
+            return true;
+        }
+        if content.starts_with(&format!("{} -", exe)) && content.ends_with('*') {
+            return true;
+        }
     }
 
     false
 }
 
 /// Checks if an Agent permission rule is dangerous for auto mode.
-pub fn is_dangerous_task_permission(
-    tool_name: &str,
-    _rule_content: Option<&str>,
-) -> bool {
+pub fn is_dangerous_task_permission(tool_name: &str, _rule_content: Option<&str>) -> bool {
     normalize_legacy_tool_name(tool_name) == "Agent"
 }
 
@@ -129,10 +155,7 @@ pub struct DangerousPermissionInfo {
 }
 
 /// Checks if a permission rule is dangerous for auto mode.
-fn is_dangerous_classifier_permission(
-    tool_name: &str,
-    rule_content: Option<&str>,
-) -> bool {
+fn is_dangerous_classifier_permission(tool_name: &str, rule_content: Option<&str>) -> bool {
     if std::env::var("USER_TYPE").as_deref() == Ok("ant") {
         if tool_name == "Tmux" {
             return true;
@@ -151,12 +174,13 @@ pub fn find_dangerous_classifier_permissions(
     let mut dangerous = Vec::new();
 
     for rule in rules {
-        if matches!(rule.rule_behavior, crate::types::permissions::PermissionBehavior::Allow)
-            && is_dangerous_classifier_permission(
-                &rule.rule_value.tool_name,
-                rule.rule_value.rule_content.as_deref(),
-            )
-        {
+        if matches!(
+            rule.rule_behavior,
+            crate::types::permissions::PermissionBehavior::Allow
+        ) && is_dangerous_classifier_permission(
+            &rule.rule_value.tool_name,
+            rule.rule_value.rule_content.as_deref(),
+        ) {
             let rule_string = rule.rule_value.rule_content.as_ref().map_or_else(
                 || format!("{}(*)", rule.rule_value.tool_name),
                 |c| format!("{}({})", rule.rule_value.tool_name, c),
@@ -172,10 +196,7 @@ pub fn find_dangerous_classifier_permissions(
 
     for tool_spec in cli_allowed_tools {
         let parsed = permission_rule_value_from_string(tool_spec);
-        if is_dangerous_classifier_permission(
-            &parsed.tool_name,
-            parsed.rule_content.as_deref(),
-        ) {
+        if is_dangerous_classifier_permission(&parsed.tool_name, parsed.rule_content.as_deref()) {
             dangerous.push(DangerousPermissionInfo {
                 rule_display: parsed.rule_content.as_ref().map_or_else(
                     || format!("{}(*)", parsed.tool_name),
@@ -209,8 +230,10 @@ pub fn find_overly_broad_bash_permissions(
     let mut overly_broad = Vec::new();
 
     for rule in rules {
-        if matches!(rule.rule_behavior, crate::types::permissions::PermissionBehavior::Allow)
-            && is_overly_broad_bash_allow_rule(&rule.rule_value)
+        if matches!(
+            rule.rule_behavior,
+            crate::types::permissions::PermissionBehavior::Allow
+        ) && is_overly_broad_bash_allow_rule(&rule.rule_value)
         {
             overly_broad.push(DangerousPermissionInfo {
                 rule_value: rule.rule_value.clone(),
@@ -244,8 +267,10 @@ pub fn find_overly_broad_power_shell_permissions(
     let mut overly_broad = Vec::new();
 
     for rule in rules {
-        if matches!(rule.rule_behavior, crate::types::permissions::PermissionBehavior::Allow)
-            && is_overly_broad_power_shell_allow_rule(&rule.rule_value)
+        if matches!(
+            rule.rule_behavior,
+            crate::types::permissions::PermissionBehavior::Allow
+        ) && is_overly_broad_power_shell_allow_rule(&rule.rule_value)
         {
             overly_broad.push(DangerousPermissionInfo {
                 rule_value: rule.rule_value.clone(),
@@ -299,11 +324,14 @@ pub fn remove_dangerous_permissions(
             _ => continue,
         };
 
-        updated_context = apply_permission_update(updated_context, &crate::types::permissions::PermissionUpdate::RemoveRules {
-            destination: destination_to_enum(destination),
-            rules: vec![perm.rule_value.clone()],
-            behavior: crate::types::permissions::PermissionBehavior::Allow,
-        });
+        updated_context = apply_permission_update(
+            updated_context,
+            &crate::types::permissions::PermissionUpdate::RemoveRules {
+                destination: destination_to_enum(destination),
+                rules: vec![perm.rule_value.clone()],
+                behavior: crate::types::permissions::PermissionBehavior::Allow,
+            },
+        );
     }
 
     updated_context
@@ -325,7 +353,9 @@ fn is_permission_update_destination(source: &PermissionRuleSource) -> bool {
 fn destination_to_enum(dest: &str) -> crate::types::permissions::PermissionUpdateDestination {
     match dest {
         "userSettings" => crate::types::permissions::PermissionUpdateDestination::UserSettings,
-        "projectSettings" => crate::types::permissions::PermissionUpdateDestination::ProjectSettings,
+        "projectSettings" => {
+            crate::types::permissions::PermissionUpdateDestination::ProjectSettings
+        }
         "localSettings" => crate::types::permissions::PermissionUpdateDestination::LocalSettings,
         "session" => crate::types::permissions::PermissionUpdateDestination::Session,
         "cliArg" => crate::types::permissions::PermissionUpdateDestination::CliArg,
@@ -367,9 +397,14 @@ pub fn strip_dangerous_permissions_for_auto_mode(
         let mut ctx = context.clone();
         if ctx.stripped_dangerous_rules.is_none() {
             ctx.stripped_dangerous_rules = Some(ToolPermissionRulesBySource {
-                user_settings: None, project_settings: None, local_settings: None,
-                flag_settings: None, policy_settings: None, cli_arg: None,
-                command: None, session: None,
+                user_settings: None,
+                project_settings: None,
+                local_settings: None,
+                flag_settings: None,
+                policy_settings: None,
+                cli_arg: None,
+                command: None,
+                session: None,
             });
         }
         return ctx;
@@ -384,9 +419,14 @@ pub fn strip_dangerous_permissions_for_auto_mode(
     }
 
     let mut stripped = ToolPermissionRulesBySource {
-        user_settings: None, project_settings: None, local_settings: None,
-        flag_settings: None, policy_settings: None, cli_arg: None,
-        command: None, session: None,
+        user_settings: None,
+        project_settings: None,
+        local_settings: None,
+        flag_settings: None,
+        policy_settings: None,
+        cli_arg: None,
+        command: None,
+        session: None,
     };
 
     for perm in &dangerous_permissions {
@@ -396,19 +436,34 @@ pub fn strip_dangerous_permissions_for_auto_mode(
         let rule_string = permission_rule_value_to_string(&perm.rule_value);
         match perm.source {
             PermissionRuleSource::UserSettings => {
-                stripped.user_settings.get_or_insert_with(Vec::new).push(rule_string);
+                stripped
+                    .user_settings
+                    .get_or_insert_with(Vec::new)
+                    .push(rule_string);
             }
             PermissionRuleSource::ProjectSettings => {
-                stripped.project_settings.get_or_insert_with(Vec::new).push(rule_string);
+                stripped
+                    .project_settings
+                    .get_or_insert_with(Vec::new)
+                    .push(rule_string);
             }
             PermissionRuleSource::LocalSettings => {
-                stripped.local_settings.get_or_insert_with(Vec::new).push(rule_string);
+                stripped
+                    .local_settings
+                    .get_or_insert_with(Vec::new)
+                    .push(rule_string);
             }
             PermissionRuleSource::CliArg => {
-                stripped.cli_arg.get_or_insert_with(Vec::new).push(rule_string);
+                stripped
+                    .cli_arg
+                    .get_or_insert_with(Vec::new)
+                    .push(rule_string);
             }
             PermissionRuleSource::Session => {
-                stripped.session.get_or_insert_with(Vec::new).push(rule_string);
+                stripped
+                    .session
+                    .get_or_insert_with(Vec::new)
+                    .push(rule_string);
             }
             _ => {}
         }
@@ -447,11 +502,14 @@ pub fn restore_dangerous_permissions(context: &ToolPermissionContext) -> ToolPer
                 .iter()
                 .map(|s| permission_rule_value_from_string(s))
                 .collect();
-            result = apply_permission_update(result, &crate::types::permissions::PermissionUpdate::AddRules {
-                destination: destination_to_enum(dest_str),
-                rules,
-                behavior: crate::types::permissions::PermissionBehavior::Allow,
-            });
+            result = apply_permission_update(
+                result,
+                &crate::types::permissions::PermissionUpdate::AddRules {
+                    destination: destination_to_enum(dest_str),
+                    rules,
+                    behavior: crate::types::permissions::PermissionBehavior::Allow,
+                },
+            );
         }
     }
 

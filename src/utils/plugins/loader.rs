@@ -187,7 +187,8 @@ pub async fn get_known_marketplace_names() -> Vec<String> {
 ///
 /// This is the main entry point for loading plugins at startup.
 /// Returns enabled/disabled plugins and any errors encountered.
-pub async fn load_all_plugins() -> Result<PluginLoadResult, Box<dyn std::error::Error + Send + Sync>> {
+pub async fn load_all_plugins() -> Result<PluginLoadResult, Box<dyn std::error::Error + Send + Sync>>
+{
     // Stub: return empty result - full implementation would load
     // from known_marketplaces config and resolve each plugin
     Ok(PluginLoadResult {
@@ -200,7 +201,8 @@ pub async fn load_all_plugins() -> Result<PluginLoadResult, Box<dyn std::error::
 /// Load all plugins from cache only (strictly no network).
 ///
 /// Same as load_all_plugins but guaranteed never to hit the network.
-pub async fn load_all_plugins_cache_only() -> Result<PluginLoadResult, Box<dyn std::error::Error + Send + Sync>> {
+pub async fn load_all_plugins_cache_only()
+-> Result<PluginLoadResult, Box<dyn std::error::Error + Send + Sync>> {
     load_all_plugins().await
 }
 

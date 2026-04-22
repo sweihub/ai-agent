@@ -38,7 +38,10 @@ pub struct OauthConfig {
 /// Get OAuth headers
 fn get_oauth_headers(access_token: &str) -> HashMap<String, String> {
     let mut headers = HashMap::new();
-    headers.insert("Authorization".to_string(), format!("Bearer {}", access_token));
+    headers.insert(
+        "Authorization".to_string(),
+        format!("Bearer {}", access_token),
+    );
     headers.insert("User-Agent".to_string(), get_user_agent());
     headers
 }
@@ -97,15 +100,13 @@ pub async fn fetch_ultrareview_quota() -> Option<UltrareviewQuotaResponse> {
         .await;
 
     match response {
-        Ok(resp) => {
-            match resp.json::<UltrareviewQuotaResponse>().await {
-                Ok(data) => Some(data),
-                Err(e) => {
-                    log::debug!("fetchUltrareviewQuota failed: {}", e);
-                    None
-                }
+        Ok(resp) => match resp.json::<UltrareviewQuotaResponse>().await {
+            Ok(data) => Some(data),
+            Err(e) => {
+                log::debug!("fetchUltrareviewQuota failed: {}", e);
+                None
             }
-        }
+        },
         Err(e) => {
             log::debug!("fetchUltrareviewQuota failed: {}", e);
             None

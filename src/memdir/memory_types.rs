@@ -96,8 +96,7 @@ pub const TYPES_SECTION_COMBINED: &[&str] = &[
 ];
 
 /// Recall-side drift caveat. Single bullet under `## When to access memories`.
-pub const MEMORY_DRIFT_CAVEAT: &str =
-    "- Memory records can become stale over time. Use memory as context for what was true at a given point in time. Before answering the user or building assumptions based solely on information in memory records, verify that the memory is still correct and up-to-date by reading the current state of the files or resources. If a recalled memory conflicts with current information, trust what you observe now — and update or remove the stale memory rather than acting on it.";
+pub const MEMORY_DRIFT_CAVEAT: &str = "- Memory records can become stale over time. Use memory as context for what was true at a given point in time. Before answering the user or building assumptions based solely on information in memory records, verify that the memory is still correct and up-to-date by reading the current state of the files or resources. If a recalled memory conflicts with current information, trust what you observe now — and update or remove the stale memory rather than acting on it.";
 
 /// `## What NOT to save in memory` section.
 pub const WHAT_NOT_TO_SAVE_SECTION: &[&str] = &[

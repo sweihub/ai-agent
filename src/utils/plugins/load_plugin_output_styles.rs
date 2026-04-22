@@ -8,10 +8,13 @@ use std::sync::Mutex;
 use once_cell::sync::Lazy;
 
 use super::loader::load_all_plugins_cache_only;
-use super::walk_plugin_markdown::{walk_plugin_markdown, WalkPluginMarkdownOpts};
+use super::walk_plugin_markdown::{WalkPluginMarkdownOpts, walk_plugin_markdown};
 
 /// Stub for frontmatter parsing - requires frontmatter_parser module.
-fn parse_frontmatter_stub<'a>(content: &'a str, _path: &str) -> (serde_json::Map<String, serde_json::Value>, &'a str) {
+fn parse_frontmatter_stub<'a>(
+    content: &'a str,
+    _path: &str,
+) -> (serde_json::Map<String, serde_json::Value>, &'a str) {
     // Simple stub: returns empty frontmatter and full content as markdown
     (serde_json::Map::new(), content)
 }
@@ -47,7 +50,8 @@ async fn load_output_styles_from_directory(
             let styles = Arc::clone(&styles);
 
             Box::pin(async move {
-                match load_output_style_from_file(&full_path, &plugin_name, &mut HashSet::new()).await
+                match load_output_style_from_file(&full_path, &plugin_name, &mut HashSet::new())
+                    .await
                 {
                     Ok(Some(style)) => styles.lock().await.push(style),
                     _ => {}
@@ -76,10 +80,10 @@ async fn load_output_style_from_file(
     }
     loaded_paths.insert(file_path.to_string());
 
-    let content = tokio::fs::read_to_string(file_path).await
+    let content = tokio::fs::read_to_string(file_path)
+        .await
         .map_err(|e| format!("Failed to read {}: {}", file_path, e))?;
-    let (frontmatter, markdown_content) =
-        parse_frontmatter_stub(&content, file_path);
+    let (frontmatter, markdown_content) = parse_frontmatter_stub(&content, file_path);
 
     let file_name = std::path::Path::new(file_path)
         .file_stem()
@@ -99,16 +103,14 @@ async fn load_output_style_from_file(
         .unwrap_or(&format!("Output style from {} plugin", plugin_name))
         .to_string();
 
-    let force_for_plugin = frontmatter.get("force-for-plugin").and_then(|v| {
-        match v {
-            serde_json::Value::Bool(b) => Some(*b),
-            serde_json::Value::String(s) => match s.as_str() {
-                "true" => Some(true),
-                "false" => Some(false),
-                _ => None,
-            },
+    let force_for_plugin = frontmatter.get("force-for-plugin").and_then(|v| match v {
+        serde_json::Value::Bool(b) => Some(*b),
+        serde_json::Value::String(s) => match s.as_str() {
+            "true" => Some(true),
+            "false" => Some(false),
             _ => None,
-        }
+        },
+        _ => None,
     });
 
     Ok(Some(OutputStyleConfig {
@@ -121,7 +123,8 @@ async fn load_output_style_from_file(
 }
 
 /// Load plugin output styles from all enabled plugins.
-pub async fn load_plugin_output_styles() -> Result<Vec<OutputStyleConfig>, Box<dyn std::error::Error + Send + Sync>> {
+pub async fn load_plugin_output_styles()
+-> Result<Vec<OutputStyleConfig>, Box<dyn std::error::Error + Send + Sync>> {
     {
         let cache = OUTPUT_STYLE_CACHE.lock().unwrap();
         if let Some(ref styles) = *cache {

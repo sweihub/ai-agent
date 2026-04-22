@@ -3,10 +3,10 @@
 //!
 //! Enable debug logging for this session and help diagnose issues.
 
-use crate::skills::bundled_skills::{
-    register_bundled_skill, BundledSkillDefinition, ContentBlock, SkillContext,
-};
 use crate::AgentError;
+use crate::skills::bundled_skills::{
+    BundledSkillDefinition, ContentBlock, SkillContext, register_bundled_skill,
+};
 
 #[allow(dead_code)]
 const DEFAULT_DEBUG_LINES_READ: usize = 20;

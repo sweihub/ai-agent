@@ -5,7 +5,9 @@ use once_cell::sync::Lazy;
 use std::collections::HashSet;
 
 // Re-export types that are defined in types.rs to avoid duplicate definitions
-pub use super::types::{KnownMarketplace, KnownMarketplacesFile, PluginMarketplaceEntry, PluginSource};
+pub use super::types::{
+    KnownMarketplace, KnownMarketplacesFile, PluginMarketplaceEntry, PluginSource,
+};
 
 /// Official marketplace names that are reserved for Anthropic/Claude official use.
 pub fn allowed_official_marketplace_names() -> &'static HashSet<&'static str> {
@@ -26,9 +28,8 @@ pub fn allowed_official_marketplace_names() -> &'static HashSet<&'static str> {
 
 /// Official marketplaces that should NOT auto-update by default.
 fn no_auto_update_official_marketplaces() -> &'static HashSet<&'static str> {
-    static NAMES: Lazy<HashSet<&'static str>> = Lazy::new(|| {
-        HashSet::from(["knowledge-work-plugins"])
-    });
+    static NAMES: Lazy<HashSet<&'static str>> =
+        Lazy::new(|| HashSet::from(["knowledge-work-plugins"]));
     &NAMES
 }
 
@@ -71,10 +72,7 @@ pub enum MarketplaceSource {
     #[serde(rename = "file")]
     File { path: String },
     #[serde(rename = "settings")]
-    Settings {
-        name: String,
-        plugins: Vec<String>,
-    },
+    Settings { name: String, plugins: Vec<String> },
     #[serde(rename = "git-subdir")]
     GitSubdir {
         url: String,

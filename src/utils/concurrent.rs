@@ -21,12 +21,13 @@ where
         return vec![];
     }
 
-    let handles: Vec<_> = items.into_iter().map(|item| {
-        let f = f.clone();
-        tokio::spawn(async move {
-            f(item).await
+    let handles: Vec<_> = items
+        .into_iter()
+        .map(|item| {
+            let f = f.clone();
+            tokio::spawn(async move { f(item).await })
         })
-    }).collect();
+        .collect();
 
     let mut results = Vec::with_capacity(handles.len());
     for handle in handles {

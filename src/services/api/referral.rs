@@ -175,7 +175,10 @@ pub struct PrepareApiResult {
 /// Get OAuth headers
 fn get_oauth_headers(access_token: &str) -> HashMap<String, String> {
     let mut headers = HashMap::new();
-    headers.insert("Authorization".to_string(), format!("Bearer {}", access_token));
+    headers.insert(
+        "Authorization".to_string(),
+        format!("Bearer {}", access_token),
+    );
     headers.insert("User-Agent".to_string(), get_user_agent());
     headers
 }

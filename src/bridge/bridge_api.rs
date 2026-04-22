@@ -2,8 +2,8 @@
 //!
 //! Translated from openclaudecode/src/bridge/bridgeApi.ts
 
-use serde::{Deserialize, Serialize};
 use crate::utils::http::get_user_agent;
+use serde::{Deserialize, Serialize};
 
 // =============================================================================
 // CONSTANTS
@@ -272,10 +272,7 @@ impl SyncBridgeApiClient {
             "x-environment-runner-version",
             self.runner_version.parse().unwrap(),
         );
-        headers.insert(
-            "User-Agent",
-            get_user_agent().parse().unwrap(),
-        );
+        headers.insert("User-Agent", get_user_agent().parse().unwrap());
 
         if let Some(ref getter) = self.get_trusted_device_token {
             if let Some(token) = getter() {

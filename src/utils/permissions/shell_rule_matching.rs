@@ -55,11 +55,7 @@ pub fn has_wildcards(pattern: &str) -> bool {
 }
 
 /// Matches a command against a wildcard pattern.
-pub fn match_wildcard_pattern(
-    pattern: &str,
-    command: &str,
-    case_insensitive: bool,
-) -> bool {
+pub fn match_wildcard_pattern(pattern: &str, command: &str, case_insensitive: bool) -> bool {
     let trimmed = pattern.trim();
 
     // Process escape sequences

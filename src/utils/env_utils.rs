@@ -178,9 +178,7 @@ pub fn is_ant_user() -> bool {
 
 /// Check if running in test mode
 pub fn is_test_mode() -> bool {
-    env::var("NODE_ENV")
-        .map(|v| v == "test")
-        .unwrap_or(false)
+    env::var("NODE_ENV").map(|v| v == "test").unwrap_or(false)
 }
 
 /// Get platform name

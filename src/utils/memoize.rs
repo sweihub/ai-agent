@@ -124,7 +124,11 @@ where
     Result: Clone,
     K: Hash + Eq + Clone,
 {
-    pub fn new(f: impl Fn(Args) -> Result + Send + Sync + 'static, key_fn: impl Fn(&Args) -> K + Send + Sync + 'static, max_cache_size: usize) -> Self {
+    pub fn new(
+        f: impl Fn(Args) -> Result + Send + Sync + 'static,
+        key_fn: impl Fn(&Args) -> K + Send + Sync + 'static,
+        max_cache_size: usize,
+    ) -> Self {
         Self {
             f: Arc::new(f),
             cache: Arc::new(Mutex::new(HashMap::new())),

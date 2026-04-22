@@ -5,7 +5,6 @@
 /// timeouts, or allowing users to stop long-running agent operations.
 ///
 /// Run: cargo run --example 27_interrupt
-
 use ai_agent::Agent;
 use std::sync::Arc;
 use std::time::Duration;
@@ -19,7 +18,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Wrap agent in Arc<Mutex<>> for shared ownership across async tasks.
     // tokio::sync::Mutex allows .await locking for &mut self methods like prompt().
-    let agent = Arc::new(Mutex::new(Agent::new(&model, 10)));
+    let agent = Arc::new(Mutex::new(Agent::new(&model).max_turns(10)));
 
     // Spawn a background task that sends the interrupt signal after 3 seconds.
     // interrupt() takes &self, so Arc::clone is sufficient.
@@ -32,8 +31,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Run the agent prompt with exclusive mutable access.
     let result = {
-        let mut ag = agent.lock().await;
-        ag.query("List 10 files in the current directory, then read each of them").await
+        let ag = agent.lock().await;
+        ag.query("List 10 files in the current directory, then read each of them")
+            .await
     };
 
     // Wait for the interrupt task to complete (it's a no-op after interrupt())
@@ -41,8 +41,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     match result {
         Ok(resp) => {
-            println!("[Agent] Prompt completed: {} turns, {} output tokens",
-                resp.num_turns, resp.usage.output_tokens);
+            println!(
+                "[Agent] Prompt completed: {} turns, {} output tokens",
+                resp.num_turns, resp.usage.output_tokens
+            );
         }
         Err(ai_agent::error::AgentError::UserAborted) => {
             println!("[Agent] Prompt was interrupted (UserAborted)!");

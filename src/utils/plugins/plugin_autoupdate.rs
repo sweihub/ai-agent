@@ -17,11 +17,12 @@ type PluginAutoUpdateCallback = Box<dyn Fn(Vec<String>) + Send + Sync>;
 
 static PLUGIN_UPDATE_CALLBACK: Lazy<Mutex<Option<PluginAutoUpdateCallback>>> =
     Lazy::new(|| Mutex::new(None));
-static PENDING_NOTIFICATION: Lazy<Mutex<Option<Vec<String>>>> =
-    Lazy::new(|| Mutex::new(None));
+static PENDING_NOTIFICATION: Lazy<Mutex<Option<Vec<String>>>> = Lazy::new(|| Mutex::new(None));
 
 /// Register a callback to be notified when plugins are auto-updated.
-pub fn on_plugins_auto_updated(callback: impl Fn(Vec<String>) + Send + Sync + 'static) -> Box<dyn FnOnce()> {
+pub fn on_plugins_auto_updated(
+    callback: impl Fn(Vec<String>) + Send + Sync + 'static,
+) -> Box<dyn FnOnce()> {
     let cb: PluginAutoUpdateCallback = Box::new(callback);
 
     {
@@ -63,9 +64,7 @@ async fn get_auto_update_enabled_marketplaces() -> HashSet<String> {
 }
 
 /// Update all project-relevant installed plugins from the given marketplaces.
-pub async fn update_plugins_for_marketplaces(
-    _marketplace_names: &HashSet<String>,
-) -> Vec<String> {
+pub async fn update_plugins_for_marketplaces(_marketplace_names: &HashSet<String>) -> Vec<String> {
     Vec::new()
 }
 

@@ -4,8 +4,10 @@ use std::sync::Arc;
 
 use std::collections::{HashMap, HashSet};
 
-use super::constants::{AGENT_TOOL_NAME, ALL_AGENT_DISALLOWED_TOOLS, ASYNC_AGENT_ALLOWED_TOOLS,
-                       CUSTOM_AGENT_DISALLOWED_TOOLS, FORK_BOILERPLATE_TAG, FORK_DIRECTIVE_PREFIX};
+use super::constants::{
+    AGENT_TOOL_NAME, ALL_AGENT_DISALLOWED_TOOLS, ASYNC_AGENT_ALLOWED_TOOLS,
+    CUSTOM_AGENT_DISALLOWED_TOOLS, FORK_BOILERPLATE_TAG, FORK_DIRECTIVE_PREFIX,
+};
 use super::load_agents_dir::AgentDefinition;
 
 /// Resolved tools for an agent.
@@ -102,10 +104,8 @@ pub fn resolve_agent_tools(
         };
     }
 
-    let available_map: HashMap<&str, &String> = allowed_available
-        .iter()
-        .map(|t| (t.as_str(), t))
-        .collect();
+    let available_map: HashMap<&str, &String> =
+        allowed_available.iter().map(|t| (t.as_str(), t)).collect();
 
     let mut valid_tools: Vec<String> = Vec::new();
     let mut invalid_tools: Vec<String> = Vec::new();
@@ -284,8 +284,10 @@ pub fn finalize_agent_tool(
         })
         .unwrap_or_default();
 
-    let total_tokens =
-        usage.input_tokens + usage.output_tokens + usage.cache_creation_input_tokens + usage.cache_read_input_tokens;
+    let total_tokens = usage.input_tokens
+        + usage.output_tokens
+        + usage.cache_creation_input_tokens
+        + usage.cache_read_input_tokens;
 
     Ok(AgentToolResult {
         agent_id: agent_id.to_string(),
@@ -363,17 +365,15 @@ mod tests {
 
     #[test]
     fn test_count_tool_uses() {
-        let messages = vec![
-            serde_json::json!({
-                "type": "assistant",
-                "message": {
-                    "content": [
-                        {"type": "tool_use", "id": "1", "name": "Bash"},
-                        {"type": "tool_use", "id": "2", "name": "Read"},
-                    ]
-                }
-            }),
-        ];
+        let messages = vec![serde_json::json!({
+            "type": "assistant",
+            "message": {
+                "content": [
+                    {"type": "tool_use", "id": "1", "name": "Bash"},
+                    {"type": "tool_use", "id": "2", "name": "Read"},
+                ]
+            }
+        })];
         assert_eq!(count_tool_uses(&messages), 2);
     }
 }

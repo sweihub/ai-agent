@@ -22,8 +22,7 @@ pub struct FlaggedPlugin {
     pub seen_at: Option<String>,
 }
 
-static CACHE: Lazy<Mutex<Option<HashMap<String, FlaggedPlugin>>>> =
-    Lazy::new(|| Mutex::new(None));
+static CACHE: Lazy<Mutex<Option<HashMap<String, FlaggedPlugin>>>> = Lazy::new(|| Mutex::new(None));
 
 fn get_flagged_plugins_path() -> PathBuf {
     PathBuf::from(get_plugins_directory()).join(FLAGGED_PLUGINS_FILENAME)
@@ -66,7 +65,8 @@ pub async fn load_flagged_plugins() -> Result<(), Box<dyn std::error::Error + Se
     Ok(())
 }
 
-async fn read_from_disk() -> Result<HashMap<String, FlaggedPlugin>, Box<dyn std::error::Error + Send + Sync>> {
+async fn read_from_disk()
+-> Result<HashMap<String, FlaggedPlugin>, Box<dyn std::error::Error + Send + Sync>> {
     let path = get_flagged_plugins_path();
     let content = tokio::fs::read_to_string(&path).await?;
     let data: serde_json::Value = serde_json::from_str(&content)?;
@@ -75,7 +75,10 @@ async fn read_from_disk() -> Result<HashMap<String, FlaggedPlugin>, Box<dyn std:
         let mut result = HashMap::new();
         for (id, entry) in plugins {
             if let Some(flagged_at) = entry.get("flaggedAt").and_then(|v| v.as_str()) {
-                let seen_at = entry.get("seenAt").and_then(|v| v.as_str()).map(|s| s.to_string());
+                let seen_at = entry
+                    .get("seenAt")
+                    .and_then(|v| v.as_str())
+                    .map(|s| s.to_string());
                 result.insert(
                     id.clone(),
                     FlaggedPlugin {
@@ -91,13 +94,11 @@ async fn read_from_disk() -> Result<HashMap<String, FlaggedPlugin>, Box<dyn std:
     }
 }
 
-async fn write_to_disk(plugins: &HashMap<String, FlaggedPlugin>) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+async fn write_to_disk(
+    plugins: &HashMap<String, FlaggedPlugin>,
+) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let path = get_flagged_plugins_path();
-    let temp_path = PathBuf::from(format!(
-        "{}.{}.tmp",
-        path.display(),
-        rand::random::<u64>()
-    ));
+    let temp_path = PathBuf::from(format!("{}.{}.tmp", path.display(), rand::random::<u64>()));
 
     tokio::fs::create_dir_all(get_plugins_directory()).await?;
 
@@ -121,7 +122,9 @@ pub fn get_flagged_plugins() -> HashMap<String, FlaggedPlugin> {
 }
 
 /// Add a plugin to the flagged list.
-pub async fn add_flagged_plugin(plugin_id: &str) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+pub async fn add_flagged_plugin(
+    plugin_id: &str,
+) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let mut cache = CACHE.lock().unwrap();
     if cache.is_none() {
         *cache = Some(read_from_disk().await.unwrap_or_default());
@@ -145,7 +148,9 @@ pub async fn add_flagged_plugin(plugin_id: &str) -> Result<(), Box<dyn std::erro
 }
 
 /// Mark flagged plugins as seen.
-pub async fn mark_flagged_plugins_seen(plugin_ids: &[String]) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+pub async fn mark_flagged_plugins_seen(
+    plugin_ids: &[String],
+) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let mut cache = CACHE.lock().unwrap();
     if cache.is_none() {
         *cache = Some(read_from_disk().await.unwrap_or_default());
@@ -175,7 +180,9 @@ pub async fn mark_flagged_plugins_seen(plugin_ids: &[String]) -> Result<(), Box<
 }
 
 /// Remove a plugin from the flagged list.
-pub async fn remove_flagged_plugin(plugin_id: &str) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+pub async fn remove_flagged_plugin(
+    plugin_id: &str,
+) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let mut cache = CACHE.lock().unwrap();
     if cache.is_none() {
         *cache = Some(read_from_disk().await.unwrap_or_default());

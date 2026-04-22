@@ -3,10 +3,10 @@
 //!
 //! Dream/creative mode skill (feature-gated: KAIROS or KAIROS_DREAM).
 
-use crate::skills::bundled_skills::{
-    register_bundled_skill, BundledSkillDefinition, ContentBlock, SkillContext,
-};
 use crate::AgentError;
+use crate::skills::bundled_skills::{
+    BundledSkillDefinition, ContentBlock, SkillContext, register_bundled_skill,
+};
 
 const DREAM_PROMPT: &str = r#"# Dream Skill
 

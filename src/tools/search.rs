@@ -2,8 +2,8 @@
 use crate::error::AgentError;
 use crate::tools::config_tools::TOOL_SEARCH_TOOL_NAME;
 use crate::tools::deferred_tools::{
-    extract_discovered_tool_names, get_deferred_tool_names, is_deferred_tool,
-    parse_tool_search_query, search_tools_with_keywords, ToolSearchQuery,
+    ToolSearchQuery, extract_discovered_tool_names, get_deferred_tool_names, is_deferred_tool,
+    parse_tool_search_query, search_tools_with_keywords,
 };
 use crate::types::*;
 
@@ -68,10 +68,8 @@ impl ToolSearchTool {
 
         // Get all base tools to identify deferred subset
         let all_tools = crate::tools::get_all_base_tools();
-        let deferred_tools: Vec<&ToolDefinition> = all_tools
-            .iter()
-            .filter(|t| is_deferred_tool(t))
-            .collect();
+        let deferred_tools: Vec<&ToolDefinition> =
+            all_tools.iter().filter(|t| is_deferred_tool(t)).collect();
 
         let total_deferred = deferred_tools.len();
 
@@ -83,7 +81,7 @@ impl ToolSearchTool {
                 // Direct tool selection
                 let mut found = Vec::new();
                 let mut missing = Vec::new();
-                
+
                 for tool_name in requested {
                     // Check deferred tools first, then all tools
                     if let Some(tool) = deferred_tools.iter().find(|t| t.name == *tool_name) {
@@ -101,7 +99,10 @@ impl ToolSearchTool {
                 }
 
                 if found.is_empty() {
-                    log::debug!("ToolSearchTool: select failed — none found: {}", missing.join(", "));
+                    log::debug!(
+                        "ToolSearchTool: select failed — none found: {}",
+                        missing.join(", ")
+                    );
                 } else if !missing.is_empty() {
                     log::debug!(
                         "ToolSearchTool: partial select — found: {}, missing: {}",
@@ -145,7 +146,8 @@ impl ToolSearchTool {
 
         // Serialize to the structured content format
         let content_value = if matches.is_empty() {
-            let deferred_names: Vec<&str> = deferred_tools.iter().map(|t| t.name.as_str()).collect();
+            let deferred_names: Vec<&str> =
+                deferred_tools.iter().map(|t| t.name.as_str()).collect();
             let names_str = deferred_names.join(", ");
             serde_json::json!({
                 "type": "text",
@@ -154,12 +156,15 @@ impl ToolSearchTool {
         } else {
             // Return tool_reference blocks for API expansion
             serde_json::json!(
-                matches.iter().map(|name| {
-                    serde_json::json!({
-                        "type": "tool_reference",
-                        "tool_name": name
+                matches
+                    .iter()
+                    .map(|name| {
+                        serde_json::json!({
+                            "type": "tool_reference",
+                            "tool_name": name
+                        })
                     })
-                }).collect::<Vec<_>>()
+                    .collect::<Vec<_>>()
             )
         };
 
@@ -173,10 +178,7 @@ impl ToolSearchTool {
     }
 
     /// Build a tool_result with tool_reference blocks for the API
-    pub fn build_tool_reference_result(
-        matches: &[String],
-        tool_use_id: &str,
-    ) -> serde_json::Value {
+    pub fn build_tool_reference_result(matches: &[String], tool_use_id: &str) -> serde_json::Value {
         if matches.is_empty() {
             serde_json::json!({
                 "type": "tool_result",
@@ -220,14 +222,20 @@ mod tests {
         let schema = tool.input_schema();
         assert_eq!(schema.schema_type, "object");
         assert!(schema.required.is_some());
-        assert!(schema.required.as_ref().unwrap().contains(&"query".to_string()));
+        assert!(
+            schema
+                .required
+                .as_ref()
+                .unwrap()
+                .contains(&"query".to_string())
+        );
     }
 
     #[test]
     fn test_build_tool_reference_result() {
         let result = ToolSearchTool::build_tool_reference_result(
             &["WebSearch".to_string(), "WebFetch".to_string()],
-            "tool_123"
+            "tool_123",
         );
         assert_eq!(result["type"], "tool_result");
         assert_eq!(result["tool_use_id"], "tool_123");
@@ -246,18 +254,16 @@ mod tests {
 
     #[test]
     fn test_extract_discovered_tool_names() {
-        let messages = vec![
-            serde_json::json!({
-                "role": "user",
-                "content": [{
-                    "type": "tool_result",
-                    "content": [
-                        {"type": "tool_reference", "tool_name": "WebSearch"},
-                        {"type": "tool_reference", "tool_name": "WebFetch"}
-                    ]
-                }]
-            }),
-        ];
+        let messages = vec![serde_json::json!({
+            "role": "user",
+            "content": [{
+                "type": "tool_result",
+                "content": [
+                    {"type": "tool_reference", "tool_name": "WebSearch"},
+                    {"type": "tool_reference", "tool_name": "WebFetch"}
+                ]
+            }]
+        })];
         let discovered = extract_discovered_tool_names(&messages);
         assert!(discovered.contains("WebSearch"));
         assert!(discovered.contains("WebFetch"));

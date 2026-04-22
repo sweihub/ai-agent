@@ -1,6 +1,6 @@
 // Source: /data/home/swei/claudecode/openclaudecode/src/commands/advisor.ts
-use crate::constants::env::ai;
 use super::Command;
+use crate::constants::env::ai;
 
 pub fn create_advisor_command() -> Command {
     Command::local("advisor", "Configure the advisor model").argument_hint("[<model>|off]")

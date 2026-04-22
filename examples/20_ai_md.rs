@@ -11,7 +11,7 @@
  * 3. Processing @include directives
  * 4. Using frontmatter for conditional rules
  */
-use ai_agent::{get_ai_md_files, load_ai_md, AiMdType};
+use ai_agent::{AiMdType, get_ai_md_files, load_ai_md};
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {

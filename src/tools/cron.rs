@@ -9,8 +9,8 @@ use crate::error::AgentError;
 use crate::types::*;
 use std::collections::HashMap;
 use std::sync::{
-    atomic::{AtomicU64, Ordering},
     Mutex, OnceLock,
+    atomic::{AtomicU64, Ordering},
 };
 
 pub const CRON_CREATE_TOOL_NAME: &str = "CronCreate";
@@ -144,7 +144,9 @@ impl CronCreateTool {
             return Ok(ToolResult {
                 result_type: "text".to_string(),
                 tool_use_id: "".to_string(),
-                content: "Error: Maximum number of scheduled jobs (50) reached. Delete some jobs first.".to_string(),
+                content:
+                    "Error: Maximum number of scheduled jobs (50) reached. Delete some jobs first."
+                        .to_string(),
                 is_error: Some(true),
                 was_persisted: None,
             });
@@ -191,13 +193,7 @@ impl CronCreateTool {
                 Durable: {}\n\
                 \n\
                 {} jobs are currently scheduled.",
-                id,
-                cron,
-                parsed,
-                prompt,
-                recurring,
-                durable,
-                job_count
+                id, cron, parsed, prompt, recurring, durable, job_count
             ),
             is_error: Some(false),
             was_persisted: None,
@@ -399,7 +395,10 @@ mod tests {
         drop(jobs);
 
         let result = delete
-            .execute(serde_json::json!({ "id": last_id.clone() }), &ToolContext::default())
+            .execute(
+                serde_json::json!({ "id": last_id.clone() }),
+                &ToolContext::default(),
+            )
             .await;
         assert!(result.is_ok());
         assert!(result.unwrap().content.contains("deleted successfully"));

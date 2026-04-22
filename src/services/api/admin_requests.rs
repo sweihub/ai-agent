@@ -37,7 +37,9 @@ pub enum AdminRequestCreateParams {
     #[serde(rename = "limit_increase")]
     LimitIncrease { details: Option<serde_json::Value> },
     #[serde(rename = "seat_upgrade")]
-    SeatUpgrade { details: AdminRequestSeatUpgradeDetails },
+    SeatUpgrade {
+        details: AdminRequestSeatUpgradeDetails,
+    },
 }
 
 /// Admin request
@@ -58,7 +60,9 @@ pub enum AdminRequestParams {
     #[serde(rename = "limit_increase")]
     LimitIncrease { details: Option<serde_json::Value> },
     #[serde(rename = "seat_upgrade")]
-    SeatUpgrade { details: AdminRequestSeatUpgradeDetails },
+    SeatUpgrade {
+        details: AdminRequestSeatUpgradeDetails,
+    },
 }
 
 /// Admin request eligibility response
@@ -77,8 +81,7 @@ pub struct AdminRequestEligibilityResponse {
 pub async fn create_admin_request(
     params: AdminRequestCreateParams,
 ) -> Result<AdminRequest, String> {
-    let (access_token, org_uuid) = prepare_api_request().await
-        .map_err(|e| e.to_string())?;
+    let (access_token, org_uuid) = prepare_api_request().await.map_err(|e| e.to_string())?;
 
     let mut headers = get_oauth_headers(&access_token);
     headers.insert("x-organization-uuid".to_string(), org_uuid.clone());
@@ -115,8 +118,7 @@ pub async fn get_my_admin_requests(
     request_type: AdminRequestType,
     statuses: Vec<AdminRequestStatus>,
 ) -> Result<Option<Vec<AdminRequest>>, String> {
-    let (access_token, org_uuid) = prepare_api_request().await
-        .map_err(|e| e.to_string())?;
+    let (access_token, org_uuid) = prepare_api_request().await.map_err(|e| e.to_string())?;
 
     let mut headers = get_oauth_headers(&access_token);
     headers.insert("x-organization-uuid".to_string(), org_uuid.clone());
@@ -169,8 +171,7 @@ pub async fn get_my_admin_requests(
 pub async fn check_admin_request_eligibility(
     request_type: AdminRequestType,
 ) -> Result<AdminRequestEligibilityResponse, String> {
-    let (access_token, org_uuid) = prepare_api_request().await
-        .map_err(|e| e.to_string())?;
+    let (access_token, org_uuid) = prepare_api_request().await.map_err(|e| e.to_string())?;
 
     let mut headers = get_oauth_headers(&access_token);
     headers.insert("x-organization-uuid".to_string(), org_uuid.clone());

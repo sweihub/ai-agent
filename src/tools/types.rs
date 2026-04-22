@@ -237,8 +237,8 @@ const ALL_TOOLS: &[(&str, &str, fn() -> ToolDefinition)] = &[
         always_load: None,
         is_mcp: None,
         search_hint: None,
-    aliases: None,
-    user_facing_name: None,
+        aliases: None,
+        user_facing_name: None,
     }),
     ("FileRead", "Read files, images, PDFs, notebooks", || {
         ToolDefinition {
@@ -263,22 +263,26 @@ const ALL_TOOLS: &[(&str, &str, fn() -> ToolDefinition)] = &[
         always_load: None,
         is_mcp: None,
         search_hint: None,
-    aliases: None,
-    user_facing_name: None,
+        aliases: None,
+        user_facing_name: None,
     }),
-    ("Glob", "Find files by name pattern or wildcard", || ToolDefinition {
-        name: "Glob".to_string(),
-        description: "Find files by glob pattern (glob pattern matching for file discovery)".to_string(),
-        input_schema: glob_schema(),
-        annotations: None,
-        should_defer: Some(false),
-        always_load: Some(true),
-        is_mcp: None,
-        search_hint: Some("find files by name pattern or wildcard".to_string()),
-    aliases: None,
-    user_facing_name: None,
+    ("Glob", "Find files by name pattern or wildcard", || {
+        ToolDefinition {
+            name: "Glob".to_string(),
+            description: "Find files by glob pattern (glob pattern matching for file discovery)"
+                .to_string(),
+            input_schema: glob_schema(),
+            annotations: None,
+            should_defer: Some(false),
+            always_load: Some(true),
+            is_mcp: None,
+            search_hint: Some("find files by name pattern or wildcard".to_string()),
+            aliases: None,
+            user_facing_name: None,
+        }
     }),
-    ("Grep", "Search file contents using regex", || ToolDefinition {
+    ("Grep", "Search file contents using regex", || {
+        ToolDefinition {
         name: "Grep".to_string(),
         description: "Search file contents using regex patterns. Uses ripgrep (rg) if available, falls back to grep.".to_string(),
         input_schema: grep_schema(),
@@ -289,6 +293,7 @@ const ALL_TOOLS: &[(&str, &str, fn() -> ToolDefinition)] = &[
         search_hint: Some("search file contents using regex".to_string()),
     aliases: None,
     user_facing_name: None,
+    }
     }),
     (
         "FileEdit",
@@ -302,8 +307,8 @@ const ALL_TOOLS: &[(&str, &str, fn() -> ToolDefinition)] = &[
             always_load: None,
             is_mcp: None,
             search_hint: None,
-        aliases: None,
-    user_facing_name: None,
+            aliases: None,
+            user_facing_name: None,
         },
     ),
     (
@@ -311,15 +316,17 @@ const ALL_TOOLS: &[(&str, &str, fn() -> ToolDefinition)] = &[
         "Edit Jupyter notebook cells (.ipynb)",
         || ToolDefinition {
             name: "NotebookEdit".to_string(),
-            description: "Edit Jupyter notebook (.ipynb) cells: replace, insert, or delete cell content".to_string(),
+            description:
+                "Edit Jupyter notebook (.ipynb) cells: replace, insert, or delete cell content"
+                    .to_string(),
             input_schema: notebook_edit_schema(),
             annotations: None,
             should_defer: Some(true),
             always_load: None,
             is_mcp: None,
             search_hint: Some("edit Jupyter notebook cells (.ipynb)".to_string()),
-        aliases: None,
-    user_facing_name: None,
+            aliases: None,
+            user_facing_name: None,
         },
     ),
     (
@@ -382,8 +389,8 @@ const ALL_TOOLS: &[(&str, &str, fn() -> ToolDefinition)] = &[
             always_load: None,
             is_mcp: None,
             search_hint: None,
-        aliases: None,
-    user_facing_name: None,
+            aliases: None,
+            user_facing_name: None,
         }
     }),
     ("TaskList", "List all tasks in the task list", || {
@@ -396,8 +403,8 @@ const ALL_TOOLS: &[(&str, &str, fn() -> ToolDefinition)] = &[
             always_load: None,
             is_mcp: None,
             search_hint: None,
-        aliases: None,
-    user_facing_name: None,
+            aliases: None,
+            user_facing_name: None,
         }
     }),
     ("TaskUpdate", "Update an existing task", || ToolDefinition {
@@ -409,8 +416,8 @@ const ALL_TOOLS: &[(&str, &str, fn() -> ToolDefinition)] = &[
         always_load: None,
         is_mcp: None,
         search_hint: None,
-    aliases: None,
-    user_facing_name: None,
+        aliases: None,
+        user_facing_name: None,
     }),
     ("TaskGet", "Get details of a specific task", || {
         ToolDefinition {
@@ -422,8 +429,8 @@ const ALL_TOOLS: &[(&str, &str, fn() -> ToolDefinition)] = &[
             always_load: None,
             is_mcp: None,
             search_hint: None,
-        aliases: None,
-    user_facing_name: None,
+            aliases: None,
+            user_facing_name: None,
         }
     }),
     (
@@ -438,8 +445,8 @@ const ALL_TOOLS: &[(&str, &str, fn() -> ToolDefinition)] = &[
             always_load: None,
             is_mcp: None,
             search_hint: None,
-        aliases: None,
-    user_facing_name: None,
+            aliases: None,
+            user_facing_name: None,
         },
     ),
     ("TeamDelete", "Delete a team of agents", || ToolDefinition {
@@ -451,8 +458,8 @@ const ALL_TOOLS: &[(&str, &str, fn() -> ToolDefinition)] = &[
         always_load: None,
         is_mcp: None,
         search_hint: None,
-    aliases: None,
-    user_facing_name: None,
+        aliases: None,
+        user_facing_name: None,
     }),
     ("SendMessage", "Send a message to another agent", || {
         ToolDefinition {
@@ -464,8 +471,8 @@ const ALL_TOOLS: &[(&str, &str, fn() -> ToolDefinition)] = &[
             always_load: None,
             is_mcp: None,
             search_hint: None,
-        aliases: None,
-    user_facing_name: None,
+            aliases: None,
+            user_facing_name: None,
         }
     }),
     ("EnterWorktree", "Create and enter a git worktree", || {
@@ -478,8 +485,8 @@ const ALL_TOOLS: &[(&str, &str, fn() -> ToolDefinition)] = &[
             always_load: None,
             is_mcp: None,
             search_hint: None,
-        aliases: None,
-    user_facing_name: None,
+            aliases: None,
+            user_facing_name: None,
         }
     }),
     (
@@ -494,8 +501,8 @@ const ALL_TOOLS: &[(&str, &str, fn() -> ToolDefinition)] = &[
             always_load: None,
             is_mcp: None,
             search_hint: None,
-        aliases: None,
-    user_facing_name: None,
+            aliases: None,
+            user_facing_name: None,
         },
     ),
     ("EnterPlanMode", "Enter structured planning mode", || {
@@ -509,8 +516,8 @@ const ALL_TOOLS: &[(&str, &str, fn() -> ToolDefinition)] = &[
             always_load: None,
             is_mcp: None,
             search_hint: None,
-        aliases: None,
-    user_facing_name: None,
+            aliases: None,
+            user_facing_name: None,
         }
     }),
     ("ExitPlanMode", "Exit planning mode", || ToolDefinition {
@@ -522,8 +529,8 @@ const ALL_TOOLS: &[(&str, &str, fn() -> ToolDefinition)] = &[
         always_load: None,
         is_mcp: None,
         search_hint: None,
-    aliases: None,
-    user_facing_name: None,
+        aliases: None,
+        user_facing_name: None,
     }),
     (
         "AskUserQuestion",
@@ -537,8 +544,8 @@ const ALL_TOOLS: &[(&str, &str, fn() -> ToolDefinition)] = &[
             always_load: None,
             is_mcp: None,
             search_hint: None,
-        aliases: None,
-    user_facing_name: None,
+            aliases: None,
+            user_facing_name: None,
         },
     ),
     ("ToolSearch", "Search for available tools", || {
@@ -551,8 +558,8 @@ const ALL_TOOLS: &[(&str, &str, fn() -> ToolDefinition)] = &[
             always_load: None,
             is_mcp: None,
             search_hint: None,
-        aliases: None,
-    user_facing_name: None,
+            aliases: None,
+            user_facing_name: None,
         }
     }),
     ("CronCreate", "Create a scheduled task", || ToolDefinition {
@@ -564,8 +571,8 @@ const ALL_TOOLS: &[(&str, &str, fn() -> ToolDefinition)] = &[
         always_load: None,
         is_mcp: None,
         search_hint: None,
-    aliases: None,
-    user_facing_name: None,
+        aliases: None,
+        user_facing_name: None,
     }),
     ("CronDelete", "Delete a scheduled task", || ToolDefinition {
         name: "CronDelete".to_string(),
@@ -576,8 +583,8 @@ const ALL_TOOLS: &[(&str, &str, fn() -> ToolDefinition)] = &[
         always_load: None,
         is_mcp: None,
         search_hint: None,
-    aliases: None,
-    user_facing_name: None,
+        aliases: None,
+        user_facing_name: None,
     }),
     ("CronList", "List all scheduled tasks", || ToolDefinition {
         name: "CronList".to_string(),
@@ -588,8 +595,8 @@ const ALL_TOOLS: &[(&str, &str, fn() -> ToolDefinition)] = &[
         always_load: None,
         is_mcp: None,
         search_hint: None,
-    aliases: None,
-    user_facing_name: None,
+        aliases: None,
+        user_facing_name: None,
     }),
     ("Config", "Read or update configuration", || {
         ToolDefinition {
@@ -601,23 +608,28 @@ const ALL_TOOLS: &[(&str, &str, fn() -> ToolDefinition)] = &[
             always_load: None,
             is_mcp: None,
             search_hint: None,
-        aliases: None,
-    user_facing_name: None,
+            aliases: None,
+            user_facing_name: None,
         }
     }),
-    ("TodoWrite", "Manage the session task checklist", || ToolDefinition {
-        name: "TodoWrite".to_string(),
-        description: "Update the todo list for this session. Provide the complete updated list of todos.".to_string(),
-        input_schema: todo_write_schema(),
-        annotations: None,
-        should_defer: Some(true),
-        always_load: None,
-        is_mcp: None,
-        search_hint: Some("manage the session task checklist".to_string()),
-    aliases: None,
-    user_facing_name: None,
+    ("TodoWrite", "Manage the session task checklist", || {
+        ToolDefinition {
+            name: "TodoWrite".to_string(),
+            description:
+                "Update the todo list for this session. Provide the complete updated list of todos."
+                    .to_string(),
+            input_schema: todo_write_schema(),
+            annotations: None,
+            should_defer: Some(true),
+            always_load: None,
+            is_mcp: None,
+            search_hint: Some("manage the session task checklist".to_string()),
+            aliases: None,
+            user_facing_name: None,
+        }
     }),
-    ("Skill", "Invoke a skill by name", || ToolDefinition {
+    ("Skill", "Invoke a skill by name", || {
+        ToolDefinition {
         name: "Skill".to_string(),
         description: "Invoke a skill by name. Skills are pre-built workflows or commands that can be executed to accomplish specific tasks.".to_string(),
         input_schema: skill_schema(),
@@ -628,8 +640,10 @@ const ALL_TOOLS: &[(&str, &str, fn() -> ToolDefinition)] = &[
         search_hint: Some("invoke skills and workflows".to_string()),
     aliases: None,
     user_facing_name: None,
+    }
     }),
-    ("TaskStop", "Stop a running background task", || ToolDefinition {
+    ("TaskStop", "Stop a running background task", || {
+        ToolDefinition {
         name: "TaskStop".to_string(),
         description: "Stop a running background task by ID. Also accepts shell_id for backward compatibility with the deprecated KillShell tool.".to_string(),
         input_schema: task_stop_schema(),
@@ -640,6 +654,7 @@ const ALL_TOOLS: &[(&str, &str, fn() -> ToolDefinition)] = &[
         search_hint: Some("kill a running background task".to_string()),
     aliases: None,
     user_facing_name: None,
+    }
     }),
     ("Monitor", "Monitor system resources", || ToolDefinition {
         name: "Monitor".to_string(),
@@ -650,20 +665,22 @@ const ALL_TOOLS: &[(&str, &str, fn() -> ToolDefinition)] = &[
         always_load: None,
         is_mcp: None,
         search_hint: None,
-    aliases: None,
-    user_facing_name: None,
+        aliases: None,
+        user_facing_name: None,
     }),
-    ("send_user_file", "Send a file from user to agent", || ToolDefinition {
-        name: "send_user_file".to_string(),
-        description: "Send a file from the user to the agent".to_string(),
-        input_schema: send_user_file_schema(),
-        annotations: None,
-        should_defer: None,
-        always_load: None,
-        is_mcp: None,
-        search_hint: None,
-    aliases: None,
-    user_facing_name: None,
+    ("send_user_file", "Send a file from user to agent", || {
+        ToolDefinition {
+            name: "send_user_file".to_string(),
+            description: "Send a file from the user to the agent".to_string(),
+            input_schema: send_user_file_schema(),
+            annotations: None,
+            should_defer: None,
+            always_load: None,
+            is_mcp: None,
+            search_hint: None,
+            aliases: None,
+            user_facing_name: None,
+        }
     }),
     ("WebBrowser", "Control a web browser", || ToolDefinition {
         name: "WebBrowser".to_string(),
@@ -674,10 +691,14 @@ const ALL_TOOLS: &[(&str, &str, fn() -> ToolDefinition)] = &[
         always_load: None,
         is_mcp: None,
         search_hint: None,
-    aliases: None,
-    user_facing_name: None,
+        aliases: None,
+        user_facing_name: None,
     }),
-    ("LSP", "Code intelligence via Language Server Protocol", || ToolDefinition {
+    (
+        "LSP",
+        "Code intelligence via Language Server Protocol",
+        || {
+            ToolDefinition {
         name: "LSP".to_string(),
         description: "Interact with Language Server Protocol servers for code intelligence (definitions, references, symbols, hover, call hierarchy)".to_string(),
         input_schema: lsp_schema(),
@@ -688,43 +709,57 @@ const ALL_TOOLS: &[(&str, &str, fn() -> ToolDefinition)] = &[
         search_hint: None,
     aliases: None,
     user_facing_name: None,
+    }
+        },
+    ),
+    (
+        "RemoteTrigger",
+        "Manage remote Claude Code agents via CCR API",
+        || ToolDefinition {
+            name: "RemoteTrigger".to_string(),
+            description:
+                "Manage scheduled remote Claude Code agents (triggers) via the claude.ai CCR API"
+                    .to_string(),
+            input_schema: remote_trigger_schema(),
+            annotations: None,
+            should_defer: None,
+            always_load: None,
+            is_mcp: None,
+            search_hint: None,
+            aliases: None,
+            user_facing_name: None,
+        },
+    ),
+    ("ListMcpResourcesTool", "List MCP server resources", || {
+        ToolDefinition {
+            name: "ListMcpResourcesTool".to_string(),
+            description: "List available resources from configured MCP servers".to_string(),
+            input_schema: list_mcp_resources_schema(),
+            annotations: None,
+            should_defer: None,
+            always_load: None,
+            is_mcp: None,
+            search_hint: None,
+            aliases: None,
+            user_facing_name: None,
+        }
     }),
-    ("RemoteTrigger", "Manage remote Claude Code agents via CCR API", || ToolDefinition {
-        name: "RemoteTrigger".to_string(),
-        description: "Manage scheduled remote Claude Code agents (triggers) via the claude.ai CCR API".to_string(),
-        input_schema: remote_trigger_schema(),
-        annotations: None,
-        should_defer: None,
-        always_load: None,
-        is_mcp: None,
-        search_hint: None,
-    aliases: None,
-    user_facing_name: None,
-    }),
-    ("ListMcpResourcesTool", "List MCP server resources", || ToolDefinition {
-        name: "ListMcpResourcesTool".to_string(),
-        description: "List available resources from configured MCP servers".to_string(),
-        input_schema: list_mcp_resources_schema(),
-        annotations: None,
-        should_defer: None,
-        always_load: None,
-        is_mcp: None,
-        search_hint: None,
-    aliases: None,
-    user_facing_name: None,
-    }),
-    ("ReadMcpResourceTool", "Read MCP server resources by URI", || ToolDefinition {
-        name: "ReadMcpResourceTool".to_string(),
-        description: "Read a specific resource from an MCP server by URI".to_string(),
-        input_schema: read_mcp_resource_schema(),
-        annotations: None,
-        should_defer: None,
-        always_load: None,
-        is_mcp: None,
-        search_hint: None,
-    aliases: None,
-    user_facing_name: None,
-    }),
+    (
+        "ReadMcpResourceTool",
+        "Read MCP server resources by URI",
+        || ToolDefinition {
+            name: "ReadMcpResourceTool".to_string(),
+            description: "Read a specific resource from an MCP server by URI".to_string(),
+            input_schema: read_mcp_resource_schema(),
+            annotations: None,
+            should_defer: None,
+            always_load: None,
+            is_mcp: None,
+            search_hint: None,
+            aliases: None,
+            user_facing_name: None,
+        },
+    ),
 ];
 
 fn agent_schema() -> ToolInputSchema {

@@ -112,7 +112,10 @@ pub fn log_plugin_fetch(
     metadata.insert("is_official".to_string(), serde_json::json!(is_official));
     metadata.insert("outcome".to_string(), serde_json::json!(outcome.as_str()));
     metadata.insert("duration_ms".to_string(), serde_json::json!(duration_ms));
-    metadata.insert("error_kind".to_string(), serde_json::json!(error_kind.unwrap_or("")));
+    metadata.insert(
+        "error_kind".to_string(),
+        serde_json::json!(error_kind.unwrap_or("")),
+    );
 
     crate::services::analytics::log_event("tengu_plugin_remote_fetch", metadata);
 }

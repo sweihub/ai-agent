@@ -7,9 +7,9 @@
 //! heavy CLI tree (analytics, transport, etc.). Callers supply explicit
 //! accessToken + baseUrl — no implicit auth or config reads.
 
-use reqwest::header::{HeaderMap, HeaderName, HeaderValue, AUTHORIZATION, CONTENT_TYPE};
-use serde::{Deserialize, Serialize};
 use crate::utils::http::get_user_agent;
+use reqwest::header::{AUTHORIZATION, CONTENT_TYPE, HeaderMap, HeaderName, HeaderValue};
+use serde::{Deserialize, Serialize};
 
 const ANTHROPIC_VERSION: &str = "2023-06-01";
 
@@ -24,10 +24,7 @@ fn oauth_headers(access_token: &str) -> HeaderMap {
         HeaderName::from_static("anthropic-version"),
         HeaderValue::from_static(ANTHROPIC_VERSION),
     );
-    headers.insert(
-        "User-Agent",
-        get_user_agent().parse().unwrap(),
-    );
+    headers.insert("User-Agent", get_user_agent().parse().unwrap());
     headers
 }
 

@@ -130,7 +130,12 @@ async fn fetch_bootstrap_api() -> Option<BootstrapResponse> {
     // lack it and would 403). Fall back to API key auth for console users.
     let api_key = get_anthropic_api_key();
     let has_usable_oauth = get_claude_ai_oauth_tokens()
-        .map(|t| t.access_token.as_ref().map(|s| !s.is_empty()).unwrap_or(false))
+        .map(|t| {
+            t.access_token
+                .as_ref()
+                .map(|s| !s.is_empty())
+                .unwrap_or(false)
+        })
         .unwrap_or(false)
         && has_profile_scope();
 
@@ -163,7 +168,10 @@ async fn fetch_bootstrap_api() -> Option<BootstrapResponse> {
     if let Some(token) = get_claude_ai_oauth_tokens() {
         if let Some(access_token) = token.access_token {
             if has_profile_scope() {
-                headers.insert("Authorization".to_string(), format!("Bearer {}", access_token));
+                headers.insert(
+                    "Authorization".to_string(),
+                    format!("Bearer {}", access_token),
+                );
                 headers.insert("anthropic-beta".to_string(), get_oauth_beta_header());
             }
         }
@@ -223,7 +231,9 @@ pub async fn fetch_bootstrap_data() {
     let config = get_global_config();
 
     let client_data_unchanged = config.client_data_cache.as_ref() == Some(&client_data);
-    let model_options_unchanged = config.additional_model_options_cache.as_ref()
+    let model_options_unchanged = config
+        .additional_model_options_cache
+        .as_ref()
         .map(|c| c == &additional_model_options)
         .unwrap_or(false);
 

@@ -150,7 +150,10 @@ impl<'de> serde::Deserialize<'de> for NestedApiError {
         D: serde::Deserializer<'de>,
     {
         let value = serde_json::Value::deserialize(deserializer)?;
-        let message = value.get("message").and_then(|v| v.as_str()).map(String::from);
+        let message = value
+            .get("message")
+            .and_then(|v| v.as_str())
+            .map(String::from);
         let error = value.get("error").and_then(|v| {
             v.as_object().map(|_| {
                 Box::new(NestedApiError {
@@ -196,7 +199,8 @@ pub fn format_api_error(error_message: &str) -> String {
 
         // Handle timeout errors
         if code == "ETIMEDOUT" {
-            return "Request timed out. Check your internet connection and proxy settings".to_string();
+            return "Request timed out. Check your internet connection and proxy settings"
+                .to_string();
         }
 
         // Handle SSL/TLS errors with specific messages
@@ -211,16 +215,19 @@ pub fn format_api_error(error_message: &str) -> String {
                     return "Unable to connect to API: SSL certificate has expired".to_string();
                 }
                 "CERT_REVOKED" => {
-                    return "Unable to connect to API: SSL certificate has been revoked".to_string();
+                    return "Unable to connect to API: SSL certificate has been revoked"
+                        .to_string();
                 }
                 "DEPTH_ZERO_SELF_SIGNED_CERT" | "SELF_SIGNED_CERT_IN_CHAIN" => {
                     return "Unable to connect to API: Self-signed certificate detected. Check your proxy or corporate SSL certificates".to_string();
                 }
                 "ERR_TLS_CERT_ALTNAME_INVALID" | "HOSTNAME_MISMATCH" => {
-                    return "Unable to connect to API: SSL certificate hostname mismatch".to_string();
+                    return "Unable to connect to API: SSL certificate hostname mismatch"
+                        .to_string();
                 }
                 "CERT_NOT_YET_VALID" => {
-                    return "Unable to connect to API: SSL certificate is not yet valid".to_string();
+                    return "Unable to connect to API: SSL certificate is not yet valid"
+                        .to_string();
                 }
                 _ => {
                     return format!("Unable to connect to API: SSL error ({})", code);

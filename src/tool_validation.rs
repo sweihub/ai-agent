@@ -14,7 +14,10 @@ pub fn validate_tool_input(
     input: &serde_json::Value,
     tools: &[ToolDefinition],
 ) -> Result<(), String> {
-    let tool = tools.iter().find(|t| t.name == name).ok_or(format!("Tool '{}' not found", name))?;
+    let tool = tools
+        .iter()
+        .find(|t| t.name == name)
+        .ok_or(format!("Tool '{}' not found", name))?;
     validate_against_schema(name, input, &tool.input_schema)
 }
 
@@ -24,9 +27,10 @@ fn validate_against_schema(
     input: &serde_json::Value,
     schema: &ToolInputSchema,
 ) -> Result<(), String> {
-    let properties = schema.properties.as_object().ok_or_else(|| {
-        format!("Invalid schema for tool '{}'", tool_name)
-    })?;
+    let properties = schema
+        .properties
+        .as_object()
+        .ok_or_else(|| format!("Invalid schema for tool '{}'", tool_name))?;
     let required = schema.required.as_ref();
 
     let mut errors: Vec<String> = Vec::new();
@@ -109,7 +113,10 @@ fn json_type_name(value: &serde_json::Value) -> &'static str {
 
 /// Tool definition lookup by name.
 /// Matches TypeScript's findToolByName which also checks aliases.
-pub fn find_tool_by_name<'a>(tools: &'a [ToolDefinition], name: &str) -> Option<&'a ToolDefinition> {
+pub fn find_tool_by_name<'a>(
+    tools: &'a [ToolDefinition],
+    name: &str,
+) -> Option<&'a ToolDefinition> {
     tools.iter().find(|t| t.name == name).or_else(|| {
         // Fallback: check if it's a deprecated alias
         // Maps "Read" -> "FileRead", "Edit" -> "FileEdit", "Write" -> "FileWrite", "Glob" -> "Glob", etc.
@@ -128,7 +135,11 @@ mod tests {
     use super::*;
     use crate::types::ToolInputSchema;
 
-    fn make_tool(name: &str, properties: serde_json::Value, required: Option<Vec<String>>) -> ToolDefinition {
+    fn make_tool(
+        name: &str,
+        properties: serde_json::Value,
+        required: Option<Vec<String>>,
+    ) -> ToolDefinition {
         ToolDefinition {
             name: name.to_string(),
             description: format!("Test tool {}", name),
@@ -143,7 +154,7 @@ mod tests {
             is_mcp: None,
             search_hint: None,
             aliases: None,
-        user_facing_name: None,
+            user_facing_name: None,
         }
     }
 

@@ -114,8 +114,11 @@ pub fn is_powershell_parameter(arg: &str, element_type: Option<&CommandElementTy
         return *et == CommandElementType::Parameter;
     }
     // Check for common parameter prefixes
-    arg.starts_with('-') || arg.starts_with('/') ||
-    arg.starts_with('–') || arg.starts_with('—') || arg.starts_with('―')
+    arg.starts_with('-')
+        || arg.starts_with('/')
+        || arg.starts_with('–')
+        || arg.starts_with('—')
+        || arg.starts_with('―')
 }
 
 /// Alternative parameter prefix characters
@@ -134,7 +137,8 @@ pub fn parse_powershell_command(command: &str) -> ParsedPowerShellCommand {
     }
 
     // Split by statement separators: ; and newlines
-    let statement_strs: Vec<&str> = trimmed.split(|c| c == ';' || c == '\n')
+    let statement_strs: Vec<&str> = trimmed
+        .split(|c| c == ';' || c == '\n')
         .filter(|s| !s.trim().is_empty())
         .collect();
 
@@ -271,7 +275,9 @@ fn classify_command_name(name: &str) -> String {
     }
 
     // Common external commands
-    let external = ["git", "gh", "docker", "npm", "node", "python", "make", "tar", "curl", "wget"];
+    let external = [
+        "git", "gh", "docker", "npm", "node", "python", "make", "tar", "curl", "wget",
+    ];
     if external.contains(&lower.as_str()) {
         return "application".to_string();
     }
@@ -311,13 +317,21 @@ fn classify_argument_element(arg: &str) -> CommandElementType {
 
     // Check for script block {} - exact match OR contains script block content
     // Handles: {}, { code }, { $_.Name }, and partial tokens like { and }
-    if trimmed.starts_with('{') || trimmed.ends_with('}') ||
-       trimmed.contains("{ ") || trimmed.contains(" }") || trimmed.contains("{}") {
+    if trimmed.starts_with('{')
+        || trimmed.ends_with('}')
+        || trimmed.contains("{ ")
+        || trimmed.contains(" }")
+        || trimmed.contains("{}")
+    {
         return CommandElementType::ScriptBlock;
     }
 
     // Check for subexpression $() - exact match OR contains it
-    if trimmed.starts_with("$(") || trimmed.starts_with("@(") || trimmed.contains("$(") || trimmed.contains("@(") {
+    if trimmed.starts_with("$(")
+        || trimmed.starts_with("@(")
+        || trimmed.contains("$(")
+        || trimmed.contains("@(")
+    {
         return CommandElementType::SubExpression;
     }
 
@@ -507,7 +521,12 @@ mod tests {
         let result = parse_powershell_command("Write-Host $env:SECRET");
         assert!(result.valid);
         let types = &result.statements[0].commands[0].element_types;
-        assert!(types.as_ref().map(|t| t.iter().any(|et| *et == CommandElementType::Variable)).unwrap_or(false));
+        assert!(
+            types
+                .as_ref()
+                .map(|t| t.iter().any(|et| *et == CommandElementType::Variable))
+                .unwrap_or(false)
+        );
     }
 
     #[test]
@@ -515,7 +534,12 @@ mod tests {
         let result = parse_powershell_command("Where-Object { $_.Name }");
         assert!(result.valid);
         let types = &result.statements[0].commands[0].element_types;
-        assert!(types.as_ref().map(|t| t.iter().any(|et| *et == CommandElementType::ScriptBlock)).unwrap_or(false));
+        assert!(
+            types
+                .as_ref()
+                .map(|t| t.iter().any(|et| *et == CommandElementType::ScriptBlock))
+                .unwrap_or(false)
+        );
     }
 
     #[test]
@@ -523,7 +547,12 @@ mod tests {
         let result = parse_powershell_command("Invoke-Expression $(malicious)");
         assert!(result.valid);
         let types = &result.statements[0].commands[0].element_types;
-        assert!(types.as_ref().map(|t| t.iter().any(|et| *et == CommandElementType::SubExpression)).unwrap_or(false));
+        assert!(
+            types
+                .as_ref()
+                .map(|t| t.iter().any(|et| *et == CommandElementType::SubExpression))
+                .unwrap_or(false)
+        );
     }
 
     #[test]

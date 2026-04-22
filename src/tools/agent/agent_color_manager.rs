@@ -1,5 +1,5 @@
 // Source: ~/claudecode/openclaudecode/src/tools/AgentTool/agentColorManager.ts
-use crate::tools::agent::{get_agent_color_map, AgentDefinition};
+use crate::tools::agent::{AgentDefinition, get_agent_color_map};
 use std::collections::HashMap;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -88,9 +88,8 @@ pub fn get_agent_color(agent_type: &str) -> Option<&'static str> {
     }
 
     let map = get_agent_color_map().lock().unwrap();
-    map.get(agent_type).and_then(|color_str| {
-        AgentColorName::from_str(color_str).map(|c| c.to_theme_color())
-    })
+    map.get(agent_type)
+        .and_then(|color_str| AgentColorName::from_str(color_str).map(|c| c.to_theme_color()))
 }
 
 /// Set or clear the color for an agent type.

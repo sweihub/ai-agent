@@ -200,8 +200,12 @@ pub fn is_hook_equal(a: &HookCommand, b: &HookCommand) -> bool {
             },
         ) => {
             cmd_a == cmd_b
-                && (shell_a.clone().unwrap_or_else(|| DEFAULT_HOOK_SHELL.to_string())
-                    == shell_b.clone().unwrap_or_else(|| DEFAULT_HOOK_SHELL.to_string()))
+                && (shell_a
+                    .clone()
+                    .unwrap_or_else(|| DEFAULT_HOOK_SHELL.to_string())
+                    == shell_b
+                        .clone()
+                        .unwrap_or_else(|| DEFAULT_HOOK_SHELL.to_string()))
                 && (if_a.clone().unwrap_or_default() == if_b.clone().unwrap_or_default())
         }
         (
@@ -215,10 +219,7 @@ pub fn is_hook_equal(a: &HookCommand, b: &HookCommand) -> bool {
                 if_condition: if_b,
                 ..
             },
-        ) => {
-            p_a == p_b
-                && (if_a.clone().unwrap_or_default() == if_b.clone().unwrap_or_default())
-        }
+        ) => p_a == p_b && (if_a.clone().unwrap_or_default() == if_b.clone().unwrap_or_default()),
         (
             HookCommand::Agent {
                 prompt: p_a,
@@ -230,10 +231,7 @@ pub fn is_hook_equal(a: &HookCommand, b: &HookCommand) -> bool {
                 if_condition: if_b,
                 ..
             },
-        ) => {
-            p_a == p_b
-                && (if_a.clone().unwrap_or_default() == if_b.clone().unwrap_or_default())
-        }
+        ) => p_a == p_b && (if_a.clone().unwrap_or_default() == if_b.clone().unwrap_or_default()),
         (
             HookCommand::Http {
                 url: u_a,
@@ -245,10 +243,7 @@ pub fn is_hook_equal(a: &HookCommand, b: &HookCommand) -> bool {
                 if_condition: if_b,
                 ..
             },
-        ) => {
-            u_a == u_b
-                && (if_a.clone().unwrap_or_default() == if_b.clone().unwrap_or_default())
-        }
+        ) => u_a == u_b && (if_a.clone().unwrap_or_default() == if_b.clone().unwrap_or_default()),
         _ => false,
     }
 }
@@ -378,7 +373,8 @@ fn get_settings_file_path_for_source(source: &EditableSettingSource) -> Option<S
         EditableSettingSource::UserSettings => {
             // ~/.claude/settings.json
             dirs::home_dir().map(|home| {
-                home.join(".claude").join("settings.json")
+                home.join(".claude")
+                    .join("settings.json")
                     .to_string_lossy()
                     .to_string()
             })
@@ -387,7 +383,8 @@ fn get_settings_file_path_for_source(source: &EditableSettingSource) -> Option<S
             // .claude/settings.json in cwd
             let cwd = std::env::current_dir().ok()?;
             Some(
-                cwd.join(".claude").join("settings.json")
+                cwd.join(".claude")
+                    .join("settings.json")
                     .to_string_lossy()
                     .to_string(),
             )
@@ -429,9 +426,7 @@ pub fn hook_source_description_display_string(source: &HookSource) -> String {
             }
         },
         HookSource::PolicySettings => "Policy settings".to_string(),
-        HookSource::PluginHook => {
-            "Plugin hooks (~/.claude/plugins/*/hooks/hooks.json)".to_string()
-        }
+        HookSource::PluginHook => "Plugin hooks (~/.claude/plugins/*/hooks/hooks.json)".to_string(),
         HookSource::SessionHook => "Session hooks (in-memory, temporary)".to_string(),
         HookSource::BuiltinHook => {
             "Built-in hook (registered internally by Claude Code)".to_string()
@@ -474,10 +469,7 @@ pub fn hook_source_inline_display_string(source: &HookSource) -> String {
 /// Plugin hooks get lowest priority.
 pub fn sort_matchers_by_priority(
     matchers: &[String],
-    hooks_by_event_and_matcher: &HashMap<
-        HookEvent,
-        HashMap<String, Vec<IndividualHookConfig>>,
-    >,
+    hooks_by_event_and_matcher: &HashMap<HookEvent, HashMap<String, Vec<IndividualHookConfig>>>,
     selected_event: &HookEvent,
 ) -> Vec<String> {
     // Create a priority map based on SOURCES order (lower index = higher priority)
@@ -514,8 +506,16 @@ pub fn sort_matchers_by_priority(
             }
         };
 
-        let a_highest_priority = a_sources.iter().map(get_source_priority).min().unwrap_or(999);
-        let b_highest_priority = b_sources.iter().map(get_source_priority).min().unwrap_or(999);
+        let a_highest_priority = a_sources
+            .iter()
+            .map(get_source_priority)
+            .min()
+            .unwrap_or(999);
+        let b_highest_priority = b_sources
+            .iter()
+            .map(get_source_priority)
+            .min()
+            .unwrap_or(999);
 
         if a_highest_priority != b_highest_priority {
             return a_highest_priority.cmp(&b_highest_priority);
@@ -610,13 +610,7 @@ mod tests {
             hook_source_description_display_string(&source),
             "User settings (~/.claude/settings.json)"
         );
-        assert_eq!(
-            hook_source_header_display_string(&source),
-            "User Settings"
-        );
-        assert_eq!(
-            hook_source_inline_display_string(&source),
-            "User"
-        );
+        assert_eq!(hook_source_header_display_string(&source), "User Settings");
+        assert_eq!(hook_source_inline_display_string(&source), "User");
     }
 }

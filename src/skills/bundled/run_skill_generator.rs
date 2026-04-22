@@ -2,10 +2,10 @@
 //!
 //! Generate new skills (feature-gated: RUN_SKILL_GENERATOR).
 
-use crate::skills::bundled_skills::{
-    register_bundled_skill, BundledSkillDefinition, ContentBlock, SkillContext,
-};
 use crate::AgentError;
+use crate::skills::bundled_skills::{
+    BundledSkillDefinition, ContentBlock, SkillContext, register_bundled_skill,
+};
 
 const RUN_SKILL_GENERATOR_PROMPT: &str = r#"# Run Skill Generator
 

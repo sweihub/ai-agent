@@ -3,18 +3,17 @@
 
 //! Permission update application and persistence.
 
-use std::collections::HashMap;
-use serde::{Deserialize, Serialize};
-use crate::types::permissions::{
-    AdditionalWorkingDirectory, PermissionBehavior, PermissionRuleValue,
-    ToolPermissionContext, ToolPermissionRulesBySource,
-    PermissionUpdate as PermissionUpdateType,
-    PermissionUpdateDestination,
-};
+use super::filesystem::to_posix_path;
 use super::permission_rule_parser::{
     permission_rule_value_from_string, permission_rule_value_to_string,
 };
-use super::filesystem::to_posix_path;
+use crate::types::permissions::{
+    AdditionalWorkingDirectory, PermissionBehavior, PermissionRuleValue,
+    PermissionUpdate as PermissionUpdateType, PermissionUpdateDestination, ToolPermissionContext,
+    ToolPermissionRulesBySource,
+};
+use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 
 /// Re-export the update type.
 pub use crate::types::permissions::PermissionUpdate;
@@ -179,8 +178,7 @@ fn remove_rules_from_context(
     rule_strings: &[String],
 ) {
     let rules = get_rules_mut(ctx, behavior, destination);
-    let to_remove: std::collections::HashSet<String> =
-        rule_strings.iter().cloned().collect();
+    let to_remove: std::collections::HashSet<String> = rule_strings.iter().cloned().collect();
     rules.retain(|r| !to_remove.contains(r));
 }
 
@@ -262,7 +260,10 @@ pub fn convert_rules_to_updates(
 
     for rule in rules {
         let key = format!("{}:{:?}", rule.source.as_str(), rule.rule_behavior);
-        grouped.entry(key).or_default().push(rule.rule_value.clone());
+        grouped
+            .entry(key)
+            .or_default()
+            .push(rule.rule_value.clone());
     }
 
     let mut updates = Vec::new();

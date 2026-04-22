@@ -200,21 +200,19 @@ mod tests {
 
     #[test]
     fn test_find_elicitation_in_queue() {
-        let queue = vec![
-            ElicitationRequestEvent {
-                server_name: "server1".to_string(),
-                request_id: "1".to_string(),
-                params: ElicitRequestParams {
-                    message: "Test".to_string(),
-                    requested_schema: None,
-                    mode: ElicitationMode::Url,
-                    url: None,
-                    elicitation_id: Some("abc123".to_string()),
-                },
-                waiting_state: None,
-                completed: false,
+        let queue = vec![ElicitationRequestEvent {
+            server_name: "server1".to_string(),
+            request_id: "1".to_string(),
+            params: ElicitRequestParams {
+                message: "Test".to_string(),
+                requested_schema: None,
+                mode: ElicitationMode::Url,
+                url: None,
+                elicitation_id: Some("abc123".to_string()),
             },
-        ];
+            waiting_state: None,
+            completed: false,
+        }];
 
         let idx = find_elicitation_in_queue(&queue, "server1", "abc123");
         assert_eq!(idx, Some(0));

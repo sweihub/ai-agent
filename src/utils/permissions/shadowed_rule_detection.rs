@@ -3,10 +3,8 @@
 
 //! Shadowed rule detection — identifies unreachable permission rules.
 
-use crate::types::permissions::{
-    PermissionRule, PermissionRuleSource, ToolPermissionContext,
-};
 use super::permissions::{get_allow_rules, get_ask_rules, get_deny_rules};
+use crate::types::permissions::{PermissionRule, PermissionRuleSource, ToolPermissionContext};
 
 /// Type of shadowing that makes a rule unreachable.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -88,8 +86,7 @@ fn is_allow_rule_shadowed_by_ask_rule(
 
     // Find any tool-wide ask rule for the same tool
     let shadowing_ask_rule = ask_rules.iter().find(|ask_rule| {
-        ask_rule.rule_value.tool_name == *tool_name
-            && ask_rule.rule_value.rule_content.is_none()
+        ask_rule.rule_value.tool_name == *tool_name && ask_rule.rule_value.rule_content.is_none()
     });
 
     let Some(shadowing_ask_rule) = shadowing_ask_rule else {
@@ -122,8 +119,7 @@ fn is_allow_rule_shadowed_by_deny_rule(
 
     // Find any tool-wide deny rule for the same tool
     let shadowing_deny_rule = deny_rules.iter().find(|deny_rule| {
-        deny_rule.rule_value.tool_name == *tool_name
-            && deny_rule.rule_value.rule_content.is_none()
+        deny_rule.rule_value.tool_name == *tool_name && deny_rule.rule_value.rule_content.is_none()
     });
 
     shadowing_deny_rule.map(|rule| (rule.clone(), ShadowType::Deny))

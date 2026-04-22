@@ -315,7 +315,7 @@ impl CostSummary {
 }
 
 use crate::utils::config::{
-    get_current_project_config, save_current_project_config, ModelUsage as ConfigModelUsage,
+    ModelUsage as ConfigModelUsage, get_current_project_config, save_current_project_config,
 };
 
 /// Stored cost state from project config
@@ -549,9 +549,17 @@ pub fn format_total_cost() -> String {
         format_duration(cost_state.total_api_duration),
         format_duration(cost_state.last_duration.unwrap_or(0)),
         cost_state.total_lines_added,
-        if cost_state.total_lines_added == 1 { "line" } else { "lines" },
+        if cost_state.total_lines_added == 1 {
+            "line"
+        } else {
+            "lines"
+        },
         cost_state.total_lines_removed,
-        if cost_state.total_lines_removed == 1 { "line" } else { "lines" },
+        if cost_state.total_lines_removed == 1 {
+            "line"
+        } else {
+            "lines"
+        },
         model_usage_display
     )
 }

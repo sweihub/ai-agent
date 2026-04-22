@@ -164,11 +164,7 @@ pub async fn exchange_token(
     })?;
 
     if !status.is_success() {
-        log::debug!(
-            "Token exchange failed with status {}: {}",
-            status,
-            body
-        );
+        log::debug!("Token exchange failed with status {}: {}", status, body);
 
         // Try to parse error response
         if let Ok(error_json) = serde_json::from_str::<serde_json::Value>(&body) {
@@ -412,7 +408,8 @@ mod tests {
 
     #[test]
     fn test_xaa_error_with_clear() {
-        let error = XaaTokenExchangeError::new("Test error".to_string(), false).with_id_token_clear();
+        let error =
+            XaaTokenExchangeError::new("Test error".to_string(), false).with_id_token_clear();
         assert!(error.should_clear_id_token);
     }
 

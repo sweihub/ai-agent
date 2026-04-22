@@ -58,7 +58,13 @@ pub struct BaseTextInputProps {
     /// Maximum visible lines for the input viewport.
     pub max_visible_lines: Option<usize>,
     /// Optional callback when an image is pasted
-    pub on_image_paste: Option<Box<dyn Fn(String, Option<String>, Option<String>, Option<ImageDimensions>, Option<String>) + Send + Sync>>,
+    pub on_image_paste: Option<
+        Box<
+            dyn Fn(String, Option<String>, Option<String>, Option<ImageDimensions>, Option<String>)
+                + Send
+                + Sync,
+        >,
+    >,
     /// Optional callback when a large text (over 800 chars) is pasted
     pub on_paste: Option<Box<dyn Fn(String) + Send + Sync>>,
     /// Callback when the pasting state changes
@@ -246,17 +252,16 @@ pub fn is_valid_image_paste(c: &PastedContent) -> bool {
 }
 
 /// Extract image paste IDs from a QueuedCommand's pastedContents.
-pub fn get_image_paste_ids(pasted_contents: Option<&HashMap<usize, PastedContent>>) -> Option<Vec<usize>> {
+pub fn get_image_paste_ids(
+    pasted_contents: Option<&HashMap<usize, PastedContent>>,
+) -> Option<Vec<usize>> {
     let map = pasted_contents?;
-    let ids: Vec<usize> = map.values()
+    let ids: Vec<usize> = map
+        .values()
         .filter(|c| is_valid_image_paste(c))
         .map(|c| c.id)
         .collect();
-    if ids.is_empty() {
-        None
-    } else {
-        Some(ids)
-    }
+    if ids.is_empty() { None } else { Some(ids) }
 }
 
 /// Orphaned permission.

@@ -1,6 +1,6 @@
 // Source: ~/claudecode/openclaudecode/src/constants/tools.ts
-use std::collections::HashSet;
 use crate::utils::env_utils;
+use std::collections::HashSet;
 
 // Tool name constants (matching the TypeScript constants/tools.ts)
 pub const TASK_OUTPUT_TOOL_NAME: &str = "TaskOutput";
@@ -166,10 +166,7 @@ pub fn is_tool_search_enabled_optimistic() -> bool {
     if std::env::var("ENABLE_TOOL_SEARCH").is_err() {
         // If ANTHROPIC_BASE_URL is set but not a first-party host, disable
         if let Ok(base_url) = std::env::var("ANTHROPIC_BASE_URL") {
-            let first_party_hosts = [
-                "api.anthropic.com",
-                "api.anthropic.ai",
-            ];
+            let first_party_hosts = ["api.anthropic.com", "api.anthropic.ai"];
             if !first_party_hosts.iter().any(|h| base_url.contains(h)) {
                 return false;
             }
@@ -181,12 +178,16 @@ pub fn is_tool_search_enabled_optimistic() -> bool {
 /// Get tool search mode
 pub fn get_tool_search_mode() -> &'static str {
     // Check kill switch
-    if env_utils::is_env_truthy(std::env::var("CLAUDE_CODE_DISABLE_EXPERIMENTAL_BETAS").ok().as_deref()) {
+    if env_utils::is_env_truthy(
+        std::env::var("CLAUDE_CODE_DISABLE_EXPERIMENTAL_BETAS")
+            .ok()
+            .as_deref(),
+    ) {
         return "standard";
     }
 
     let value = std::env::var("ENABLE_TOOL_SEARCH").ok();
-    
+
     // Handle auto:N syntax
     if let Some(ref v) = value {
         if let Some(percent) = parse_auto_percentage(v) {
@@ -231,8 +232,11 @@ pub fn is_agent_swarms_enabled() -> bool {
         return true;
     }
     // External: require opt-in
-    if !env_utils::is_env_truthy(std::env::var("CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS").ok().as_deref())
-        && !std::env::args().any(|a| a == "--agent-teams")
+    if !env_utils::is_env_truthy(
+        std::env::var("CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS")
+            .ok()
+            .as_deref(),
+    ) && !std::env::args().any(|a| a == "--agent-teams")
     {
         return false;
     }
@@ -246,9 +250,17 @@ pub fn is_powershell_tool_enabled() -> bool {
         return false;
     }
     if env_utils::is_ant_user() {
-        return !env_utils::is_env_defined_falsy(std::env::var("CLAUDE_CODE_USE_POWERSHELL_TOOL").ok().as_deref());
+        return !env_utils::is_env_defined_falsy(
+            std::env::var("CLAUDE_CODE_USE_POWERSHELL_TOOL")
+                .ok()
+                .as_deref(),
+        );
     }
-    env_utils::is_env_truthy(std::env::var("CLAUDE_CODE_USE_POWERSHELL_TOOL").ok().as_deref())
+    env_utils::is_env_truthy(
+        std::env::var("CLAUDE_CODE_USE_POWERSHELL_TOOL")
+            .ok()
+            .as_deref(),
+    )
 }
 
 /// Shell tool names (Bash + PowerShell if enabled)

@@ -3,8 +3,8 @@
 //! Creates a combined AbortSignal that aborts when the input signal aborts,
 //! an optional second signal aborts, or an optional timeout elapses.
 
-use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::thread;
 use std::time::Duration;
 
@@ -95,8 +95,8 @@ pub struct CombinedAbortSignalOpts {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::sync::atomic::AtomicBool;
     use std::sync::Arc;
+    use std::sync::atomic::AtomicBool;
     use std::thread;
     use std::time::Duration;
 

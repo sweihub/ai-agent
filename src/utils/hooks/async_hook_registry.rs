@@ -4,7 +4,7 @@
 
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
-use tokio::time::{interval, Duration};
+use tokio::time::{Duration, interval};
 
 /// Represents a hook event type
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -249,7 +249,9 @@ pub fn register_pending_async_hook(params: RegisterPendingAsyncHookParams) {
     };
 
     let mut registry = ASYNC_HOOK_REGISTRY.lock().unwrap();
-    registry.pending_hooks.insert(params.process_id, pending_hook);
+    registry
+        .pending_hooks
+        .insert(params.process_id, pending_hook);
 }
 
 /// Get all pending async hooks that haven't sent their response attachment
@@ -259,20 +261,22 @@ pub fn get_pending_async_hooks() -> Vec<Arc<Mutex<PendingAsyncHook>>> {
         .pending_hooks
         .values()
         .filter(|hook| !hook.response_attachment_sent)
-        .map(|hook| Arc::new(Mutex::new(PendingAsyncHook {
-            process_id: hook.process_id.clone(),
-            hook_id: hook.hook_id.clone(),
-            hook_name: hook.hook_name.clone(),
-            hook_event: hook.hook_event.clone(),
-            tool_name: hook.tool_name.clone(),
-            plugin_id: hook.plugin_id.clone(),
-            start_time: hook.start_time,
-            timeout_ms: hook.timeout_ms,
-            command: hook.command.clone(),
-            response_attachment_sent: hook.response_attachment_sent,
-            shell_command: None, // Can't clone shell command
-            progress_task_id: None,
-        })))
+        .map(|hook| {
+            Arc::new(Mutex::new(PendingAsyncHook {
+                process_id: hook.process_id.clone(),
+                hook_id: hook.hook_id.clone(),
+                hook_name: hook.hook_name.clone(),
+                hook_event: hook.hook_event.clone(),
+                tool_name: hook.tool_name.clone(),
+                plugin_id: hook.plugin_id.clone(),
+                start_time: hook.start_time,
+                timeout_ms: hook.timeout_ms,
+                command: hook.command.clone(),
+                response_attachment_sent: hook.response_attachment_sent,
+                shell_command: None, // Can't clone shell command
+                progress_task_id: None,
+            }))
+        })
         .collect()
 }
 
@@ -358,9 +362,7 @@ fn should_emit(hook_event: &str) -> bool {
 }
 
 /// Register a handler for hook execution events
-pub fn register_hook_event_handler(
-    handler: Option<Box<dyn Fn(HookExecutionEvent) + Send + Sync>>,
-) {
+pub fn register_hook_event_handler(handler: Option<Box<dyn Fn(HookExecutionEvent) + Send + Sync>>) {
     unsafe {
         let old_handler = EVENT_HANDLER.take();
         EVENT_HANDLER = handler;
@@ -409,9 +411,7 @@ pub fn emit_hook_progress(params: HookProgressParams) {
 
 /// Start a progress interval that periodically emits hook progress events.
 /// Returns a JoinHandle that can be aborted to stop the interval.
-pub fn start_hook_progress_interval(
-    params: HookProgressParams,
-) -> tokio::task::JoinHandle<()> {
+pub fn start_hook_progress_interval(params: HookProgressParams) -> tokio::task::JoinHandle<()> {
     if !should_emit(params.hook_event.as_str()) {
         return tokio::spawn(async {});
     }
@@ -450,18 +450,18 @@ pub fn start_hook_progress_interval(
 /// Emit hook response event
 pub fn emit_hook_response(data: HookResponseData) {
     // Always log full hook output to debug log for verbose mode debugging
-    let output_to_log = if !data.stdout.is_empty() || !data.stderr.is_empty() || !data.output.is_empty()
-    {
-        if !data.stdout.is_empty() {
-            Some(&data.stdout)
-        } else if !data.stderr.is_empty() {
-            Some(&data.stderr)
+    let output_to_log =
+        if !data.stdout.is_empty() || !data.stderr.is_empty() || !data.output.is_empty() {
+            if !data.stdout.is_empty() {
+                Some(&data.stdout)
+            } else if !data.stderr.is_empty() {
+                Some(&data.stderr)
+            } else {
+                Some(&data.output)
+            }
         } else {
-            Some(&data.output)
-        }
-    } else {
-        None
-    };
+            None
+        };
 
     if let Some(output) = output_to_log {
         log_for_debugging(&format!(
@@ -514,11 +514,7 @@ pub fn clear_hook_event_state() {
 }
 
 /// Finalize a hook after completion
-async fn finalize_hook(
-    _hook: &PendingAsyncHook,
-    exit_code: i32,
-    outcome: HookOutcome,
-) {
+async fn finalize_hook(_hook: &PendingAsyncHook, exit_code: i32, outcome: HookOutcome) {
     // Note: progress_task_id cannot be called through a shared reference
     // since it's a FnOnce. In practice, the caller would have already stopped it.
 
@@ -527,7 +523,10 @@ async fn finalize_hook(
     } else {
         String::new()
     };
-    let stderr = _hook.shell_command.as_ref().map_or(String::new(), |s| s.task_output.get_stderr());
+    let stderr = _hook
+        .shell_command
+        .as_ref()
+        .map_or(String::new(), |s| s.task_output.get_stderr());
 
     if let Some(shell_cmd) = &_hook.shell_command {
         shell_cmd.cleanup();
@@ -596,7 +595,7 @@ pub async fn check_for_async_hook_responses() -> Vec<AsyncHookResponse> {
                     process_id
                 ));
                 hook.progress_task_id = None;
-                
+
                 process_ids_to_remove.push(process_id.clone());
                 continue;
             }
@@ -608,7 +607,7 @@ pub async fn check_for_async_hook_responses() -> Vec<AsyncHookResponse> {
                     process_id
                 ));
                 hook.progress_task_id = None;
-                
+
                 shell_cmd.cleanup();
                 process_ids_to_remove.push(process_id.clone());
                 continue;
@@ -624,19 +623,16 @@ pub async fn check_for_async_hook_responses() -> Vec<AsyncHookResponse> {
                     process_id
                 ));
                 hook.progress_task_id = None;
-                
+
                 process_ids_to_remove.push(process_id.clone());
                 continue;
             }
 
             let stdout = shell_cmd.task_output.get_stdout().await;
             if stdout.trim().is_empty() {
-                log_for_debugging(&format!(
-                    "Hooks: Skipping hook {} - no stdout",
-                    process_id
-                ));
+                log_for_debugging(&format!("Hooks: Skipping hook {} - no stdout", process_id));
                 hook.progress_task_id = None;
-                
+
                 process_ids_to_remove.push(process_id.clone());
                 continue;
             }
@@ -660,17 +656,18 @@ pub async fn check_for_async_hook_responses() -> Vec<AsyncHookResponse> {
                         &line.trim().chars().take(100).collect::<String>()
                     ));
                     if let Ok(parsed) = serde_json::from_str::<serde_json::Value>(line.trim()) {
-                        if !parsed.as_object().map_or(false, |obj| obj.contains_key("async")) {
+                        if !parsed
+                            .as_object()
+                            .map_or(false, |obj| obj.contains_key("async"))
+                        {
                             log_for_debugging(&format!(
                                 "Hooks: Found sync response from {}: {}",
                                 process_id,
                                 serde_json::to_string(&parsed).unwrap_or_default()
                             ));
                             if let Some(obj) = parsed.as_object() {
-                                response.extra = obj
-                                    .iter()
-                                    .map(|(k, v)| (k.clone(), v.clone()))
-                                    .collect();
+                                response.extra =
+                                    obj.iter().map(|(k, v)| (k.clone(), v.clone())).collect();
                             }
                             break;
                         }

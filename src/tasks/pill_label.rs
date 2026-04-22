@@ -155,7 +155,10 @@ pub fn pill_needs_cta(tasks: &[BackgroundTaskState]) -> bool {
 mod tests {
     use super::*;
 
-    fn create_shell_task(command: &str, kind: Option<crate::tasks::guards::BashTaskKind>) -> BackgroundTaskState {
+    fn create_shell_task(
+        command: &str,
+        kind: Option<crate::tasks::guards::BashTaskKind>,
+    ) -> BackgroundTaskState {
         use crate::tasks::guards::LocalShellTaskState;
         BackgroundTaskState::LocalShell(LocalShellTaskState {
             id: "test".to_string(),
@@ -215,7 +218,10 @@ mod tests {
     fn test_pill_needs_cta_single_remote_agent() {
         let mut map = std::collections::HashMap::new();
         map.insert("isUltraplan".to_string(), serde_json::json!(true));
-        map.insert("ultraplanPhase".to_string(), serde_json::json!("plan_ready"));
+        map.insert(
+            "ultraplanPhase".to_string(),
+            serde_json::json!("plan_ready"),
+        );
         map.insert("status".to_string(), serde_json::json!("running"));
         let tasks = vec![BackgroundTaskState::RemoteAgent(map)];
         assert!(pill_needs_cta(&tasks));

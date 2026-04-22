@@ -17,21 +17,24 @@ pub fn get_plugin_zip_cache_path() -> Option<String> {
     if !is_plugin_zip_cache_enabled() {
         return None;
     }
-    std::env::var("CLAUDE_CODE_PLUGIN_CACHE_DIR").ok().map(|dir| {
-        if dir.starts_with("~/") {
-            dirs::home_dir()
-                .map(|h| format!("{}{}", h.display(), &dir[1..]))
-                .unwrap_or(dir)
-        } else {
-            dir
-        }
-    })
+    std::env::var("CLAUDE_CODE_PLUGIN_CACHE_DIR")
+        .ok()
+        .map(|dir| {
+            if dir.starts_with("~/") {
+                dirs::home_dir()
+                    .map(|h| format!("{}{}", h.display(), &dir[1..]))
+                    .unwrap_or(dir)
+            } else {
+                dir
+            }
+        })
 }
 
 /// Get the path to known_marketplaces.json in the zip cache.
-pub fn get_zip_cache_known_marketplaces_path() -> Result<String, Box<dyn std::error::Error + Send + Sync>> {
-    let cache_path = get_plugin_zip_cache_path()
-        .ok_or_else(|| "Plugin zip cache is not enabled".to_string())?;
+pub fn get_zip_cache_known_marketplaces_path()
+-> Result<String, Box<dyn std::error::Error + Send + Sync>> {
+    let cache_path =
+        get_plugin_zip_cache_path().ok_or_else(|| "Plugin zip cache is not enabled".to_string())?;
     Ok(PathBuf::from(cache_path)
         .join("known_marketplaces.json")
         .to_string_lossy()
@@ -39,9 +42,10 @@ pub fn get_zip_cache_known_marketplaces_path() -> Result<String, Box<dyn std::er
 }
 
 /// Get the path to installed_plugins.json in the zip cache.
-pub fn get_zip_cache_installed_plugins_path() -> Result<String, Box<dyn std::error::Error + Send + Sync>> {
-    let cache_path = get_plugin_zip_cache_path()
-        .ok_or_else(|| "Plugin zip cache is not enabled".to_string())?;
+pub fn get_zip_cache_installed_plugins_path()
+-> Result<String, Box<dyn std::error::Error + Send + Sync>> {
+    let cache_path =
+        get_plugin_zip_cache_path().ok_or_else(|| "Plugin zip cache is not enabled".to_string())?;
     Ok(PathBuf::from(cache_path)
         .join("installed_plugins.json")
         .to_string_lossy()
@@ -49,9 +53,10 @@ pub fn get_zip_cache_installed_plugins_path() -> Result<String, Box<dyn std::err
 }
 
 /// Get the marketplaces directory within the zip cache.
-pub fn get_zip_cache_marketplaces_dir() -> Result<String, Box<dyn std::error::Error + Send + Sync>> {
-    let cache_path = get_plugin_zip_cache_path()
-        .ok_or_else(|| "Plugin zip cache is not enabled".to_string())?;
+pub fn get_zip_cache_marketplaces_dir() -> Result<String, Box<dyn std::error::Error + Send + Sync>>
+{
+    let cache_path =
+        get_plugin_zip_cache_path().ok_or_else(|| "Plugin zip cache is not enabled".to_string())?;
     Ok(PathBuf::from(cache_path)
         .join("marketplaces")
         .to_string_lossy()
@@ -60,8 +65,8 @@ pub fn get_zip_cache_marketplaces_dir() -> Result<String, Box<dyn std::error::Er
 
 /// Get the plugins directory within the zip cache.
 pub fn get_zip_cache_plugins_dir() -> Result<String, Box<dyn std::error::Error + Send + Sync>> {
-    let cache_path = get_plugin_zip_cache_path()
-        .ok_or_else(|| "Plugin zip cache is not enabled".to_string())?;
+    let cache_path =
+        get_plugin_zip_cache_path().ok_or_else(|| "Plugin zip cache is not enabled".to_string())?;
     Ok(PathBuf::from(cache_path)
         .join("plugins")
         .to_string_lossy()
@@ -73,7 +78,8 @@ static SESSION_PLUGIN_CACHE_PATH: once_cell::sync::Lazy<std::sync::Mutex<Option<
     once_cell::sync::Lazy::new(|| std::sync::Mutex::new(None));
 
 /// Get or create the session plugin cache directory.
-pub async fn get_session_plugin_cache_path() -> Result<String, Box<dyn std::error::Error + Send + Sync>> {
+pub async fn get_session_plugin_cache_path()
+-> Result<String, Box<dyn std::error::Error + Send + Sync>> {
     {
         let guard = SESSION_PLUGIN_CACHE_PATH.lock().unwrap();
         if let Some(ref path) = *guard {
@@ -82,8 +88,7 @@ pub async fn get_session_plugin_cache_path() -> Result<String, Box<dyn std::erro
     }
 
     let suffix = hex::encode(rand::random::<[u8; 8]>());
-    let dir = PathBuf::from(std::env::temp_dir())
-        .join(format!("claude-plugin-session-{}", suffix));
+    let dir = PathBuf::from(std::env::temp_dir()).join(format!("claude-plugin-session-{}", suffix));
 
     tokio::fs::create_dir_all(&dir).await?;
 
@@ -98,7 +103,8 @@ pub async fn get_session_plugin_cache_path() -> Result<String, Box<dyn std::erro
 }
 
 /// Clean up the session plugin cache directory.
-pub async fn cleanup_session_plugin_cache() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+pub async fn cleanup_session_plugin_cache() -> Result<(), Box<dyn std::error::Error + Send + Sync>>
+{
     let path = {
         let mut guard = SESSION_PLUGIN_CACHE_PATH.lock().unwrap();
         guard.take()
@@ -114,7 +120,10 @@ pub async fn cleanup_session_plugin_cache() -> Result<(), Box<dyn std::error::Er
 }
 
 /// Write data to a file in the zip cache atomically.
-pub async fn atomic_write_to_zip_cache(target_path: &str, data: &[u8]) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+pub async fn atomic_write_to_zip_cache(
+    target_path: &str,
+    data: &[u8],
+) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let dir = Path::new(target_path)
         .parent()
         .ok_or_else(|| "Invalid target path".to_string())?;
@@ -144,7 +153,10 @@ pub async fn create_zip_from_directory(_source_dir: &Path) -> Result<Vec<u8>, St
 }
 
 /// Extract a ZIP file to a target directory.
-pub async fn extract_zip_to_directory(_zip_path: &str, _target_dir: &str) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+pub async fn extract_zip_to_directory(
+    _zip_path: &str,
+    _target_dir: &str,
+) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     Err("extract_zip_to_directory not implemented - add `zip` crate".into())
 }
 
@@ -163,7 +175,13 @@ pub async fn convert_directory_to_zip_in_place(
 pub fn get_marketplace_json_relative_path(marketplace_name: &str) -> String {
     let sanitized = marketplace_name
         .chars()
-        .map(|c| if c.is_alphanumeric() || c == '-' || c == '_' { c } else { '-' })
+        .map(|c| {
+            if c.is_alphanumeric() || c == '-' || c == '_' {
+                c
+            } else {
+                '-'
+            }
+        })
         .collect::<String>();
     format!("marketplaces/{}.json", sanitized)
 }

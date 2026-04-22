@@ -194,7 +194,8 @@ mod tests {
 
     #[test]
     fn test_strip_proto_fields_no_change() {
-        let mut metadata: std::collections::HashMap<String, serde_json::Value> = std::collections::HashMap::new();
+        let mut metadata: std::collections::HashMap<String, serde_json::Value> =
+            std::collections::HashMap::new();
         metadata.insert("event_name".to_string(), serde_json::json!("test"));
         metadata.insert("count".to_string(), serde_json::json!(42));
 
@@ -207,7 +208,8 @@ mod tests {
 
     #[test]
     fn test_strip_proto_fields_removes_proto() {
-        let mut metadata: std::collections::HashMap<String, serde_json::Value> = std::collections::HashMap::new();
+        let mut metadata: std::collections::HashMap<String, serde_json::Value> =
+            std::collections::HashMap::new();
         metadata.insert("event_name".to_string(), serde_json::json!("test"));
         metadata.insert("_PROTO_PII".to_string(), serde_json::json!("sensitive"));
 

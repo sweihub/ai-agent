@@ -15,11 +15,19 @@ use std::sync::OnceLock;
 /// Preapproved hosts matching TS: PREAPPROVED_HOSTS list
 fn preapproved_hosts() -> HashSet<&'static str> {
     HashSet::from([
-        "httpbin.org", "jsonplaceholder.typicode.com", "api.github.com",
-        "raw.githubusercontent.com", "gist.githubusercontent.com",
-        "registry.npmjs.org", "pypi.org", "crates.io",
-        "docs.rs", "developer.mozilla.org", "stackoverflow.com",
-        "wikipedia.org", "www.wikipedia.org",
+        "httpbin.org",
+        "jsonplaceholder.typicode.com",
+        "api.github.com",
+        "raw.githubusercontent.com",
+        "gist.githubusercontent.com",
+        "registry.npmjs.org",
+        "pypi.org",
+        "crates.io",
+        "docs.rs",
+        "developer.mozilla.org",
+        "stackoverflow.com",
+        "wikipedia.org",
+        "www.wikipedia.org",
     ])
 }
 
@@ -152,18 +160,18 @@ impl WebFetchTool {
             .map(|s| s.to_string())
             .unwrap_or_default();
 
-        let bytes = response.bytes().await.map_err(|e| {
-            AgentError::Tool(format!("Error reading response: {}", e))
-        })?;
+        let bytes = response
+            .bytes()
+            .await
+            .map_err(|e| AgentError::Tool(format!("Error reading response: {}", e)))?;
 
         // Check if binary content
         if self.is_binary_content(&content_type, &bytes) {
             // Save binary content to disk (matching TS: binary persistence)
             let filename = format!("webfetch_{}", self.hash_url(url));
             let path = tool_results_dir().join(&filename);
-            std::fs::write(&path, &bytes).map_err(|e| {
-                AgentError::Tool(format!("Failed to save binary content: {}", e))
-            })?;
+            std::fs::write(&path, &bytes)
+                .map_err(|e| AgentError::Tool(format!("Failed to save binary content: {}", e)))?;
 
             return Ok(ToolResult {
                 result_type: "text".to_string(),
@@ -203,7 +211,8 @@ impl WebFetchTool {
         }
 
         // Decode HTML entities (basic)
-        text = text.replace("&amp;", "&")
+        text = text
+            .replace("&amp;", "&")
             .replace("&lt;", "<")
             .replace("&gt;", ">")
             .replace("&quot;", "\"")
@@ -240,9 +249,15 @@ impl WebFetchTool {
     fn is_binary_content(&self, content_type: &str, bytes: &[u8]) -> bool {
         // Check content type
         let binary_types = [
-            "image/", "audio/", "video/", "application/octet-stream",
-            "application/zip", "application/gzip", "application/pdf",
-            "application/x-", "font/",
+            "image/",
+            "audio/",
+            "video/",
+            "application/octet-stream",
+            "application/zip",
+            "application/gzip",
+            "application/pdf",
+            "application/x-",
+            "font/",
         ];
         if binary_types.iter().any(|t| content_type.starts_with(t)) {
             return true;
@@ -294,7 +309,13 @@ mod tests {
     #[test]
     fn test_web_fetch_tool_extract_host() {
         let tool = WebFetchTool::new();
-        assert_eq!(tool.extract_host("https://example.com/path").unwrap(), "example.com");
-        assert_eq!(tool.extract_host("http://api.github.com/repos").unwrap(), "api.github.com");
+        assert_eq!(
+            tool.extract_host("https://example.com/path").unwrap(),
+            "example.com"
+        );
+        assert_eq!(
+            tool.extract_host("http://api.github.com/repos").unwrap(),
+            "api.github.com"
+        );
     }
 }

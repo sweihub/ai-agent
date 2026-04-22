@@ -26,7 +26,10 @@ pub enum ContentBlock {
 }
 
 /// Extract tool use block from message content by tool name.
-pub fn extract_tool_use_block<'a>(content: &'a [ContentBlock], tool_name: &str) -> Option<&'a ContentBlock> {
+pub fn extract_tool_use_block<'a>(
+    content: &'a [ContentBlock],
+    tool_name: &str,
+) -> Option<&'a ContentBlock> {
     content
         .iter()
         .find(|b| matches!(b, ContentBlock::ToolUse { name, .. } if name == tool_name))

@@ -60,7 +60,12 @@ impl LSPTool {
                     "description": "The character offset (1-based, as shown in editors)"
                 }
             }),
-            required: Some(vec!["operation".to_string(), "filePath".to_string(), "line".to_string(), "character".to_string()]),
+            required: Some(vec![
+                "operation".to_string(),
+                "filePath".to_string(),
+                "line".to_string(),
+                "character".to_string(),
+            ]),
         }
     }
 
@@ -110,7 +115,7 @@ impl LSPTool {
                         metadata.len()
                     ),
                     is_error: None,
-                was_persisted: None,
+                    was_persisted: None,
                 });
             }
         }
@@ -157,7 +162,11 @@ impl LSPTool {
                 This tool requires an LSP server to be running for the file type. \
                 Supported operations: goToDefinition, findReferences, hover, documentSymbol, \
                 workspaceSymbol, goToImplementation, prepareCallHierarchy, incomingCalls, outgoingCalls.",
-                operation, lsp_method, absolute_path.display(), line, character
+                operation,
+                lsp_method,
+                absolute_path.display(),
+                line,
+                character
             ),
             is_error: None,
             was_persisted: None,
@@ -187,8 +196,20 @@ mod tests {
         let schema = tool.input_schema();
         assert_eq!(schema.schema_type, "object");
         assert!(schema.required.is_some());
-        assert!(schema.required.as_ref().unwrap().contains(&"operation".to_string()));
-        assert!(schema.required.as_ref().unwrap().contains(&"filePath".to_string()));
+        assert!(
+            schema
+                .required
+                .as_ref()
+                .unwrap()
+                .contains(&"operation".to_string())
+        );
+        assert!(
+            schema
+                .required
+                .as_ref()
+                .unwrap()
+                .contains(&"filePath".to_string())
+        );
     }
 
     #[tokio::test]
@@ -240,7 +261,11 @@ mod tests {
         let content = result.unwrap().content;
         // Check that the response mentions git-ignore (case insensitive)
         let content_lower = content.to_lowercase();
-        assert!(content_lower.contains("git") && content_lower.contains("ignore"), "Content: {}", content);
+        assert!(
+            content_lower.contains("git") && content_lower.contains("ignore"),
+            "Content: {}",
+            content
+        );
 
         // Cleanup
         std::fs::remove_dir_all(&temp_dir).ok();

@@ -66,7 +66,10 @@ static MCP_SUFFIX_RE: once_cell::sync::Lazy<regex::Regex> =
 
 pub fn extract_mcp_tool_display_name(user_facing_name: &str) -> String {
     // TypeScript: replace(/\s*\(MCP\)\s*$/, '').trim()
-    let without_suffix = MCP_SUFFIX_RE.replace(user_facing_name, "").trim().to_string();
+    let without_suffix = MCP_SUFFIX_RE
+        .replace(user_facing_name, "")
+        .trim()
+        .to_string();
 
     if let Some(dash_index) = without_suffix.find(" - ") {
         without_suffix[dash_index + 3..].trim().to_string()

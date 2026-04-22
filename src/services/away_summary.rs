@@ -187,7 +187,10 @@ fn get_small_fast_model() -> String {
 }
 
 /// Make the non-streaming API request for away summary
-async fn make_away_api_request(api_key: &str, request_body: &serde_json::Value) -> Result<String, String> {
+async fn make_away_api_request(
+    api_key: &str,
+    request_body: &serde_json::Value,
+) -> Result<String, String> {
     let client = reqwest::Client::new();
     let base_url = std::env::var("AI_API_BASE_URL")
         .ok()
@@ -214,7 +217,10 @@ async fn make_away_api_request(api_key: &str, request_body: &serde_json::Value) 
             .json(request_body)
     };
 
-    let response = request_builder.send().await.map_err(|e| format!("API request failed: {}", e))?;
+    let response = request_builder
+        .send()
+        .await
+        .map_err(|e| format!("API request failed: {}", e))?;
 
     let status = response.status();
     if !status.is_success() {
@@ -230,7 +236,10 @@ async fn make_away_api_request(api_key: &str, request_body: &serde_json::Value) 
 
     // Check for API error
     if let Some(error) = response_json.get("error") {
-        let error_msg = error.get("message").and_then(|m| m.as_str()).unwrap_or("Unknown error");
+        let error_msg = error
+            .get("message")
+            .and_then(|m| m.as_str())
+            .unwrap_or("Unknown error");
         return Err(format!("API error: {}", error_msg));
     }
 

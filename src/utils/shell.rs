@@ -6,6 +6,6 @@ pub mod shell_provider;
 pub mod shell_tool_utils;
 
 pub use bash_provider::BashShellProvider;
-pub use powershell_provider::{build_powershell_args, PowerShellProvider};
+pub use powershell_provider::{PowerShellProvider, build_powershell_args};
 pub use shell_provider::{ShellError, ShellExecCommand};
-pub use shell_tool_utils::{ShellType, SHELL_TYPES};
+pub use shell_tool_utils::{SHELL_TYPES, ShellType};

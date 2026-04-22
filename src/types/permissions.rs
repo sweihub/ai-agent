@@ -336,14 +336,9 @@ pub enum PermissionDecisionReason {
     #[serde(rename = "asyncAgent")]
     AsyncAgent { reason: String },
     #[serde(rename = "sandboxOverride")]
-    SandboxOverride {
-        reason: SandboxOverrideReason,
-    },
+    SandboxOverride { reason: SandboxOverrideReason },
     #[serde(rename = "classifier")]
-    Classifier {
-        classifier: String,
-        reason: String,
-    },
+    Classifier { classifier: String, reason: String },
     #[serde(rename = "workingDir")]
     WorkingDir { reason: String },
     #[serde(rename = "safetyCheck")]

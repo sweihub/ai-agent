@@ -13,7 +13,10 @@ pub enum AgentMcpServerSpec {
     /// Reference to existing server by name
     Reference(String),
     /// Inline definition as { name: config }
-    Inline { name: String, config: serde_json::Value },
+    Inline {
+        name: String,
+        config: serde_json::Value,
+    },
 }
 
 /// Base type with common fields for all agents
@@ -65,7 +68,10 @@ impl std::fmt::Debug for AgentDefinition {
             .field("isolation", &self.isolation)
             .field("required_mcp_servers", &self.required_mcp_servers)
             .field("omit_claude_md", &self.omit_claude_md)
-            .field("critical_system_reminder_experimental", &self.critical_system_reminder_experimental)
+            .field(
+                "critical_system_reminder_experimental",
+                &self.critical_system_reminder_experimental,
+            )
             .finish_non_exhaustive()
     }
 }
@@ -104,7 +110,10 @@ pub fn get_active_agents_from_list(all_agents: &[AgentDefinition]) -> Vec<AgentD
     let mut agent_map: HashMap<String, (usize, AgentDefinition)> = HashMap::new();
 
     for agent in all_agents {
-        let priority_idx = priority.iter().position(|&p| p == agent.source).unwrap_or(0);
+        let priority_idx = priority
+            .iter()
+            .position(|&p| p == agent.source)
+            .unwrap_or(0);
         let entry = agent_map.entry(agent.agent_type.clone());
         entry
             .and_modify(|(existing_priority, existing_agent)| {
@@ -116,24 +125,18 @@ pub fn get_active_agents_from_list(all_agents: &[AgentDefinition]) -> Vec<AgentD
             .or_insert((priority_idx, agent.clone()));
     }
 
-    agent_map
-        .into_values()
-        .map(|(_, agent)| agent)
-        .collect()
+    agent_map.into_values().map(|(_, agent)| agent).collect()
 }
 
 /// Check if an agent's required MCP servers are available.
-pub fn has_required_mcp_servers(
-    agent: &AgentDefinition,
-    available_servers: &[&str],
-) -> bool {
+pub fn has_required_mcp_servers(agent: &AgentDefinition, available_servers: &[&str]) -> bool {
     if agent.required_mcp_servers.is_empty() {
         return true;
     }
     agent.required_mcp_servers.iter().all(|pattern| {
-        available_servers.iter().any(|server| {
-            server.to_lowercase().contains(&pattern.to_lowercase())
-        })
+        available_servers
+            .iter()
+            .any(|server| server.to_lowercase().contains(&pattern.to_lowercase()))
     })
 }
 
@@ -178,17 +181,14 @@ pub fn parse_agent_from_json(
         })
         .unwrap_or_default();
 
-    let model = definition
-        .get("model")
-        .and_then(|m| m.as_str())
-        .map(|m| {
-            let trimmed = m.trim();
-            if trimmed.to_lowercase() == "inherit" {
-                "inherit".to_string()
-            } else {
-                trimmed.to_string()
-            }
-        });
+    let model = definition.get("model").and_then(|m| m.as_str()).map(|m| {
+        let trimmed = m.trim();
+        if trimmed.to_lowercase() == "inherit" {
+            "inherit".to_string()
+        } else {
+            trimmed.to_string()
+        }
+    });
 
     let max_turns = definition
         .get("maxTurns")
@@ -200,9 +200,7 @@ pub fn parse_agent_from_json(
         .and_then(|v| v.as_str())
         .map(|s| s.to_string());
 
-    let effort = definition
-        .get("effort")
-        .map(|v| v.to_string());
+    let effort = definition.get("effort").map(|v| v.to_string());
 
     let background = definition
         .get("background")
@@ -448,9 +446,7 @@ fn parse_agent_from_markdown(path: &Path) -> Option<AgentDefinition> {
         .and_then(|v| v.as_str())
         .map(|s| s.to_string());
 
-    let effort = frontmatter
-        .get("effort")
-        .map(|v| v.to_string());
+    let effort = frontmatter.get("effort").map(|v| v.to_string());
 
     let initial_prompt = frontmatter
         .get("initialPrompt")
@@ -473,15 +469,16 @@ fn parse_agent_from_markdown(path: &Path) -> Option<AgentDefinition> {
         .unwrap_or_default();
 
     let skills = parse_slash_command_tools_from_frontmatter(
-        frontmatter.get("skills").unwrap_or(&serde_json::Value::Null),
+        frontmatter
+            .get("skills")
+            .unwrap_or(&serde_json::Value::Null),
     );
 
     let system_prompt = body.trim().to_string();
 
     // Build system prompt function with optional memory integration
-    let memory_prompt_val = memory.map(|m| {
-        super::agent_memory::load_agent_memory_prompt(&agent_type, m)
-    });
+    let memory_prompt_val =
+        memory.map(|m| super::agent_memory::load_agent_memory_prompt(&agent_type, m));
 
     let get_system_prompt: Arc<dyn Fn() -> String + Send + Sync> = {
         let prompt = system_prompt.clone();
@@ -575,10 +572,14 @@ fn parse_markdown_frontmatter(content: &str) -> Option<(serde_json::Value, Strin
 
             let json_value = if value.starts_with('[') {
                 // Parse as JSON array
-                serde_json::from_str(value).ok().unwrap_or(serde_json::Value::String(value.to_string()))
+                serde_json::from_str(value)
+                    .ok()
+                    .unwrap_or(serde_json::Value::String(value.to_string()))
             } else if value.starts_with('{') {
                 // Parse as JSON object
-                serde_json::from_str(value).ok().unwrap_or(serde_json::Value::String(value.to_string()))
+                serde_json::from_str(value)
+                    .ok()
+                    .unwrap_or(serde_json::Value::String(value.to_string()))
             } else if let Ok(b) = value.parse::<bool>() {
                 serde_json::Value::Bool(b)
             } else if let Ok(n) = value.parse::<u64>() {
@@ -601,7 +602,10 @@ fn parse_markdown_frontmatter(content: &str) -> Option<(serde_json::Value, Strin
 pub async fn initialize_agent_memory_snapshots(agents: &mut [AgentDefinition]) {
     for agent in agents.iter_mut() {
         if let Some(scope) = agent.memory {
-            match super::agent_memory_snapshot::check_agent_memory_snapshot(&agent.agent_type, scope) {
+            match super::agent_memory_snapshot::check_agent_memory_snapshot(
+                &agent.agent_type,
+                scope,
+            ) {
                 super::agent_memory_snapshot::SnapshotAction::Initialize {
                     ref snapshot_timestamp,
                 } => {
@@ -618,10 +622,7 @@ pub async fn initialize_agent_memory_snapshots(agents: &mut [AgentDefinition]) {
                 super::agent_memory_snapshot::SnapshotAction::PromptUpdate {
                     ref snapshot_timestamp,
                 } => {
-                    log::debug!(
-                        "Newer snapshot available for {} memory",
-                        agent.agent_type
-                    );
+                    log::debug!("Newer snapshot available for {} memory", agent.agent_type);
                     // Store timestamp for later use
                     let _ = snapshot_timestamp.clone();
                 }
@@ -635,10 +636,7 @@ pub async fn initialize_agent_memory_snapshots(agents: &mut [AgentDefinition]) {
 mod tests {
     use super::*;
 
-    fn make_agent(
-        agent_type: &str,
-        source: &str,
-    ) -> AgentDefinition {
+    fn make_agent(agent_type: &str, source: &str) -> AgentDefinition {
         AgentDefinition {
             agent_type: agent_type.to_string(),
             when_to_use: "test".to_string(),

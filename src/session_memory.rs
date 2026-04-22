@@ -6,13 +6,13 @@
 //! It runs periodically in the background using a forked subagent to extract key information
 //! without interrupting the main conversation flow.
 
+use crate::AgentError;
 use crate::constants::env::system;
 use crate::types::*;
-use crate::AgentError;
 use std::path::PathBuf;
-use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::LazyLock;
 use std::sync::Mutex;
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 
 /// Default configuration for session memory
 pub const DEFAULT_SESSION_MEMORY_CONFIG: SessionMemoryConfig = SessionMemoryConfig {

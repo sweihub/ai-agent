@@ -4,8 +4,7 @@
 //! Permission mode utilities — title, symbol, color helpers.
 
 use crate::types::permissions::{
-    EXTERNAL_PERMISSION_MODES, INTERNAL_PERMISSION_MODES,
-    ExternalPermissionMode, PermissionMode,
+    EXTERNAL_PERMISSION_MODES, ExternalPermissionMode, INTERNAL_PERMISSION_MODES, PermissionMode,
 };
 
 // Re-exports for backwards compatibility

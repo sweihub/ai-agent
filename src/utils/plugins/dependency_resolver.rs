@@ -30,10 +30,20 @@ pub struct DependencyLookupResult {
 
 /// Result of dependency resolution.
 pub enum ResolutionResult {
-    Ok { closure: Vec<PluginId> },
-    Cycle { chain: Vec<PluginId> },
-    NotFound { missing: PluginId, required_by: PluginId },
-    CrossMarketplace { dependency: PluginId, required_by: PluginId },
+    Ok {
+        closure: Vec<PluginId>,
+    },
+    Cycle {
+        chain: Vec<PluginId>,
+    },
+    NotFound {
+        missing: PluginId,
+        required_by: PluginId,
+    },
+    CrossMarketplace {
+        dependency: PluginId,
+        required_by: PluginId,
+    },
 }
 
 impl ResolutionResult {
@@ -272,18 +282,14 @@ pub fn find_reverse_dependents(plugin_id: &PluginId, plugins: &[LoadedPlugin]) -
         .filter(|p| {
             p.enabled
                 && p.source != *plugin_id
-                && p.manifest
-                    .dependencies
-                    .iter()
-                    .flatten()
-                    .any(|d| {
-                        let qualified = qualify_dependency(d, &p.source);
-                        if parse_plugin_identifier(&qualified).marketplace.is_some() {
-                            qualified == *plugin_id
-                        } else {
-                            qualified == target_name
-                        }
-                    })
+                && p.manifest.dependencies.iter().flatten().any(|d| {
+                    let qualified = qualify_dependency(d, &p.source);
+                    if parse_plugin_identifier(&qualified).marketplace.is_some() {
+                        qualified == *plugin_id
+                    } else {
+                        qualified == target_name
+                    }
+                })
         })
         .map(|p| p.name.clone())
         .collect()

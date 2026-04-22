@@ -56,10 +56,7 @@ fn format_tool_input(input: &serde_json::Value) -> String {
 }
 
 /// Extracts recent conversation context from messages.
-fn extract_conversation_context(
-    messages: &[serde_json::Value],
-    max_chars: usize,
-) -> String {
+fn extract_conversation_context(messages: &[serde_json::Value], max_chars: usize) -> String {
     // Simplified implementation
     let _ = (messages, max_chars);
     String::new()
@@ -90,7 +87,9 @@ pub async fn generate_permission_explanation(
     let user_prompt = format!(
         "Tool: {}\n{}Input:\n{}\n{}",
         params.tool_name,
-        params.tool_description.map_or(String::new(), |d| format!("Description: {}\n", d)),
+        params
+            .tool_description
+            .map_or(String::new(), |d| format!("Description: {}\n", d)),
         formatted_input,
         if conversation_context.is_empty() {
             String::new()

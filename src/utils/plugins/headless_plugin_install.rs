@@ -9,22 +9,32 @@ static INSTALLING: AtomicBool = AtomicBool::new(false);
 
 /// Install plugins for headless/CCR mode.
 /// Returns true if any plugins were installed (caller should refresh MCP).
-pub async fn install_plugins_for_headless() -> Result<bool, Box<dyn std::error::Error + Send + Sync>> {
-    if !INSTALLING.compare_exchange(false, true, Ordering::SeqCst, Ordering::SeqCst).is_ok() {
+pub async fn install_plugins_for_headless() -> Result<bool, Box<dyn std::error::Error + Send + Sync>>
+{
+    if !INSTALLING
+        .compare_exchange(false, true, Ordering::SeqCst, Ordering::SeqCst)
+        .is_ok()
+    {
         return Ok(false);
     }
 
     let zip_cache_mode = super::zip_cache::is_plugin_zip_cache_enabled();
     log::debug!(
         "install_plugins_for_headless: starting{}",
-        if zip_cache_mode { " (zip cache mode)" } else { "" }
+        if zip_cache_mode {
+            " (zip cache mode)"
+        } else {
+            ""
+        }
     );
 
     // Register seed marketplaces before diffing
     let seed_changed = super::marketplace_manager::register_seed_marketplaces().await?;
     if seed_changed {
         super::marketplace_manager::clear_marketplaces_cache();
-        super::loader::clear_plugin_cache(Some("headless_plugin_install: seed marketplaces registered"));
+        super::loader::clear_plugin_cache(Some(
+            "headless_plugin_install: seed marketplaces registered",
+        ));
     }
 
     // Ensure zip cache directory structure exists (stub)

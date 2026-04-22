@@ -113,9 +113,7 @@ pub fn uri_to_file_path(uri: &str) -> String {
 }
 
 /// Convert LSP diagnostics to Claude diagnostic format
-pub fn format_diagnostics_for_attachment(
-    params: PublishDiagnosticsParams,
-) -> Vec<DiagnosticFile> {
+pub fn format_diagnostics_for_attachment(params: PublishDiagnosticsParams) -> Vec<DiagnosticFile> {
     let uri = uri_to_file_path(&params.uri);
 
     let diagnostics: Vec<FormattedDiagnostic> = params

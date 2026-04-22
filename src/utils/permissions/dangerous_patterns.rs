@@ -12,27 +12,11 @@
 /// Shared to prevent the two lists drifting apart on interpreter additions.
 pub const CROSS_PLATFORM_CODE_EXEC: &[&str] = &[
     // Interpreters
-    "python",
-    "python3",
-    "python2",
-    "node",
-    "deno",
-    "tsx",
-    "ruby",
-    "perl",
-    "php",
-    "lua",
+    "python", "python3", "python2", "node", "deno", "tsx", "ruby", "perl", "php", "lua",
     // Package runners
-    "npx",
-    "bunx",
-    "npm run",
-    "yarn run",
-    "pnpm run",
-    "bun run",
+    "npx", "bunx", "npm run", "yarn run", "pnpm run", "bun run",
     // Shells reachable from both (Git Bash / WSL on Windows, native on Unix)
-    "bash",
-    "sh",
-    // Remote arbitrary-command wrapper (native OpenSSH on Win10+)
+    "bash", "sh", // Remote arbitrary-command wrapper (native OpenSSH on Win10+)
     "ssh",
 ];
 
@@ -40,34 +24,17 @@ pub const CROSS_PLATFORM_CODE_EXEC: &[&str] = &[
 /// Includes cross-platform code exec plus Unix-specific patterns.
 pub fn dangerous_bash_patterns() -> Vec<&'static str> {
     let mut patterns: Vec<&'static str> = CROSS_PLATFORM_CODE_EXEC.to_vec();
-    patterns.extend(&[
-        "zsh",
-        "fish",
-        "eval",
-        "exec",
-        "env",
-        "xargs",
-        "sudo",
-    ]);
+    patterns.extend(&["zsh", "fish", "eval", "exec", "env", "xargs", "sudo"]);
 
     // Ant-only patterns (empirical-risk based on sandbox data)
     if std::env::var("USER_TYPE").as_deref() == Ok("ant") {
         patterns.extend(&[
-            "fa run",
-            // Cluster code launcher
-            "coo",
-            // Network/exfil
-            "gh",
-            "gh api",
-            "curl",
-            "wget",
+            "fa run", // Cluster code launcher
+            "coo",    // Network/exfil
+            "gh", "gh api", "curl", "wget",
             // git config core.sshCommand / hooks install = arbitrary code
-            "git",
-            // Cloud resource writes
-            "kubectl",
-            "aws",
-            "gcloud",
-            "gsutil",
+            "git", // Cloud resource writes
+            "kubectl", "aws", "gcloud", "gsutil",
         ]);
     }
 

@@ -4,10 +4,10 @@
 //!
 //! This module provides the main bridge interface for the REPL.
 
+use crate::bridge::SDKMessage;
 use crate::bridge::poll_config_defaults::PollIntervalConfig;
 use crate::bridge::repl_bridge_handle::{BridgeControlRequest, BridgeControlResponse, BridgeState};
 use crate::bridge::repl_bridge_transport::ReplBridgeTransport;
-use crate::bridge::SDKMessage;
 use crate::error::AgentError;
 use std::pin::Pin;
 use std::sync::Arc;

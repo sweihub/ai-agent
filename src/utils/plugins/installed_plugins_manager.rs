@@ -9,9 +9,9 @@ use std::time::SystemTime;
 use serde::{Deserialize, Serialize};
 use tokio::fs;
 
+use super::loader::{get_plugin_cache_path, get_versioned_cache_path};
 use super::plugin_directories::get_plugins_directory;
 use super::plugin_identifier::{parse_plugin_identifier, setting_source_to_scope};
-use super::loader::{get_plugin_cache_path, get_versioned_cache_path};
 use super::schemas::{PluginInstallationEntry, PluginScope};
 
 /// Installed plugins file structure (V2 format).
@@ -40,7 +40,8 @@ pub fn clear_installed_plugins_cache() {
 }
 
 /// Read raw file data from installed_plugins.json.
-fn read_installed_plugins_file_raw() -> Result<Option<(u64, serde_json::Value)>, Box<dyn std::error::Error + Send + Sync>> {
+fn read_installed_plugins_file_raw()
+-> Result<Option<(u64, serde_json::Value)>, Box<dyn std::error::Error + Send + Sync>> {
     let file_path = get_installed_plugins_file_path();
 
     let content = match std::fs::read_to_string(&file_path) {
@@ -55,7 +56,8 @@ fn read_installed_plugins_file_raw() -> Result<Option<(u64, serde_json::Value)>,
 }
 
 /// Load installed plugins in V2 format.
-pub fn load_installed_plugins_v2() -> Result<InstalledPluginsFileV2, Box<dyn std::error::Error + Send + Sync>> {
+pub fn load_installed_plugins_v2()
+-> Result<InstalledPluginsFileV2, Box<dyn std::error::Error + Send + Sync>> {
     {
         let cache = INSTALLED_PLUGINS_CACHE_V2.lock().unwrap();
         if let Some(ref data) = *cache {
@@ -70,11 +72,11 @@ pub fn load_installed_plugins_v2() -> Result<InstalledPluginsFileV2, Box<dyn std
             let validated: InstalledPluginsFileV2 = serde_json::from_value(data)?;
             validated
         }
-        Ok(Some((1, data))) => {
-            migrate_v1_to_v2(&data)?
-        }
+        Ok(Some((1, data))) => migrate_v1_to_v2(&data)?,
         Ok(Some((_version, _data))) => {
-            log::debug!("installed_plugins.json has unsupported version, returning empty V2 object");
+            log::debug!(
+                "installed_plugins.json has unsupported version, returning empty V2 object"
+            );
             InstalledPluginsFileV2 {
                 version: 2,
                 plugins: HashMap::new(),
@@ -105,7 +107,9 @@ pub fn load_installed_plugins_v2() -> Result<InstalledPluginsFileV2, Box<dyn std
 }
 
 /// Migrate V1 data to V2 format.
-fn migrate_v1_to_v2(_v1_data: &serde_json::Value) -> Result<InstalledPluginsFileV2, Box<dyn std::error::Error + Send + Sync>> {
+fn migrate_v1_to_v2(
+    _v1_data: &serde_json::Value,
+) -> Result<InstalledPluginsFileV2, Box<dyn std::error::Error + Send + Sync>> {
     Ok(InstalledPluginsFileV2 {
         version: 2,
         plugins: HashMap::new(),
@@ -113,7 +117,9 @@ fn migrate_v1_to_v2(_v1_data: &serde_json::Value) -> Result<InstalledPluginsFile
 }
 
 /// Save installed plugins in V2 format.
-fn save_installed_plugins_v2(data: &InstalledPluginsFileV2) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+fn save_installed_plugins_v2(
+    data: &InstalledPluginsFileV2,
+) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let file_path = get_installed_plugins_file_path();
 
     std::fs::create_dir_all(get_plugins_directory())?;
@@ -152,9 +158,9 @@ pub fn add_plugin_installation(
 
     let installations = data.plugins.entry(plugin_id.to_string()).or_default();
 
-    let existing_index = installations.iter().position(|entry| {
-        entry.scope == scope && entry.project_path.as_deref() == project_path
-    });
+    let existing_index = installations
+        .iter()
+        .position(|entry| entry.scope == scope && entry.project_path.as_deref() == project_path);
 
     let now = SystemTime::now()
         .duration_since(SystemTime::UNIX_EPOCH)
@@ -173,7 +179,11 @@ pub fn add_plugin_installation(
 
     if let Some(idx) = existing_index {
         installations[idx] = new_entry;
-        log::debug!("Updated installation for {} at scope {:?}", plugin_id, scope);
+        log::debug!(
+            "Updated installation for {} at scope {:?}",
+            plugin_id,
+            scope
+        );
     } else {
         installations.push(new_entry);
         log::debug!("Added installation for {} at scope {:?}", plugin_id, scope);
@@ -185,11 +195,7 @@ pub fn add_plugin_installation(
 }
 
 /// Remove a plugin installation entry from a specific scope.
-pub fn remove_plugin_installation(
-    plugin_id: &str,
-    scope: PluginScope,
-    project_path: Option<&str>,
-) {
+pub fn remove_plugin_installation(plugin_id: &str, scope: PluginScope, project_path: Option<&str>) {
     let mut data = match load_installed_plugins_from_disk() {
         Ok(d) => d,
         Err(_) => return,
@@ -206,11 +212,16 @@ pub fn remove_plugin_installation(
     }
 
     let _ = save_installed_plugins_v2(&data);
-    log::debug!("Removed installation for {} at scope {:?}", plugin_id, scope);
+    log::debug!(
+        "Removed installation for {} at scope {:?}",
+        plugin_id,
+        scope
+    );
 }
 
 /// Load installed plugins directly from disk, bypassing all caches.
-pub fn load_installed_plugins_from_disk() -> Result<InstalledPluginsFileV2, Box<dyn std::error::Error + Send + Sync>> {
+pub fn load_installed_plugins_from_disk()
+-> Result<InstalledPluginsFileV2, Box<dyn std::error::Error + Send + Sync>> {
     let file_path = get_installed_plugins_file_path();
 
     let content = match std::fs::read_to_string(&file_path) {
@@ -293,7 +304,8 @@ pub fn get_in_memory_installed_plugins() -> InstalledPluginsFileV2 {
 }
 
 /// Initialize the versioned plugins system.
-pub async fn initialize_versioned_plugins() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+pub async fn initialize_versioned_plugins() -> Result<(), Box<dyn std::error::Error + Send + Sync>>
+{
     migrate_to_single_plugin_file();
 
     if let Err(e) = migrate_from_enabled_plugins().await {
@@ -317,7 +329,8 @@ fn migrate_to_single_plugin_file() {
 }
 
 /// Migrate from enabledPlugins in settings to installed_plugins.json.
-pub async fn migrate_from_enabled_plugins() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+pub async fn migrate_from_enabled_plugins() -> Result<(), Box<dyn std::error::Error + Send + Sync>>
+{
     Ok(())
 }
 

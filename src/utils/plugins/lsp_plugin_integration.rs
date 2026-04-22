@@ -97,7 +97,10 @@ pub fn resolve_plugin_lsp_environment(
 
     let mut resolved_env: HashMap<String, String> = HashMap::new();
     resolved_env.insert("CLAUDE_PLUGIN_ROOT".to_string(), plugin.path.clone());
-    resolved_env.insert("CLAUDE_PLUGIN_DATA".to_string(), get_plugin_data_dir(&plugin.source));
+    resolved_env.insert(
+        "CLAUDE_PLUGIN_DATA".to_string(),
+        get_plugin_data_dir(&plugin.source),
+    );
 
     if let Some(ref env) = config.env {
         for (key, value) in env {

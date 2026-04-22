@@ -55,7 +55,13 @@ pub fn get_plugin_seed_dirs() -> Vec<PathBuf> {
 fn sanitize_plugin_id(plugin_id: &str) -> String {
     plugin_id
         .chars()
-        .map(|c| if c.is_alphanumeric() || c == '-' || c == '_' { c } else { '-' })
+        .map(|c| {
+            if c.is_alphanumeric() || c == '-' || c == '_' {
+                c
+            } else {
+                '-'
+            }
+        })
         .collect()
 }
 

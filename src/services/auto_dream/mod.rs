@@ -90,7 +90,10 @@ fn make_dream_progress_watcher(
 ) -> Box<dyn Fn(Message) + Send + Sync> {
     Box::new(move |msg: Message| {
         if matches!(msg, Message::Assistant(_)) {
-            log::debug!("[autoDream] progress watcher received assistant message for task {}", task_id);
+            log::debug!(
+                "[autoDream] progress watcher received assistant message for task {}",
+                task_id
+            );
         }
     })
 }

@@ -12,9 +12,9 @@ use std::sync::Arc;
 
 use crate::tool::{DenialTrackingState, QueryChainTracking, ToolUseContext, ToolUseContextOptions};
 use crate::types::message::Message;
+use crate::utils::abort_controller::{AbortController, create_child_abort_controller};
+use crate::utils::file_state_cache::{FileStateCache, clone_file_state_cache};
 use crate::utils::messages::Usage;
-use crate::utils::abort_controller::{create_child_abort_controller, AbortController};
-use crate::utils::file_state_cache::{clone_file_state_cache, FileStateCache};
 use crate::utils::uuid::create_agent_id;
 
 // ---------------------------------------------------------------------------
@@ -47,7 +47,8 @@ pub struct CacheSafeParams {
 // Slot written by handle_stop_hooks after each turn so post-turn forks
 // (prompt_suggestion, post_turn_summary, /btw) can share the main loop's
 // prompt cache without each caller threading params through.
-static LAST_CACHE_SAFE_PARAMS: std::sync::Mutex<Option<CacheSafeParams>> = std::sync::Mutex::new(None);
+static LAST_CACHE_SAFE_PARAMS: std::sync::Mutex<Option<CacheSafeParams>> =
+    std::sync::Mutex::new(None);
 
 /// Save cache-safe params for later retrieval by post-turn forks.
 pub fn save_cache_safe_params(params: Option<CacheSafeParams>) {
@@ -74,8 +75,8 @@ pub type CanUseToolFn = dyn Fn(
         &serde_json::Value, // input
         Arc<ToolUseContext>,
         Arc<crate::types::message::AssistantMessage>,
-        &str,  // query source
-        bool,  // is explicit
+        &str, // query source
+        bool, // is explicit
     ) -> std::pin::Pin<
         Box<dyn std::future::Future<Output = Result<PermissionDecision, String>> + Send>,
     > + Send
@@ -354,9 +355,10 @@ pub async fn prepare_forked_command_context(
 #[allow(dead_code)]
 pub fn extract_result_text(agent_messages: &[Message], default_text: &str) -> String {
     // Find the last assistant message and extract text from its content.
-    let last_assistant = agent_messages.iter().rev().find(|m| {
-        matches!(m, Message::Assistant(_))
-    });
+    let last_assistant = agent_messages
+        .iter()
+        .rev()
+        .find(|m| matches!(m, Message::Assistant(_)));
     match last_assistant {
         Some(msg) => {
             if let Ok(json) = serde_json::to_value(msg) {
@@ -433,7 +435,8 @@ pub fn create_subagent_context(
 
     // Clone file state cache: cloned from parent (or from override)
     let read_file_state = if let Some(override_cache) = &overrides.read_file_state {
-        Some(Arc::new(clone_file_state_cache(override_cache)) as Arc<dyn std::any::Any + Send + Sync>)
+        Some(Arc::new(clone_file_state_cache(override_cache))
+            as Arc<dyn std::any::Any + Send + Sync>)
     } else {
         parent_context.read_file_state.clone()
     };
@@ -453,7 +456,9 @@ pub fn create_subagent_context(
     let local_denial_tracking = if overrides.share_set_app_state {
         parent_context.local_denial_tracking.clone()
     } else {
-        Some(Arc::new(std::sync::Mutex::new(DenialTrackingState::default())))
+        Some(Arc::new(std::sync::Mutex::new(
+            DenialTrackingState::default(),
+        )))
     };
 
     ToolUseContext {
@@ -482,7 +487,9 @@ pub fn create_subagent_context(
         },
         // Task registration/kill must always reach the root store
         // Can't clone Box<dyn Fn>, use no-op
-        set_app_state_for_tasks: Some(Box::new(|_: Box<dyn Fn(Box<dyn std::any::Any>) -> Box<dyn std::any::Any>>| {})),
+        set_app_state_for_tasks: Some(Box::new(
+            |_: Box<dyn Fn(Box<dyn std::any::Any>) -> Box<dyn std::any::Any>>| {},
+        )),
         local_denial_tracking,
         // Mutation callbacks - no-op by default (Box<dyn Fn> can't be cloned)
         set_in_progress_tool_use_ids: {
@@ -510,7 +517,10 @@ pub fn create_subagent_context(
         set_sdk_status: None,
         open_message_selector: None,
         // Fields that can be overridden or copied from parent
-        options: overrides.options.clone().unwrap_or_else(|| parent_context.options.clone()),
+        options: overrides
+            .options
+            .clone()
+            .unwrap_or_else(|| parent_context.options.clone()),
         messages: overrides
             .messages
             .clone()
@@ -520,7 +530,10 @@ pub fn create_subagent_context(
             .agent_id
             .clone()
             .or_else(|| Some(create_agent_id(None))),
-        agent_type: overrides.agent_type.clone().or_else(|| parent_context.agent_type.clone()),
+        agent_type: overrides
+            .agent_type
+            .clone()
+            .or_else(|| parent_context.agent_type.clone()),
         // Create new query tracking chain for subagent with incremented depth
         query_tracking: Some(QueryChainTracking {
             chain_id: uuid::Uuid::new_v4().to_string(),
@@ -544,12 +557,12 @@ pub fn create_subagent_context(
         rendered_system_prompt: parent_context.rendered_system_prompt.clone(),
         request_prompt: None, // Can't clone Arc<dyn Fn...>
         tool_use_id: parent_context.tool_use_id.clone(),
-        handle_elicitation: None, // Can't clone Arc<dyn Fn...>
+        handle_elicitation: None,    // Can't clone Arc<dyn Fn...>
         append_system_message: None, // Can't clone Box<dyn Fn>
-        send_os_notification: None, // Can't clone Box<dyn Fn>
+        send_os_notification: None,  // Can't clone Box<dyn Fn>
         set_has_interruptible_tool_in_progress: None, // Can't clone Box<dyn Fn>
-        set_conversation_id: None, // Can't clone Box<dyn Fn>
-        on_compact_progress: None, // Can't clone Box<dyn Fn>
+        set_conversation_id: None,   // Can't clone Box<dyn Fn>
+        on_compact_progress: None,   // Can't clone Box<dyn Fn>
     }
 }
 
@@ -567,9 +580,7 @@ pub fn create_subagent_context(
 /// NOTE: The actual query loop integration depends on the `query` module which
 /// is still being translated. This implementation provides the full structure
 /// and will wire up to the query loop once it's complete.
-pub async fn run_forked_agent(
-    config: ForkedAgentConfig,
-) -> Result<ForkedAgentResult, String> {
+pub async fn run_forked_agent(config: ForkedAgentConfig) -> Result<ForkedAgentResult, String> {
     let start_time = std::time::Instant::now();
     let fork_label = config.fork_label.clone();
     let query_source_str = config.query_source.0.clone();
@@ -739,16 +750,18 @@ pub fn is_in_fork_child(messages: &[Message]) -> bool {
     messages.iter().any(|m| {
         if let Message::User(user) = m {
             match &user.message.content {
-                crate::types::message::UserContent::Blocks(content) => content.iter().any(|block| {
-                    // UserContentBlock is a struct with block_type and text fields
-                    let is_text = block.block_type == "text";
-                    let has_tag = block
-                        .text
-                        .as_ref()
-                        .map(|t| t.contains(FORK_BOILERPLATE_TAG))
-                        .unwrap_or(false);
-                    is_text && has_tag
-                }),
+                crate::types::message::UserContent::Blocks(content) => {
+                    content.iter().any(|block| {
+                        // UserContentBlock is a struct with block_type and text fields
+                        let is_text = block.block_type == "text";
+                        let has_tag = block
+                            .text
+                            .as_ref()
+                            .map(|t| t.contains(FORK_BOILERPLATE_TAG))
+                            .unwrap_or(false);
+                        is_text && has_tag
+                    })
+                }
                 crate::types::message::UserContent::Text(text) => {
                     text.contains(FORK_BOILERPLATE_TAG)
                 }

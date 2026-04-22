@@ -11,9 +11,8 @@ use std::collections::HashMap;
 const MAX_DIRS_TO_LIST: usize = 5;
 
 /// PowerShell wildcards
-static GLOB_PATTERN_REGEX: Lazy<regex::Regex> = Lazy::new(|| {
-    regex::Regex::new(r"[*?\[\]]").unwrap()
-});
+static GLOB_PATTERN_REGEX: Lazy<regex::Regex> =
+    Lazy::new(|| regex::Regex::new(r"[*?\[\]]").unwrap());
 
 /// File operation type
 #[derive(Debug, Clone, PartialEq, Default)]
@@ -70,119 +69,379 @@ static CMDLET_PATH_CONFIG: Lazy<HashMap<&'static str, CmdletPathConfig>> = Lazy:
     let mut map = HashMap::new();
 
     // Write operations
-    map.insert("set-content", CmdletPathConfig {
-        operation_type: FileOperationType::Write,
-        path_params: vec!["-path".to_string(), "-literalpath".to_string(), "-pspath".to_string(), "-lp".to_string()],
-        known_switches: vec!["-passthru".to_string(), "-force".to_string(), "-whatif".to_string(), "-confirm".to_string(), "-nonewline".to_string()],
-        known_value_params: vec!["-value".to_string(), "-filter".to_string(), "-include".to_string(), "-exclude".to_string(), "-encoding".to_string()],
-        ..Default::default()
-    });
+    map.insert(
+        "set-content",
+        CmdletPathConfig {
+            operation_type: FileOperationType::Write,
+            path_params: vec![
+                "-path".to_string(),
+                "-literalpath".to_string(),
+                "-pspath".to_string(),
+                "-lp".to_string(),
+            ],
+            known_switches: vec![
+                "-passthru".to_string(),
+                "-force".to_string(),
+                "-whatif".to_string(),
+                "-confirm".to_string(),
+                "-nonewline".to_string(),
+            ],
+            known_value_params: vec![
+                "-value".to_string(),
+                "-filter".to_string(),
+                "-include".to_string(),
+                "-exclude".to_string(),
+                "-encoding".to_string(),
+            ],
+            ..Default::default()
+        },
+    );
 
-    map.insert("add-content", CmdletPathConfig {
-        operation_type: FileOperationType::Write,
-        path_params: vec!["-path".to_string(), "-literalpath".to_string(), "-pspath".to_string(), "-lp".to_string()],
-        known_switches: vec!["-passthru".to_string(), "-force".to_string(), "-whatif".to_string(), "-confirm".to_string(), "-nonewline".to_string()],
-        known_value_params: vec!["-value".to_string(), "-filter".to_string(), "-include".to_string(), "-exclude".to_string(), "-encoding".to_string()],
-        ..Default::default()
-    });
+    map.insert(
+        "add-content",
+        CmdletPathConfig {
+            operation_type: FileOperationType::Write,
+            path_params: vec![
+                "-path".to_string(),
+                "-literalpath".to_string(),
+                "-pspath".to_string(),
+                "-lp".to_string(),
+            ],
+            known_switches: vec![
+                "-passthru".to_string(),
+                "-force".to_string(),
+                "-whatif".to_string(),
+                "-confirm".to_string(),
+                "-nonewline".to_string(),
+            ],
+            known_value_params: vec![
+                "-value".to_string(),
+                "-filter".to_string(),
+                "-include".to_string(),
+                "-exclude".to_string(),
+                "-encoding".to_string(),
+            ],
+            ..Default::default()
+        },
+    );
 
-    map.insert("remove-item", CmdletPathConfig {
-        operation_type: FileOperationType::Write,
-        path_params: vec!["-path".to_string(), "-literalpath".to_string(), "-pspath".to_string(), "-lp".to_string()],
-        known_switches: vec!["-recurse".to_string(), "-force".to_string(), "-whatif".to_string(), "-confirm".to_string()],
-        known_value_params: vec!["-filter".to_string(), "-include".to_string(), "-exclude".to_string(), "-stream".to_string()],
-        ..Default::default()
-    });
+    map.insert(
+        "remove-item",
+        CmdletPathConfig {
+            operation_type: FileOperationType::Write,
+            path_params: vec![
+                "-path".to_string(),
+                "-literalpath".to_string(),
+                "-pspath".to_string(),
+                "-lp".to_string(),
+            ],
+            known_switches: vec![
+                "-recurse".to_string(),
+                "-force".to_string(),
+                "-whatif".to_string(),
+                "-confirm".to_string(),
+            ],
+            known_value_params: vec![
+                "-filter".to_string(),
+                "-include".to_string(),
+                "-exclude".to_string(),
+                "-stream".to_string(),
+            ],
+            ..Default::default()
+        },
+    );
 
-    map.insert("clear-content", CmdletPathConfig {
-        operation_type: FileOperationType::Write,
-        path_params: vec!["-path".to_string(), "-literalpath".to_string(), "-pspath".to_string(), "-lp".to_string()],
-        known_switches: vec!["-force".to_string(), "-whatif".to_string(), "-confirm".to_string()],
-        known_value_params: vec!["-filter".to_string(), "-include".to_string(), "-exclude".to_string(), "-stream".to_string()],
-        ..Default::default()
-    });
+    map.insert(
+        "clear-content",
+        CmdletPathConfig {
+            operation_type: FileOperationType::Write,
+            path_params: vec![
+                "-path".to_string(),
+                "-literalpath".to_string(),
+                "-pspath".to_string(),
+                "-lp".to_string(),
+            ],
+            known_switches: vec![
+                "-force".to_string(),
+                "-whatif".to_string(),
+                "-confirm".to_string(),
+            ],
+            known_value_params: vec![
+                "-filter".to_string(),
+                "-include".to_string(),
+                "-exclude".to_string(),
+                "-stream".to_string(),
+            ],
+            ..Default::default()
+        },
+    );
 
-    map.insert("out-file", CmdletPathConfig {
-        operation_type: FileOperationType::Write,
-        path_params: vec!["-filepath".to_string(), "-path".to_string(), "-literalpath".to_string(), "-pspath".to_string(), "-lp".to_string()],
-        known_switches: vec!["-append".to_string(), "-force".to_string(), "-noclobber".to_string(), "-nonewline".to_string(), "-whatif".to_string(), "-confirm".to_string()],
-        known_value_params: vec!["-inputobject".to_string(), "-encoding".to_string(), "-width".to_string()],
-        ..Default::default()
-    });
+    map.insert(
+        "out-file",
+        CmdletPathConfig {
+            operation_type: FileOperationType::Write,
+            path_params: vec![
+                "-filepath".to_string(),
+                "-path".to_string(),
+                "-literalpath".to_string(),
+                "-pspath".to_string(),
+                "-lp".to_string(),
+            ],
+            known_switches: vec![
+                "-append".to_string(),
+                "-force".to_string(),
+                "-noclobber".to_string(),
+                "-nonewline".to_string(),
+                "-whatif".to_string(),
+                "-confirm".to_string(),
+            ],
+            known_value_params: vec![
+                "-inputobject".to_string(),
+                "-encoding".to_string(),
+                "-width".to_string(),
+            ],
+            ..Default::default()
+        },
+    );
 
-    map.insert("new-item", CmdletPathConfig {
-        operation_type: FileOperationType::Create,
-        path_params: vec!["-path".to_string(), "-literalpath".to_string(), "-pspath".to_string(), "-lp".to_string()],
-        leaf_only_path_params: Some(vec!["-name".to_string()]),
-        known_switches: vec!["-force".to_string(), "-whatif".to_string(), "-confirm".to_string()],
-        known_value_params: vec!["-itemtype".to_string(), "-value".to_string(), "-type".to_string()],
-        ..Default::default()
-    });
+    map.insert(
+        "new-item",
+        CmdletPathConfig {
+            operation_type: FileOperationType::Create,
+            path_params: vec![
+                "-path".to_string(),
+                "-literalpath".to_string(),
+                "-pspath".to_string(),
+                "-lp".to_string(),
+            ],
+            leaf_only_path_params: Some(vec!["-name".to_string()]),
+            known_switches: vec![
+                "-force".to_string(),
+                "-whatif".to_string(),
+                "-confirm".to_string(),
+            ],
+            known_value_params: vec![
+                "-itemtype".to_string(),
+                "-value".to_string(),
+                "-type".to_string(),
+            ],
+            ..Default::default()
+        },
+    );
 
-    map.insert("copy-item", CmdletPathConfig {
-        operation_type: FileOperationType::Write,
-        path_params: vec!["-path".to_string(), "-literalpath".to_string(), "-pspath".to_string(), "-lp".to_string(), "-destination".to_string()],
-        known_switches: vec!["-container".to_string(), "-force".to_string(), "-passthru".to_string(), "-recurse".to_string(), "-whatif".to_string(), "-confirm".to_string()],
-        known_value_params: vec!["-filter".to_string(), "-include".to_string(), "-exclude".to_string(), "-fromsession".to_string(), "-tosession".to_string()],
-        ..Default::default()
-    });
+    map.insert(
+        "copy-item",
+        CmdletPathConfig {
+            operation_type: FileOperationType::Write,
+            path_params: vec![
+                "-path".to_string(),
+                "-literalpath".to_string(),
+                "-pspath".to_string(),
+                "-lp".to_string(),
+                "-destination".to_string(),
+            ],
+            known_switches: vec![
+                "-container".to_string(),
+                "-force".to_string(),
+                "-passthru".to_string(),
+                "-recurse".to_string(),
+                "-whatif".to_string(),
+                "-confirm".to_string(),
+            ],
+            known_value_params: vec![
+                "-filter".to_string(),
+                "-include".to_string(),
+                "-exclude".to_string(),
+                "-fromsession".to_string(),
+                "-tosession".to_string(),
+            ],
+            ..Default::default()
+        },
+    );
 
-    map.insert("move-item", CmdletPathConfig {
-        operation_type: FileOperationType::Write,
-        path_params: vec!["-path".to_string(), "-literalpath".to_string(), "-pspath".to_string(), "-lp".to_string(), "-destination".to_string()],
-        known_switches: vec!["-force".to_string(), "-passthru".to_string(), "-whatif".to_string(), "-confirm".to_string()],
-        known_value_params: vec!["-filter".to_string(), "-include".to_string(), "-exclude".to_string()],
-        ..Default::default()
-    });
+    map.insert(
+        "move-item",
+        CmdletPathConfig {
+            operation_type: FileOperationType::Write,
+            path_params: vec![
+                "-path".to_string(),
+                "-literalpath".to_string(),
+                "-pspath".to_string(),
+                "-lp".to_string(),
+                "-destination".to_string(),
+            ],
+            known_switches: vec![
+                "-force".to_string(),
+                "-passthru".to_string(),
+                "-whatif".to_string(),
+                "-confirm".to_string(),
+            ],
+            known_value_params: vec![
+                "-filter".to_string(),
+                "-include".to_string(),
+                "-exclude".to_string(),
+            ],
+            ..Default::default()
+        },
+    );
 
-    map.insert("rename-item", CmdletPathConfig {
-        operation_type: FileOperationType::Write,
-        path_params: vec!["-path".to_string(), "-literalpath".to_string(), "-pspath".to_string(), "-lp".to_string()],
-        known_switches: vec!["-force".to_string(), "-passthru".to_string(), "-whatif".to_string(), "-confirm".to_string()],
-        known_value_params: vec!["-newname".to_string(), "-credential".to_string(), "-filter".to_string(), "-include".to_string(), "-exclude".to_string()],
-        ..Default::default()
-    });
+    map.insert(
+        "rename-item",
+        CmdletPathConfig {
+            operation_type: FileOperationType::Write,
+            path_params: vec![
+                "-path".to_string(),
+                "-literalpath".to_string(),
+                "-pspath".to_string(),
+                "-lp".to_string(),
+            ],
+            known_switches: vec![
+                "-force".to_string(),
+                "-passthru".to_string(),
+                "-whatif".to_string(),
+                "-confirm".to_string(),
+            ],
+            known_value_params: vec![
+                "-newname".to_string(),
+                "-credential".to_string(),
+                "-filter".to_string(),
+                "-include".to_string(),
+                "-exclude".to_string(),
+            ],
+            ..Default::default()
+        },
+    );
 
     // Read operations
-    map.insert("get-content", CmdletPathConfig {
-        operation_type: FileOperationType::Read,
-        path_params: vec!["-path".to_string(), "-literalpath".to_string(), "-pspath".to_string(), "-lp".to_string()],
-        known_switches: vec!["-force".to_string(), "-wait".to_string(), "-raw".to_string(), "-asbytestream".to_string()],
-        known_value_params: vec!["-readcount".to_string(), "-totalcount".to_string(), "-tail".to_string(), "-first".to_string(), "-head".to_string(), "-last".to_string(), "-filter".to_string(), "-include".to_string(), "-exclude".to_string(), "-delimiter".to_string(), "-encoding".to_string(), "-stream".to_string()],
-        ..Default::default()
-    });
+    map.insert(
+        "get-content",
+        CmdletPathConfig {
+            operation_type: FileOperationType::Read,
+            path_params: vec![
+                "-path".to_string(),
+                "-literalpath".to_string(),
+                "-pspath".to_string(),
+                "-lp".to_string(),
+            ],
+            known_switches: vec![
+                "-force".to_string(),
+                "-wait".to_string(),
+                "-raw".to_string(),
+                "-asbytestream".to_string(),
+            ],
+            known_value_params: vec![
+                "-readcount".to_string(),
+                "-totalcount".to_string(),
+                "-tail".to_string(),
+                "-first".to_string(),
+                "-head".to_string(),
+                "-last".to_string(),
+                "-filter".to_string(),
+                "-include".to_string(),
+                "-exclude".to_string(),
+                "-delimiter".to_string(),
+                "-encoding".to_string(),
+                "-stream".to_string(),
+            ],
+            ..Default::default()
+        },
+    );
 
-    map.insert("get-childitem", CmdletPathConfig {
-        operation_type: FileOperationType::Read,
-        path_params: vec!["-path".to_string(), "-literalpath".to_string(), "-pspath".to_string(), "-lp".to_string()],
-        known_switches: vec!["-recurse".to_string(), "-force".to_string(), "-name".to_string(), "-directory".to_string(), "-file".to_string(), "-hidden".to_string(), "-readonly".to_string(), "-system".to_string()],
-        known_value_params: vec!["-filter".to_string(), "-include".to_string(), "-exclude".to_string(), "-depth".to_string(), "-attributes".to_string()],
-        ..Default::default()
-    });
+    map.insert(
+        "get-childitem",
+        CmdletPathConfig {
+            operation_type: FileOperationType::Read,
+            path_params: vec![
+                "-path".to_string(),
+                "-literalpath".to_string(),
+                "-pspath".to_string(),
+                "-lp".to_string(),
+            ],
+            known_switches: vec![
+                "-recurse".to_string(),
+                "-force".to_string(),
+                "-name".to_string(),
+                "-directory".to_string(),
+                "-file".to_string(),
+                "-hidden".to_string(),
+                "-readonly".to_string(),
+                "-system".to_string(),
+            ],
+            known_value_params: vec![
+                "-filter".to_string(),
+                "-include".to_string(),
+                "-exclude".to_string(),
+                "-depth".to_string(),
+                "-attributes".to_string(),
+            ],
+            ..Default::default()
+        },
+    );
 
-    map.insert("get-item", CmdletPathConfig {
-        operation_type: FileOperationType::Read,
-        path_params: vec!["-path".to_string(), "-literalpath".to_string(), "-pspath".to_string(), "-lp".to_string()],
-        known_switches: vec!["-force".to_string()],
-        known_value_params: vec!["-filter".to_string(), "-include".to_string(), "-exclude".to_string(), "-stream".to_string()],
-        ..Default::default()
-    });
+    map.insert(
+        "get-item",
+        CmdletPathConfig {
+            operation_type: FileOperationType::Read,
+            path_params: vec![
+                "-path".to_string(),
+                "-literalpath".to_string(),
+                "-pspath".to_string(),
+                "-lp".to_string(),
+            ],
+            known_switches: vec!["-force".to_string()],
+            known_value_params: vec![
+                "-filter".to_string(),
+                "-include".to_string(),
+                "-exclude".to_string(),
+                "-stream".to_string(),
+            ],
+            ..Default::default()
+        },
+    );
 
-    map.insert("get-itemproperty", CmdletPathConfig {
-        operation_type: FileOperationType::Read,
-        path_params: vec!["-path".to_string(), "-literalpath".to_string(), "-pspath".to_string(), "-lp".to_string()],
-        known_switches: vec![],
-        known_value_params: vec!["-name".to_string(), "-filter".to_string(), "-include".to_string(), "-exclude".to_string()],
-        ..Default::default()
-    });
+    map.insert(
+        "get-itemproperty",
+        CmdletPathConfig {
+            operation_type: FileOperationType::Read,
+            path_params: vec![
+                "-path".to_string(),
+                "-literalpath".to_string(),
+                "-pspath".to_string(),
+                "-lp".to_string(),
+            ],
+            known_switches: vec![],
+            known_value_params: vec![
+                "-name".to_string(),
+                "-filter".to_string(),
+                "-include".to_string(),
+                "-exclude".to_string(),
+            ],
+            ..Default::default()
+        },
+    );
 
-    map.insert("test-path", CmdletPathConfig {
-        operation_type: FileOperationType::Read,
-        path_params: vec!["-path".to_string(), "-literalpath".to_string(), "-pspath".to_string(), "-lp".to_string()],
-        known_switches: vec!["-isvalid".to_string()],
-        known_value_params: vec!["-filter".to_string(), "-include".to_string(), "-exclude".to_string(), "-pathtype".to_string(), "-olderthan".to_string(), "-newerthan".to_string()],
-        ..Default::default()
-    });
+    map.insert(
+        "test-path",
+        CmdletPathConfig {
+            operation_type: FileOperationType::Read,
+            path_params: vec![
+                "-path".to_string(),
+                "-literalpath".to_string(),
+                "-pspath".to_string(),
+                "-lp".to_string(),
+            ],
+            known_switches: vec!["-isvalid".to_string()],
+            known_value_params: vec![
+                "-filter".to_string(),
+                "-include".to_string(),
+                "-exclude".to_string(),
+                "-pathtype".to_string(),
+                "-olderthan".to_string(),
+                "-newerthan".to_string(),
+            ],
+            ..Default::default()
+        },
+    );
 
     map
 });
@@ -232,10 +491,7 @@ pub fn is_dangerous_removal_path(path: &str) -> bool {
 }
 
 /// Check path constraints
-pub fn check_path_constraints(
-    command: &str,
-    _allowed_paths: &[String],
-) -> PathCheckResult {
+pub fn check_path_constraints(command: &str, _allowed_paths: &[String]) -> PathCheckResult {
     use super::read_only_validation::resolve_to_canonical;
 
     let parts: Vec<&str> = command.split_whitespace().collect();
@@ -265,7 +521,10 @@ pub fn check_path_constraints(
     if config.optional_write && config.operation_type == FileOperationType::Write {
         // Check if any path parameter is present
         let has_path = parts.iter().any(|arg| {
-            config.path_params.iter().any(|p| arg.to_lowercase().starts_with(p))
+            config
+                .path_params
+                .iter()
+                .any(|p| arg.to_lowercase().starts_with(p))
         });
 
         if !has_path {
@@ -278,7 +537,9 @@ pub fn check_path_constraints(
     }
 
     // For write operations, check for dangerous paths
-    if config.operation_type == FileOperationType::Write || config.operation_type == FileOperationType::Create {
+    if config.operation_type == FileOperationType::Write
+        || config.operation_type == FileOperationType::Create
+    {
         // Extract paths from arguments
         for (i, arg) in parts.iter().enumerate() {
             // Skip flags

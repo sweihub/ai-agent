@@ -4,8 +4,8 @@
 //! Tools that are safe and don't need any classifier checking.
 //! Used by the auto mode classifier to skip unnecessary API calls.
 
-use std::collections::HashSet;
 use lazy_static::lazy_static;
+use std::collections::HashSet;
 
 lazy_static! {
     /// Tools that are safe and don't need any classifier checking.

@@ -3,10 +3,10 @@
 //!
 //! Review artifacts (feature-gated: REVIEW_ARTIFACT).
 
-use crate::skills::bundled_skills::{
-    register_bundled_skill, BundledSkillDefinition, ContentBlock, SkillContext,
-};
 use crate::AgentError;
+use crate::skills::bundled_skills::{
+    BundledSkillDefinition, ContentBlock, SkillContext, register_bundled_skill,
+};
 
 const HUNTER_PROMPT: &str = r#"# Hunter Skill
 

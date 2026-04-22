@@ -6,9 +6,9 @@ use std::collections::HashMap;
 use crate::services::analytics::log_event;
 use crate::services::mcp::types::*;
 use crate::utils::config::check_has_trust_dialog_accepted;
+use crate::utils::cwd::get_cwd;
 use crate::utils::debug::log_ant_error;
 use crate::utils::exec_file_no_throw::exec_file_no_throw_with_cwd;
-use crate::utils::cwd::get_cwd;
 
 /// Feedback channel for ANT users reporting issues
 const FEEDBACK_CHANNEL: &str = "#briarpatch-cc";
@@ -48,10 +48,7 @@ pub async fn get_mcp_headers_from_helper(
                  If you see this message, post in {}.",
                 server_name, FEEDBACK_CHANNEL
             );
-            log_ant_error(
-                "MCP headersHelper invoked before trust check",
-                &error_msg,
-            );
+            log_ant_error("MCP headersHelper invoked before trust check", &error_msg);
             log_event("tengu_mcp_headersHelper_missing_trust", Default::default());
             return None;
         }

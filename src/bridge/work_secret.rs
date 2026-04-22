@@ -2,9 +2,9 @@
 //!
 //! Translated from openclaudecode/src/bridge/workSecret.ts
 
-use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine};
-use serde::{Deserialize, Serialize};
 use crate::utils::http::get_user_agent;
+use base64::{Engine, engine::general_purpose::URL_SAFE_NO_PAD};
+use serde::{Deserialize, Serialize};
 
 #[cfg(feature = "reqwest")]
 use reqwest;

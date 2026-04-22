@@ -18,10 +18,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("--- Example 26: Conversation Memory ---\n");
 
     // Create agent with default configuration from .env
-    let mut agent = Agent::new(
-        &std::env::var("AI_MODEL").unwrap_or_else(|_| "claude-sonnet-4-6".to_string()),
-        10, // max turns
-    );
+    let agent =
+        Agent::new(&std::env::var("AI_MODEL").unwrap_or_else(|_| "claude-sonnet-4-6".to_string()))
+            .max_turns(10);
 
     println!("=== Turn 1: Tell the agent my favorite color ===\n");
     let result1 = agent
@@ -35,9 +34,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("(Message history: {} messages so far)\n", messages.len());
 
     println!("=== Turn 2: Ask the agent what my favorite color is ===\n");
-    let result2 = agent
-        .query("What is my favorite color?")
-        .await?;
+    let result2 = agent.query("What is my favorite color?").await?;
 
     println!("Agent: {}\n", result2.text.trim());
 

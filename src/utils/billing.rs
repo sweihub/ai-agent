@@ -123,9 +123,7 @@ fn get_auth_token_source() -> (String, bool) {
 }
 
 fn get_anthropic_api_key() -> Option<String> {
-    std::env::var(ai::API_KEY)
-        .ok()
-        .filter(|k| !k.is_empty())
+    std::env::var(ai::API_KEY).ok().filter(|k| !k.is_empty())
 }
 
 fn get_subscription_type() -> Option<String> {

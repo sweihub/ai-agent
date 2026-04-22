@@ -91,11 +91,17 @@ impl GlobTool {
         } else {
             let files_str = results.join("\n");
             let truncation_note = if truncated {
-                format!("\n... and {} more files (limited to {} results)", total - GLOB_MAX_RESULTS, GLOB_MAX_RESULTS)
+                format!(
+                    "\n... and {} more files (limited to {} results)",
+                    total - GLOB_MAX_RESULTS,
+                    GLOB_MAX_RESULTS
+                )
             } else {
                 String::new()
             };
-            format!("{}\n{}", files_str, truncation_note).trim_end().to_string()
+            format!("{}\n{}", files_str, truncation_note)
+                .trim_end()
+                .to_string()
         };
 
         // Return structured result as JSON

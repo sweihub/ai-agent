@@ -436,7 +436,9 @@ where
                 if let Some(overflow) = parse_max_tokens_overflow(&message) {
                     log::debug!(
                         "[retry] Context overflow: input={} + max_tokens={} > limit={}",
-                        overflow.input_tokens, overflow.max_tokens, overflow.context_limit
+                        overflow.input_tokens,
+                        overflow.max_tokens,
+                        overflow.context_limit
                     );
                     // In TypeScript, this sets retryContext.maxTokensOverride
                     // For now, just continue with retry
@@ -449,10 +451,13 @@ where
                     if !should_retry(status, &message) {
                         log::debug!(
                             "[retry] Not retryable: status={:?} error={}",
-                            status, message.chars().take(100).collect::<String>()
+                            status,
+                            message.chars().take(100).collect::<String>()
                         );
                         return Err(AgentError::Api(
-                            last_message.take().unwrap_or_else(|| "Retry exhausted".to_string()),
+                            last_message
+                                .take()
+                                .unwrap_or_else(|| "Retry exhausted".to_string()),
                         ));
                     }
                 }
@@ -609,7 +614,11 @@ pub async fn retry_post(
                     // Clone builder for next attempt
                     current_builder = match current_builder.try_clone() {
                         Some(b) => b,
-                        None => return Err(AgentError::Api("Request builder cannot be cloned for retry".to_string())),
+                        None => {
+                            return Err(AgentError::Api(
+                                "Request builder cannot be cloned for retry".to_string(),
+                            ));
+                        }
                     };
                 }
             }
@@ -726,7 +735,9 @@ mod tests {
 
         // With jitter_disabled test (jitter = 0 expected range)
         let d1 = get_retry_delay(1, None, config_max);
-        assert!(d1 >= BASE_DELAY_MS && d1 < BASE_DELAY_MS + (BASE_DELAY_MS as f64 * 0.25) as u64 + 1);
+        assert!(
+            d1 >= BASE_DELAY_MS && d1 < BASE_DELAY_MS + (BASE_DELAY_MS as f64 * 0.25) as u64 + 1
+        );
 
         let d2 = get_retry_delay(2, None, config_max);
         assert!(d2 >= BASE_DELAY_MS * 2);
@@ -782,7 +793,7 @@ mod tests {
     #[test]
     fn test_parse_max_tokens_overflow() {
         let data = parse_max_tokens_overflow(
-            "input length and `max_tokens` exceed context limit: 188059 + 20000 > 200000"
+            "input length and `max_tokens` exceed context limit: 188059 + 20000 > 200000",
         );
         assert!(data.is_some());
         let data = data.unwrap();
@@ -864,7 +875,7 @@ mod tests {
                 let count = call_count.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
                 if count < 2 {
                     Err(AgentError::Api(
-                        "API error: Streaming API error 429 Too Many Requests".to_string()
+                        "API error: Streaming API error 429 Too Many Requests".to_string(),
                     ))
                 } else {
                     Ok::<_, AgentError>("success")

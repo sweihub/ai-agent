@@ -6,7 +6,7 @@ use std::sync::{Arc, Mutex};
 
 use crate::types::Message;
 use crate::utils::hooks::api_query_hook_helper::{
-    create_api_query_hook, ApiQueryHookConfig, ReplHookContext,
+    ApiQueryHookConfig, ReplHookContext, create_api_query_hook,
 };
 use crate::utils::hooks::post_sampling_hooks::register_post_sampling_hook;
 
@@ -81,7 +81,9 @@ where
 
 /// Create the skill improvement hook
 fn create_skill_improvement_hook() -> Arc<
-    dyn Fn(ReplHookContext) -> std::pin::Pin<Box<dyn std::future::Future<Output = ()> + Send>> + Send + Sync,
+    dyn Fn(ReplHookContext) -> std::pin::Pin<Box<dyn std::future::Future<Output = ()> + Send>>
+        + Send
+        + Sync,
 > {
     let config: ApiQueryHookConfig<Vec<SkillUpdate>> = ApiQueryHookConfig {
         name: "skill_improvement".to_string(),
@@ -90,7 +92,11 @@ fn create_skill_improvement_hook() -> Arc<
             let messages = context.messages.clone();
             Box::pin(async move {
                 // Only run for main REPL thread
-                if query_source.as_ref().map(|s| s != "repl_main_thread").unwrap_or(true) {
+                if query_source
+                    .as_ref()
+                    .map(|s| s != "repl_main_thread")
+                    .unwrap_or(true)
+                {
                     return false;
                 }
 
@@ -186,11 +192,14 @@ Output <updates>[]</updates> if no updates are needed."#,
                         .map(|s| s.skill_name.clone())
                         .unwrap_or_else(|| "unknown".to_string());
 
-                    log_event("tengu_skill_improvement_detected", &serde_json::json!({
-                        "updateCount": updates.len(),
-                        "uuid": uuid,
-                        "skill_name": skill_name,
-                    }));
+                    log_event(
+                        "tengu_skill_improvement_detected",
+                        &serde_json::json!({
+                            "updateCount": updates.len(),
+                            "uuid": uuid,
+                            "skill_name": skill_name,
+                        }),
+                    );
 
                     // Update app state with suggestion
                     // This would set context.tool_use_context.setAppState
@@ -223,10 +232,7 @@ pub fn init_skill_improvement() {
 
 /// Apply skill improvements by calling a side-channel LLM to rewrite the skill file.
 /// Fire-and-forget - does not block the main conversation.
-pub async fn apply_skill_improvement(
-    skill_name: &str,
-    updates: &[SkillUpdate],
-) {
+pub async fn apply_skill_improvement(skill_name: &str, updates: &[SkillUpdate]) {
     if skill_name.is_empty() {
         return;
     }
@@ -242,10 +248,7 @@ pub async fn apply_skill_improvement(
     let current_content = match tokio::fs::read_to_string(&file_path).await {
         Ok(content) => content,
         Err(_) => {
-            log::error!(
-                "Failed to read skill file for improvement: {:?}",
-                file_path
-            );
+            log::error!("Failed to read skill file for improvement: {:?}", file_path);
             return;
         }
     };
@@ -350,8 +353,14 @@ mod tests {
     #[test]
     fn test_format_recent_messages() {
         let messages = vec![
-            Message { content: "Hello".to_string(), ..Default::default() },
-            Message { content: "Hi there".to_string(), ..Default::default() },
+            Message {
+                content: "Hello".to_string(),
+                ..Default::default()
+            },
+            Message {
+                content: "Hi there".to_string(),
+                ..Default::default()
+            },
         ];
         let result = format_recent_messages(&messages);
         // Would contain "User: Hello" and "User: Hi there"
@@ -361,9 +370,18 @@ mod tests {
     #[test]
     fn test_count_messages() {
         let messages = vec![
-            Message { content: "msg1".to_string(), ..Default::default() },
-            Message { content: "msg2".to_string(), ..Default::default() },
-            Message { content: "msg3".to_string(), ..Default::default() },
+            Message {
+                content: "msg1".to_string(),
+                ..Default::default()
+            },
+            Message {
+                content: "msg2".to_string(),
+                ..Default::default()
+            },
+            Message {
+                content: "msg3".to_string(),
+                ..Default::default()
+            },
         ];
         let count = count_messages(&messages, |_| true);
         assert_eq!(count, 3);

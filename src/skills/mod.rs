@@ -8,4 +8,4 @@ pub mod loader;
 
 pub use bundled::init_bundled_skills;
 pub use bundled_skills::*;
-pub use loader::{load_skill_from_dir, load_skills_from_dir, LoadedSkill, SkillMetadata};
+pub use loader::{LoadedSkill, SkillMetadata, load_skill_from_dir, load_skills_from_dir};

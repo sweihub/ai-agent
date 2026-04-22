@@ -8,18 +8,22 @@ use std::sync::Mutex;
 use once_cell::sync::Lazy;
 
 use super::loader::load_all_plugins_cache_only;
-use super::plugin_options_storage::{load_plugin_options, substitute_plugin_variables, substitute_user_config_in_content};
-use crate::plugin::types::{PluginManifest};
-use super::walk_plugin_markdown::{walk_plugin_markdown, WalkPluginMarkdownOpts};
+use super::plugin_options_storage::{
+    load_plugin_options, substitute_plugin_variables, substitute_user_config_in_content,
+};
+use super::walk_plugin_markdown::{WalkPluginMarkdownOpts, walk_plugin_markdown};
+use crate::plugin::types::PluginManifest;
 
 /// Stub for frontmatter parsing - requires frontmatter_parser module.
-fn parse_frontmatter_stub<'a>(content: &'a str, _path: &str) -> (serde_json::Map<String, serde_json::Value>, &'a str) {
+fn parse_frontmatter_stub<'a>(
+    content: &'a str,
+    _path: &str,
+) -> (serde_json::Map<String, serde_json::Value>, &'a str) {
     // Simple stub: returns empty frontmatter and full content as markdown
     (serde_json::Map::new(), content)
 }
 
-static PLUGIN_COMMAND_CACHE: Lazy<Mutex<Option<Vec<Command>>>> =
-    Lazy::new(|| Mutex::new(None));
+static PLUGIN_COMMAND_CACHE: Lazy<Mutex<Option<Vec<Command>>>> = Lazy::new(|| Mutex::new(None));
 
 /// Command definition loaded from a plugin.
 #[derive(Clone, Debug)]
@@ -35,7 +39,8 @@ pub struct Command {
 }
 
 /// Load plugin commands from all enabled plugins.
-pub async fn load_plugin_commands() -> Result<Vec<Command>, Box<dyn std::error::Error + Send + Sync>> {
+pub async fn load_plugin_commands() -> Result<Vec<Command>, Box<dyn std::error::Error + Send + Sync>>
+{
     {
         let cache = PLUGIN_COMMAND_CACHE.lock().unwrap();
         if let Some(ref commands) = *cache {
@@ -135,11 +140,8 @@ async fn load_commands_from_directory(
                 let path_str = full_path.clone();
 
                 if let Ok(content) = tokio::fs::read_to_string(&full_path).await {
-                    let command_name = get_command_name_from_file(
-                        Path::new(&full_path),
-                        &base_dir,
-                        &plugin_name,
-                    );
+                    let command_name =
+                        get_command_name_from_file(Path::new(&full_path), &base_dir, &plugin_name);
 
                     if let Ok(Some(command)) = create_plugin_command(
                         &command_name,
@@ -222,8 +224,7 @@ async fn create_plugin_command(
     is_skill: bool,
     is_skill_mode: bool,
 ) -> Result<Option<Command>, Box<dyn std::error::Error + Send + Sync>> {
-    let (frontmatter, markdown_content) =
-        parse_frontmatter_stub(content, file_path);
+    let (frontmatter, markdown_content) = parse_frontmatter_stub(content, file_path);
 
     let description = frontmatter
         .get("description")
@@ -282,7 +283,8 @@ async fn load_commands_from_path(
     plugin_path: &str,
     loaded_paths: &mut HashSet<String>,
 ) -> Result<Vec<Command>, Box<dyn std::error::Error + Send + Sync>> {
-    let metadata = tokio::fs::metadata(command_path).await
+    let metadata = tokio::fs::metadata(command_path)
+        .await
         .map_err(|e| format!("Failed to stat {}: {}", command_path, e))?;
 
     if metadata.is_dir() {
@@ -307,7 +309,8 @@ async fn load_commands_from_path(
         }
         loaded_paths.insert(command_path.to_string());
 
-        let content = tokio::fs::read_to_string(command_path).await
+        let content = tokio::fs::read_to_string(command_path)
+            .await
             .map_err(|e| format!("Failed to read {}: {}", command_path, e))?;
         let path_str = command_path.to_string();
         let command_name = format!(

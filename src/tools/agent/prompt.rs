@@ -2,8 +2,10 @@
 #![allow(dead_code)]
 use std::sync::Arc;
 
-use super::constants::{AGENT_TOOL_NAME, FILE_READ_TOOL_NAME, FILE_WRITE_TOOL_NAME,
-                       GLOB_TOOL_NAME, LEGACY_AGENT_TOOL_NAME, SEND_MESSAGE_TOOL_NAME};
+use super::constants::{
+    AGENT_TOOL_NAME, FILE_READ_TOOL_NAME, FILE_WRITE_TOOL_NAME, GLOB_TOOL_NAME,
+    LEGACY_AGENT_TOOL_NAME, SEND_MESSAGE_TOOL_NAME,
+};
 use super::load_agents_dir::AgentDefinition;
 
 /// Tool names referenced in the prompt
@@ -25,11 +27,8 @@ fn get_tools_description(agent: &AgentDefinition) -> String {
     let has_denylist = !agent.disallowed_tools.is_empty();
 
     if has_allowlist && has_denylist {
-        let deny_set: std::collections::HashSet<&str> = agent
-            .disallowed_tools
-            .iter()
-            .map(|s| s.as_str())
-            .collect();
+        let deny_set: std::collections::HashSet<&str> =
+            agent.disallowed_tools.iter().map(|s| s.as_str()).collect();
         let effective: Vec<&String> = agent
             .tools
             .iter()
@@ -38,7 +37,11 @@ fn get_tools_description(agent: &AgentDefinition) -> String {
         if effective.is_empty() {
             return "None".to_string();
         }
-        effective.iter().map(|s| s.as_str()).collect::<Vec<_>>().join(", ")
+        effective
+            .iter()
+            .map(|s| s.as_str())
+            .collect::<Vec<_>>()
+            .join(", ")
     } else if has_allowlist {
         agent.tools.join(", ")
     } else if has_denylist {
@@ -76,11 +79,7 @@ fn get_subscription_type() -> &'static str {
         .ok()
         .map(|s| {
             let s = s.to_lowercase();
-            if s == "pro" {
-                "pro"
-            } else {
-                "free"
-            }
+            if s == "pro" { "pro" } else { "free" }
         })
         .unwrap_or("free")
 }
@@ -183,7 +182,11 @@ Forks are cheap because they share your prompt cache. Don't set `model` on a for
         } else {
             ""
         },
-        style = if fork_enabled { "For fresh agents, terse" } else { "Terse" },
+        style = if fork_enabled {
+            "For fresh agents, terse"
+        } else {
+            "Terse"
+        },
     );
 
     // Shared core prompt
@@ -269,7 +272,11 @@ When NOT to use the {agent_tool} tool:
         "Each Agent invocation starts fresh — provide a complete task description."
     };
 
-    let clearly_tell_note = if fork_enabled { "" } else { ", since it is not aware of the user's intent" };
+    let clearly_tell_note = if fork_enabled {
+        ""
+    } else {
+        ", since it is not aware of the user's intent"
+    };
 
     let isolation_note = if is_teammate() {
         "\n- The name, team_name, and mode parameters are not available in this context — teammates cannot spawn other teammates. Omit them to spawn a subagent."

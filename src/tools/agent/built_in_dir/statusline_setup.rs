@@ -131,7 +131,8 @@ Guidelines:
 pub fn statusline_setup_agent() -> AgentDefinition {
     AgentDefinition {
         agent_type: "statusline-setup".to_string(),
-        when_to_use: "Use this agent to configure the user's Claude Code status line setting.".to_string(),
+        when_to_use: "Use this agent to configure the user's Claude Code status line setting."
+            .to_string(),
         tools: vec!["Read".to_string(), "Edit".to_string()],
         source: "built-in".to_string(),
         base_dir: "built-in".to_string(),

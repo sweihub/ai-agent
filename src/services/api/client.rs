@@ -10,7 +10,9 @@ pub const CLIENT_REQUEST_ID_HEADER: &str = "x-client-request-id";
 
 /// Check if env var is truthy
 fn is_env_truthy(value: Option<String>) -> bool {
-    value.map(|v| v == "1" || v.to_lowercase() == "true").unwrap_or(false)
+    value
+        .map(|v| v == "1" || v.to_lowercase() == "true")
+        .unwrap_or(false)
 }
 
 /// Get API timeout in milliseconds
@@ -140,7 +142,9 @@ fn has_key_file() -> bool {
 
 /// Check if user type is 'ant'
 fn is_ant_user() -> bool {
-    env::var("AI_CODE_USER_TYPE").map(|v| v == "ant").unwrap_or(false)
+    env::var("AI_CODE_USER_TYPE")
+        .map(|v| v == "ant")
+        .unwrap_or(false)
 }
 
 /// Check if using staging OAuth
@@ -151,8 +155,7 @@ fn is_using_staging_oauth() -> bool {
 /// Get base API URL for OAuth
 fn get_oauth_base_api_url() -> String {
     // Default staging URL
-    env::var("AI_CODE_API_URL")
-        .unwrap_or_else(|_| "https://api.staging.anthropic.com".to_string())
+    env::var("AI_CODE_API_URL").unwrap_or_else(|_| "https://api.staging.anthropic.com".to_string())
 }
 
 /// Check if debug to stderr is enabled
@@ -168,10 +171,7 @@ pub fn create_default_headers() -> HashMap<String, String> {
         "User-Agent".to_string(),
         format!("ai-agent/{}", env!("CARGO_PKG_VERSION")),
     );
-    headers.insert(
-        "X-Claude-Code-Session-Id".to_string(),
-        get_session_id(),
-    );
+    headers.insert("X-Claude-Code-Session-Id".to_string(), get_session_id());
 
     // Add custom headers
     for (k, v) in get_custom_headers() {
@@ -195,7 +195,10 @@ pub fn create_default_headers() -> HashMap<String, String> {
 
     // Additional protection
     if is_additional_protection_enabled() {
-        headers.insert("x-anthropic-additional-protection".to_string(), "true".to_string());
+        headers.insert(
+            "x-anthropic-additional-protection".to_string(),
+            "true".to_string(),
+        );
     }
 
     headers
@@ -216,9 +219,11 @@ fn is_claude_ai_subscriber() -> bool {
 
 /// Get Claude.ai OAuth tokens
 fn get_claudeai_oauth_tokens() -> Option<OAuthTokens> {
-    env::var("AI_CODE_OAUTH_TOKEN").ok().map(|token| OAuthTokens {
-        access_token: token,
-    })
+    env::var("AI_CODE_OAUTH_TOKEN")
+        .ok()
+        .map(|token| OAuthTokens {
+            access_token: token,
+        })
 }
 
 #[derive(Debug, Clone)]
@@ -234,7 +239,10 @@ async fn check_and_refresh_oauth_token_if_needed() {
 }
 
 /// Configure API key headers
-async fn configure_api_key_headers(headers: &mut HashMap<String, String>, _is_non_interactive: bool) {
+async fn configure_api_key_headers(
+    headers: &mut HashMap<String, String>,
+    _is_non_interactive: bool,
+) {
     if let Ok(token) = env::var("ANTHROPIC_AUTH_TOKEN") {
         if !token.is_empty() {
             headers.insert("Authorization".to_string(), format!("Bearer {}", token));
@@ -254,7 +262,9 @@ pub struct AnthropicClientConfig {
 
 /// Get Anthropic client (simplified implementation)
 /// In full implementation, this would support Bedrock, Foundry, and Vertex
-pub async fn get_anthropic_client(config: AnthropicClientConfig) -> Result<reqwest::Client, String> {
+pub async fn get_anthropic_client(
+    config: AnthropicClientConfig,
+) -> Result<reqwest::Client, String> {
     let mut default_headers = create_default_headers();
 
     // OAuth token check
@@ -268,7 +278,10 @@ pub async fn get_anthropic_client(config: AnthropicClientConfig) -> Result<reqwe
     // Convert headers to HeaderMap
     let mut header_map = reqwest::header::HeaderMap::new();
     for (k, v) in default_headers {
-        if let (Ok(name), Ok(value)) = (k.parse::<reqwest::header::HeaderName>(), v.parse::<reqwest::header::HeaderValue>()) {
+        if let (Ok(name), Ok(value)) = (
+            k.parse::<reqwest::header::HeaderName>(),
+            v.parse::<reqwest::header::HeaderValue>(),
+        ) {
             header_map.insert(name, value);
         }
     }

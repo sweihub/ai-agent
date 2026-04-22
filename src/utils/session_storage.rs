@@ -76,28 +76,22 @@ pub fn load_transcript(session_id: &str) -> Vec<String> {
 }
 
 /// Load full session data including transcript entries with metadata
-pub fn load_transcript_with_metadata(
-    session_id: &str,
-) -> Result<Vec<TranscriptEntry>, String> {
+pub fn load_transcript_with_metadata(session_id: &str) -> Result<Vec<TranscriptEntry>, String> {
     let path = get_transcript_path(session_id);
     if !path.exists() {
         return Err(format!("Transcript not found for session: {}", session_id));
     }
 
-    let content = std::fs::read_to_string(&path)
-        .map_err(|e| format!("Failed to read transcript: {}", e))?;
+    let content =
+        std::fs::read_to_string(&path).map_err(|e| format!("Failed to read transcript: {}", e))?;
 
     serde_json::from_str::<Vec<TranscriptEntry>>(&content)
         .map_err(|e| format!("Failed to parse transcript: {}", e))
 }
 
 /// Save transcript for a session to disk
-pub fn save_transcript(
-    session_id: &str,
-    transcript: &[String],
-) -> Result<(), String> {
-    ensure_session_dir(session_id)
-        .map_err(|e| format!("Failed to create session dir: {}", e))?;
+pub fn save_transcript(session_id: &str, transcript: &[String]) -> Result<(), String> {
+    ensure_session_dir(session_id).map_err(|e| format!("Failed to create session dir: {}", e))?;
 
     let entries: Vec<TranscriptEntry> = transcript
         .iter()
@@ -112,18 +106,13 @@ pub fn save_transcript(
         .map_err(|e| format!("Failed to serialize transcript: {}", e))?;
 
     let path = get_transcript_path(session_id);
-    std::fs::write(&path, json)
-        .map_err(|e| format!("Failed to write transcript: {}", e))?;
+    std::fs::write(&path, json).map_err(|e| format!("Failed to write transcript: {}", e))?;
 
     Ok(())
 }
 
 /// Append a message to an existing transcript
-pub fn append_to_transcript(
-    session_id: &str,
-    role: &str,
-    content: &str,
-) -> Result<(), String> {
+pub fn append_to_transcript(session_id: &str, role: &str, content: &str) -> Result<(), String> {
     let path = get_transcript_path(session_id);
 
     let mut entries = if path.exists() {
@@ -146,8 +135,7 @@ pub fn append_to_transcript(
     let json = serde_json::to_string_pretty(&entries)
         .map_err(|e| format!("Failed to serialize transcript: {}", e))?;
 
-    std::fs::write(&path, json)
-        .map_err(|e| format!("Failed to write transcript: {}", e))?;
+    std::fs::write(&path, json).map_err(|e| format!("Failed to write transcript: {}", e))?;
 
     Ok(())
 }

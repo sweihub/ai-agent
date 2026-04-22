@@ -1,6 +1,6 @@
 // Source: /data/home/swei/claudecode/openclaudecode/src/commands/commit.ts
-use crate::constants::env::ai;
 use super::{Command, CommandCallResult};
+use crate::constants::env::ai;
 
 const ALLOWED_TOOLS: &[&str] = &[
     "Bash(git add:*)",

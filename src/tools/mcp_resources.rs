@@ -47,7 +47,8 @@ impl ListMcpResourcesTool {
         Ok(ToolResult {
             result_type: "text".to_string(),
             tool_use_id: "".to_string(),
-            content: "No MCP servers configured. Configure MCP servers to list their resources.".to_string(),
+            content: "No MCP servers configured. Configure MCP servers to list their resources."
+                .to_string(),
             is_error: None,
             was_persisted: None,
         })

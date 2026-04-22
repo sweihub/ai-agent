@@ -80,11 +80,9 @@ pub fn get_rainbow_color(char_index: usize, shimmer: bool) -> &'static str {
 pub fn is_ultrathink_enabled() -> bool {
     // Check environment variable (AI_ prefix for localization)
     // feature('ULTRATHINK') in TS — we check the env var as the runtime gate
-    if !crate::utils::env_utils::is_env_truthy(
-        std::env::var("AI_ULTRATHINK").ok().as_deref(),
-    ) && !crate::utils::env_utils::is_env_truthy(
-        std::env::var("ULTRATHINK").ok().as_deref(),
-    ) {
+    if !crate::utils::env_utils::is_env_truthy(std::env::var("AI_ULTRATHINK").ok().as_deref())
+        && !crate::utils::env_utils::is_env_truthy(std::env::var("ULTRATHINK").ok().as_deref())
+    {
         return false;
     }
     // GrowthBook feature check would go here if we have analytics integrated

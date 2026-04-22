@@ -17,10 +17,10 @@
 //!
 //! No register/poll/ack/stop/heartbeat/deregister environment lifecycle.
 
+use crate::bridge::SDKMessage;
 use crate::bridge::env_less_bridge_config::get_env_less_bridge_config;
 use crate::bridge::repl_bridge_handle::{BridgeControlRequest, BridgeControlResponse, BridgeState};
 use crate::bridge::repl_bridge_transport::ReplBridgeTransport;
-use crate::bridge::SDKMessage;
 use crate::error::AgentError;
 use std::sync::Arc;
 use std::time::Duration;

@@ -35,8 +35,9 @@ pub struct ClaudeAiMcpServersResponse {
 }
 
 /// Cache for MCP server configs (memoized for session lifetime)
-static CONFIGS_CACHE: Mutex<Option<HashMap<String, crate::services::mcp::types::ScopedMcpServerConfig>>> =
-    Mutex::new(None);
+static CONFIGS_CACHE: Mutex<
+    Option<HashMap<String, crate::services::mcp::types::ScopedMcpServerConfig>>,
+> = Mutex::new(None);
 
 /// Check if the env var is defined and falsy (empty/0/false/no/off)
 fn is_env_defined_falsy(env_var: Option<String>) -> bool {
@@ -74,7 +75,8 @@ fn get_base_api_url() -> String {
 
 /// Fetch MCP server configs from Claude.ai API
 /// Results are memoized for the session lifetime (fetch once per CLI session)
-pub async fn fetch_claudeai_mcp_configs_if_eligible() -> HashMap<String, crate::services::mcp::types::ScopedMcpServerConfig> {
+pub async fn fetch_claudeai_mcp_configs_if_eligible()
+-> HashMap<String, crate::services::mcp::types::ScopedMcpServerConfig> {
     // Check if disabled via env var (isEnvDefinedFalsy)
     if is_env_defined_falsy(std::env::var("AI_CODE_ENABLE_CLAUDEAI_MCP_SERVERS").ok()) {
         log::debug!("[claudeai-mcp] Disabled via env var");
@@ -142,9 +144,11 @@ pub async fn fetch_claudeai_mcp_configs_if_eligible() -> HashMap<String, crate::
 
 /// Convert API response to scoped MCP server configs
 /// Handles name collision by appending (2), (3), etc. suffixes
-fn convert_to_scoped_configs(response: &ClaudeAiMcpServersResponse) -> HashMap<String, crate::services::mcp::types::ScopedMcpServerConfig> {
-    use crate::services::mcp::types::*;
+fn convert_to_scoped_configs(
+    response: &ClaudeAiMcpServersResponse,
+) -> HashMap<String, crate::services::mcp::types::ScopedMcpServerConfig> {
     use crate::services::mcp::normalize_name_for_mcp;
+    use crate::services::mcp::types::*;
 
     let mut configs = HashMap::new();
     let mut used_normalized_names: HashSet<String> = HashSet::new();

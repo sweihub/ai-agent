@@ -10,8 +10,8 @@ use crate::error::AgentError;
 use crate::types::*;
 use std::collections::HashMap;
 use std::sync::{
-    atomic::{AtomicU64, Ordering},
     Mutex, OnceLock,
+    atomic::{AtomicU64, Ordering},
 };
 
 pub const TASK_CREATE_TOOL_NAME: &str = "TaskCreate";
@@ -58,8 +58,8 @@ pub struct Task {
     #[serde(rename = "activeForm")]
     pub active_form: Option<String>,
     pub owner: Option<String>,
-    pub blocks: Vec<String>,      // task IDs this task blocks
-    pub blocked_by: Vec<String>,  // task IDs that block this task
+    pub blocks: Vec<String>,     // task IDs this task blocks
+    pub blocked_by: Vec<String>, // task IDs that block this task
     #[serde(rename = "_internal")]
     pub internal: Option<bool>,
 }
@@ -135,7 +135,12 @@ impl TaskCreateTool {
         let active_form = input["activeForm"].as_str().map(|s| s.to_string());
 
         let id = next_task_id();
-        let task = Task::new(id.clone(), subject.clone(), description.clone(), active_form.clone());
+        let task = Task::new(
+            id.clone(),
+            subject.clone(),
+            description.clone(),
+            active_form.clone(),
+        );
 
         let mut guard = get_tasks_map().lock().unwrap();
         guard.insert(id.clone(), task);
@@ -224,7 +229,10 @@ impl TaskListTool {
                 };
                 format!(
                     "{}. {} [{}] - {}{}{}",
-                    t.id, t.subject, t.status, t.active_form.as_deref().unwrap_or(""),
+                    t.id,
+                    t.subject,
+                    t.status,
+                    t.active_form.as_deref().unwrap_or(""),
                     owner_note,
                     blocking_note
                 )

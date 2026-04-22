@@ -578,14 +578,9 @@ pub fn get_hooks_for_matcher(
 }
 
 /// Get metadata for a specific event's matcher
-pub fn get_matcher_metadata(
-    event: &HookEvent,
-    tool_names: &[String],
-) -> Option<MatcherMetadata> {
+pub fn get_matcher_metadata(event: &HookEvent, tool_names: &[String]) -> Option<MatcherMetadata> {
     let metadata = get_hook_event_metadata(tool_names);
-    metadata
-        .get(event)
-        .and_then(|m| m.matcher_metadata.clone())
+    metadata.get(event).and_then(|m| m.matcher_metadata.clone())
 }
 
 /// Hook source description display string
@@ -594,9 +589,7 @@ pub fn hook_source_description_display_string(source: &HookSource) -> String {
         HookSource::UserSettings => "User settings (~/.claude/settings.json)".to_string(),
         HookSource::ProjectSettings => "Project settings (.claude/settings.json)".to_string(),
         HookSource::LocalSettings => "Local settings (.claude/settings.local.json)".to_string(),
-        HookSource::PluginHook => {
-            "Plugin hooks (~/.claude/plugins/*/hooks/hooks.json)".to_string()
-        }
+        HookSource::PluginHook => "Plugin hooks (~/.claude/plugins/*/hooks/hooks.json)".to_string(),
         HookSource::SessionHook => "Session hooks (in-memory, temporary)".to_string(),
         HookSource::BuiltinHook => {
             "Built-in hook (registered internally by Claude Code)".to_string()
@@ -664,10 +657,7 @@ pub fn is_hook_equal(a: &HookCommand, b: &HookCommand) -> bool {
                 if_condition: if_b,
                 ..
             },
-        ) => {
-            p_a == p_b
-                && (if_a.clone().unwrap_or_default() == if_b.clone().unwrap_or_default())
-        }
+        ) => p_a == p_b && (if_a.clone().unwrap_or_default() == if_b.clone().unwrap_or_default()),
         (
             HookCommand::Agent {
                 prompt: p_a,
@@ -679,10 +669,7 @@ pub fn is_hook_equal(a: &HookCommand, b: &HookCommand) -> bool {
                 if_condition: if_b,
                 ..
             },
-        ) => {
-            p_a == p_b
-                && (if_a.clone().unwrap_or_default() == if_b.clone().unwrap_or_default())
-        }
+        ) => p_a == p_b && (if_a.clone().unwrap_or_default() == if_b.clone().unwrap_or_default()),
         (
             HookCommand::Http {
                 url: u_a,
@@ -694,10 +681,7 @@ pub fn is_hook_equal(a: &HookCommand, b: &HookCommand) -> bool {
                 if_condition: if_b,
                 ..
             },
-        ) => {
-            u_a == u_b
-                && (if_a.clone().unwrap_or_default() == if_b.clone().unwrap_or_default())
-        }
+        ) => u_a == u_b && (if_a.clone().unwrap_or_default() == if_b.clone().unwrap_or_default()),
         _ => false,
     }
 }

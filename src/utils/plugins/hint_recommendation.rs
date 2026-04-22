@@ -6,8 +6,7 @@ use std::sync::Mutex;
 
 use once_cell::sync::Lazy;
 
-static TRIED_THIS_SESSION: Lazy<Mutex<HashSet<String>>> =
-    Lazy::new(|| Mutex::new(HashSet::new()));
+static TRIED_THIS_SESSION: Lazy<Mutex<HashSet<String>>> = Lazy::new(|| Mutex::new(HashSet::new()));
 
 /// Plugin-hint recommendation utilities.
 pub struct PluginHintRecommendation {
@@ -54,7 +53,10 @@ pub async fn resolve_plugin_hint(
             source_command: hint.source_command.clone(),
         })),
         None => {
-            log::debug!("[hint_recommendation] {} not found in marketplace cache", plugin_id);
+            log::debug!(
+                "[hint_recommendation] {} not found in marketplace cache",
+                plugin_id
+            );
             Ok(None)
         }
     }

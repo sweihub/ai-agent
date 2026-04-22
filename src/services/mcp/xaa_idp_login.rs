@@ -1,12 +1,12 @@
 // Source: /data/home/swei/claudecode/openclaudecode/src/services/mcp/xaaIdpLogin.ts
 //! XAA IdP Login - acquires OIDC id_token from enterprise IdP via authorization_code + PKCE flow
 
+use crate::utils::http::get_user_agent;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::collections::HashMap;
 use std::sync::Mutex;
 use std::time::{Duration, Instant};
-use crate::utils::http::get_user_agent;
 
 const IDP_LOGIN_TIMEOUT_MS: u64 = 5 * 60 * 1000; // 5 minutes
 const IDP_REQUEST_TIMEOUT_MS: u64 = 30_000; // 30 seconds
@@ -183,7 +183,8 @@ pub fn generate_pkce() -> PkceParams {
     let mut hasher = Sha256::new();
     hasher.update(code_verifier.as_bytes());
     let hash = hasher.finalize();
-    let code_challenge = base64::Engine::encode(&base64::engine::general_purpose::URL_SAFE_NO_PAD, hash);
+    let code_challenge =
+        base64::Engine::encode(&base64::engine::general_purpose::URL_SAFE_NO_PAD, hash);
 
     PkceParams {
         code_verifier,
@@ -210,10 +211,16 @@ pub fn get_cached_idp_id_token(issuer: &str) -> Option<String> {
 /// Cache IdP token with expiry
 pub fn cache_idp_id_token(issuer: String, id_token: String, expires_in_s: u64) {
     let key = normalize_issuer(&issuer);
-    let expires_at = Instant::now()
-        + Duration::from_secs(expires_in_s.saturating_sub(ID_TOKEN_EXPIRY_BUFFER_S));
+    let expires_at =
+        Instant::now() + Duration::from_secs(expires_in_s.saturating_sub(ID_TOKEN_EXPIRY_BUFFER_S));
     let mut tokens = TOKEN_CACHE.lock().unwrap();
-    tokens.insert(key, IdpLoginResult { id_token, expires_at });
+    tokens.insert(
+        key,
+        IdpLoginResult {
+            id_token,
+            expires_at,
+        },
+    );
     log::debug!(
         "Cached IdP token for issuer: {}, expires in: {}s",
         issuer,
@@ -254,22 +261,25 @@ fn jwt_exp(jwt: &str) -> Option<u64> {
 pub fn save_idp_id_token_from_jwt(issuer: &str, id_token: &str) -> u64 {
     let expires_at_ms = match jwt_exp(id_token) {
         Some(exp) => exp * 1000,
-        None => std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .unwrap()
-            .as_millis() as u64
-            + 3600 * 1000, // Default 1 hour
+        None => {
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_millis() as u64
+                + 3600 * 1000
+        } // Default 1 hour
     };
-    cache_idp_id_token(issuer.to_string(), id_token.to_string(), (expires_at_ms / 1000) as u64);
+    cache_idp_id_token(
+        issuer.to_string(),
+        id_token.to_string(),
+        (expires_at_ms / 1000) as u64,
+    );
     expires_at_ms
 }
 
 /// Save an IdP client secret to secure storage, keyed by IdP issuer.
 /// Returns (success, warning) tuple.
-pub fn save_idp_client_secret(
-    issuer: &str,
-    client_secret: &str,
-) -> (bool, Option<String>) {
+pub fn save_idp_client_secret(issuer: &str, client_secret: &str) -> (bool, Option<String>) {
     let key = normalize_issuer(issuer);
     let mut secrets = CLIENT_SECRET_CACHE.lock().unwrap();
     secrets.insert(key, client_secret.to_string());
@@ -485,8 +495,7 @@ async fn start_callback_server(
                                 .into_owned()
                                 .collect();
 
-                        if let (Some(code), Some(state)) =
-                            (params.get("code"), params.get("state"))
+                        if let (Some(code), Some(state)) = (params.get("code"), params.get("state"))
                         {
                             let _ = tx.send(AuthResponse {
                                 code: code.clone(),
@@ -554,10 +563,7 @@ fn open_browser(url: &str) -> Result<(), String> {
 
 /// Acquire IdP login via browser - full OAuth + PKCE flow
 pub async fn acquire_idp_id_token(options: IdpLoginOptions) -> Result<String, String> {
-    log::info!(
-        "Starting IdP login for issuer: {}",
-        options.idp_issuer
-    );
+    log::info!("Starting IdP login for issuer: {}", options.idp_issuer);
 
     // Check cache first
     if let Some(cached_token) = get_cached_idp_id_token(&options.idp_issuer) {
@@ -598,22 +604,14 @@ pub async fn acquire_idp_id_token(options: IdpLoginOptions) -> Result<String, St
             )
         })?;
     } else {
-        log::info!(
-            "Browser open skipped. Please visit: {}",
-            auth_url
-        );
+        log::info!("Browser open skipped. Please visit: {}", auth_url);
     }
 
     // Start callback server
     let callback_rx = start_callback_server(port).await?;
 
     // Wait for callback with timeout
-    match tokio::time::timeout(
-        Duration::from_millis(IDP_LOGIN_TIMEOUT_MS),
-        callback_rx,
-    )
-    .await
-    {
+    match tokio::time::timeout(Duration::from_millis(IDP_LOGIN_TIMEOUT_MS), callback_rx).await {
         Ok(Ok(auth_response)) => {
             // Verify state matches
             if auth_response.state != state {
@@ -641,11 +639,7 @@ pub async fn acquire_idp_id_token(options: IdpLoginOptions) -> Result<String, St
 
             // Cache the token
             if let Some(expires_in) = token_response.expires_in {
-                cache_idp_id_token(
-                    options.idp_issuer.clone(),
-                    id_token.clone(),
-                    expires_in,
-                );
+                cache_idp_id_token(options.idp_issuer.clone(), id_token.clone(), expires_in);
             }
 
             log::info!("IdP login completed successfully");
@@ -696,7 +690,10 @@ mod tests {
     #[test]
     fn test_normalize_issuer() {
         // normalize_issuer trims trailing slashes and lowercases host
-        assert_eq!(normalize_issuer("https://Example.COM/"), "https://example.com");
+        assert_eq!(
+            normalize_issuer("https://Example.COM/"),
+            "https://example.com"
+        );
         assert_eq!(
             normalize_issuer("https://auth.example.com/path/"),
             "https://auth.example.com/path"
@@ -731,10 +728,7 @@ mod tests {
         clear_idp_id_token(issuer);
 
         cache_idp_id_token(issuer.to_string(), token.to_string(), 3600);
-        assert_eq!(
-            get_cached_idp_id_token(issuer),
-            Some(token.to_string())
-        );
+        assert_eq!(get_cached_idp_id_token(issuer), Some(token.to_string()));
 
         clear_idp_id_token(issuer);
         assert!(get_cached_idp_id_token(issuer).is_none());
@@ -753,8 +747,14 @@ mod tests {
         cache_idp_id_token(issuer2.clone(), "token2".to_string(), 3600);
 
         // Both unique issuers should be present
-        assert_eq!(get_cached_idp_id_token(&issuer1), Some("token1".to_string()));
-        assert_eq!(get_cached_idp_id_token(&issuer2), Some("token2".to_string()));
+        assert_eq!(
+            get_cached_idp_id_token(&issuer1),
+            Some("token1".to_string())
+        );
+        assert_eq!(
+            get_cached_idp_id_token(&issuer2),
+            Some("token2".to_string())
+        );
 
         // Clear and verify gone
         clear_idp_id_token(&issuer1);

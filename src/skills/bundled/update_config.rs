@@ -2,10 +2,10 @@
 //!
 //! Configure Claude Code harness via settings.json.
 
-use crate::skills::bundled_skills::{
-    register_bundled_skill, BundledSkillDefinition, ContentBlock, SkillContext,
-};
 use crate::AgentError;
+use crate::skills::bundled_skills::{
+    BundledSkillDefinition, ContentBlock, SkillContext, register_bundled_skill,
+};
 
 const SETTINGS_EXAMPLES_DOCS: &str = r#"## Settings File Locations
 

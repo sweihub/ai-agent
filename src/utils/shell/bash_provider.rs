@@ -1,8 +1,8 @@
 //! Bash shell provider implementation.
 
-use crate::constants::env::{ai, system};
 use super::shell_provider::{ShellError, ShellExecCommand};
 use super::shell_tool_utils::ShellType;
+use crate::constants::env::{ai, system};
 use std::collections::HashMap;
 
 /// Returns a shell command to disable extended glob patterns for security.

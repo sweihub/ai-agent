@@ -85,7 +85,10 @@ pub struct OauthConfig {
 /// Get OAuth headers
 fn get_oauth_headers(access_token: &str) -> HashMap<String, String> {
     let mut headers = HashMap::new();
-    headers.insert("Authorization".to_string(), format!("Bearer {}", access_token));
+    headers.insert(
+        "Authorization".to_string(),
+        format!("Bearer {}", access_token),
+    );
     headers.insert("User-Agent".to_string(), get_user_agent());
     headers
 }
@@ -102,9 +105,7 @@ async fn sleep_ms(ms: u64) {
 
 /// Find last UUID in logs
 fn find_last_uuid(logs: &[Entry]) -> Option<String> {
-    logs.iter()
-        .rev()
-        .find_map(|e| e.uuid.clone())
+    logs.iter().rev().find_map(|e| e.uuid.clone())
 }
 
 /// Fetch session logs from URL
@@ -139,14 +140,19 @@ async fn fetch_session_logs_from_url(
         let data: serde_json::Value = response.json().await.map_err(|e| e.to_string())?;
 
         // Validate response structure
-        let loglines = data.get("loglines")
+        let loglines = data
+            .get("loglines")
             .and_then(|v| v.as_array())
             .ok_or_else(|| "Invalid session logs response format".to_string())?;
 
-        let logs: Vec<Entry> = serde_json::from_value(serde_json::json!(loglines))
-            .map_err(|e| e.to_string())?;
+        let logs: Vec<Entry> =
+            serde_json::from_value(serde_json::json!(loglines)).map_err(|e| e.to_string())?;
 
-        log_for_debugging(&format!("Fetched {} session logs for session {}", logs.len(), session_id));
+        log_for_debugging(&format!(
+            "Fetched {} session logs for session {}",
+            logs.len(),
+            session_id
+        ));
         return Ok(logs);
     }
 
@@ -159,7 +165,10 @@ async fn fetch_session_logs_from_url(
         return Err("Your session has expired. Please run /login to sign in again.".to_string());
     }
 
-    Err(format!("Failed to fetch session logs: {}", response.status()))
+    Err(format!(
+        "Failed to fetch session logs: {}",
+        response.status()
+    ))
 }
 
 /// Internal implementation of appendSessionLog with retry logic
@@ -200,7 +209,9 @@ async fn append_session_log_impl(
                 if resp.status() == reqwest::StatusCode::OK
                     || resp.status() == reqwest::StatusCode::CREATED
                 {
-                    LAST_UUID_MAP.lock().unwrap()
+                    LAST_UUID_MAP
+                        .lock()
+                        .unwrap()
                         .insert(session_id.to_string(), entry.uuid.clone());
                     log_for_debugging(&format!(
                         "Successfully persisted session log entry for session {}",
@@ -211,14 +222,17 @@ async fn append_session_log_impl(
 
                 if resp.status() == reqwest::StatusCode::CONFLICT {
                     // Handle 409 conflict
-                    let server_last_uuid = resp.headers()
+                    let server_last_uuid = resp
+                        .headers()
                         .get("x-last-uuid")
                         .and_then(|v| v.to_str().ok())
                         .map(String::from);
 
                     if server_last_uuid.as_deref() == Some(entry.uuid.as_str()) {
                         // Our entry is already on server
-                        LAST_UUID_MAP.lock().unwrap()
+                        LAST_UUID_MAP
+                            .lock()
+                            .unwrap()
                             .insert(session_id.to_string(), entry.uuid.clone());
                         log_for_debugging(&format!(
                             "Session entry {} already present on server, recovering from stale state",
@@ -229,7 +243,9 @@ async fn append_session_log_impl(
 
                     // Adopt server's last UUID
                     if let Some(ref server_uuid) = server_last_uuid {
-                        LAST_UUID_MAP.lock().unwrap()
+                        LAST_UUID_MAP
+                            .lock()
+                            .unwrap()
                             .insert(session_id.to_string(), server_uuid.clone());
                         log_for_debugging(&format!(
                             "Session 409: adopting server lastUuid={}, retrying entry {}",
@@ -245,10 +261,7 @@ async fn append_session_log_impl(
                     return false;
                 }
 
-                log_for_debugging(&format!(
-                    "Failed to persist session log: {}",
-                    resp.status()
-                ));
+                log_for_debugging(&format!("Failed to persist session log: {}", resp.status()));
             }
             Err(e) => {
                 log::error!("Error persisting session log: {}", e);
@@ -275,11 +288,7 @@ async fn append_session_log_impl(
 }
 
 /// Append a log entry to the session using JWT token
-pub async fn append_session_log(
-    session_id: &str,
-    entry: TranscriptMessage,
-    url: &str,
-) -> bool {
+pub async fn append_session_log(session_id: &str, entry: TranscriptMessage, url: &str) -> bool {
     let session_token = match get_session_ingress_auth_token() {
         Some(token) => token,
         None => {
@@ -289,7 +298,10 @@ pub async fn append_session_log(
     };
 
     let mut headers = HashMap::new();
-    headers.insert("Authorization".to_string(), format!("Bearer {}", session_token));
+    headers.insert(
+        "Authorization".to_string(),
+        format!("Bearer {}", session_token),
+    );
     headers.insert("Content-Type".to_string(), "application/json".to_string());
     headers.insert("User-Agent".to_string(), get_user_agent());
 
@@ -298,10 +310,7 @@ pub async fn append_session_log(
 }
 
 /// Get all session logs for hydration
-pub async fn get_session_logs(
-    session_id: &str,
-    url: &str,
-) -> Result<Vec<Entry>, String> {
+pub async fn get_session_logs(session_id: &str, url: &str) -> Result<Vec<Entry>, String> {
     let session_token = match get_session_ingress_auth_token() {
         Some(token) => token,
         None => {
@@ -311,14 +320,19 @@ pub async fn get_session_logs(
     };
 
     let mut headers = HashMap::new();
-    headers.insert("Authorization".to_string(), format!("Bearer {}", session_token));
+    headers.insert(
+        "Authorization".to_string(),
+        format!("Bearer {}", session_token),
+    );
     headers.insert("User-Agent".to_string(), get_user_agent());
 
     let logs = fetch_session_logs_from_url(session_id, url, headers).await?;
 
     if let Some(last_entry) = logs.last() {
         if let Some(ref uuid) = last_entry.uuid {
-            LAST_UUID_MAP.lock().unwrap()
+            LAST_UUID_MAP
+                .lock()
+                .unwrap()
                 .insert(session_id.to_string(), uuid.clone());
         }
     }
@@ -398,7 +412,9 @@ pub async fn get_teleport_events(
         }
 
         if response.status() == reqwest::StatusCode::UNAUTHORIZED {
-            return Err("Your session has expired. Please run /login to sign in again.".to_string());
+            return Err(
+                "Your session has expired. Please run /login to sign in again.".to_string(),
+            );
         }
 
         if !response.status().is_success() {
@@ -424,12 +440,18 @@ pub async fn get_teleport_events(
     }
 
     if pages >= max_pages {
-        log::error!("Teleport events hit page cap ({}) for {}", max_pages, session_id);
+        log::error!(
+            "Teleport events hit page cap ({}) for {}",
+            max_pages,
+            session_id
+        );
     }
 
     log_for_debugging(&format!(
         "[teleport] Fetched {} events over {} page(s) for {}",
-        all.len(), pages, session_id
+        all.len(),
+        pages,
+        session_id
     ));
 
     Ok(all)
@@ -452,9 +474,18 @@ mod tests {
     #[test]
     fn test_find_last_uuid() {
         let logs = vec![
-            Entry { uuid: Some("uuid1".to_string()), data: serde_json::json!({}) },
-            Entry { uuid: None, data: serde_json::json!({}) },
-            Entry { uuid: Some("uuid3".to_string()), data: serde_json::json!({}) },
+            Entry {
+                uuid: Some("uuid1".to_string()),
+                data: serde_json::json!({}),
+            },
+            Entry {
+                uuid: None,
+                data: serde_json::json!({}),
+            },
+            Entry {
+                uuid: Some("uuid3".to_string()),
+                data: serde_json::json!({}),
+            },
         ];
         let result = find_last_uuid(&logs);
         assert_eq!(result, Some("uuid3".to_string()));

@@ -1,6 +1,6 @@
 // Source: ~/claudecode/openclaudecode/src/services/compact/grouping.ts
-use crate::types::api_types::Message;
 use crate::types::MessageRole;
+use crate::types::api_types::Message;
 
 /// Groups messages at API-round boundaries: one group per API round-trip.
 /// A boundary fires when a NEW assistant response begins (different
@@ -34,7 +34,8 @@ pub fn group_messages_by_api_round(messages: &[Message]) -> Vec<Vec<Message>> {
         if matches!(msg.role, MessageRole::Assistant) {
             // Check if this is a genuinely new assistant response
             // (only create boundary if we've already seen an assistant message)
-            let is_new = has_seen_assistant && last_assistant_content.as_ref() != Some(&msg.content);
+            let is_new =
+                has_seen_assistant && last_assistant_content.as_ref() != Some(&msg.content);
             if is_new && !current.is_empty() {
                 groups.push(current);
                 current = vec![msg.clone()];

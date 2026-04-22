@@ -6,11 +6,11 @@
 //! Handles path validation, dangerous file detection, auto-edit safety checks,
 //! and working directory permission validation.
 
-use std::path::{Path, PathBuf, MAIN_SEPARATOR};
 use crate::types::permissions::{
-    PermissionDecision, PermissionDecisionReason, PermissionRule,
-    PermissionUpdate, PermissionUpdateDestination, ToolPermissionContext,
+    PermissionDecision, PermissionDecisionReason, PermissionRule, PermissionUpdate,
+    PermissionUpdateDestination, ToolPermissionContext,
 };
+use std::path::{MAIN_SEPARATOR, Path, PathBuf};
 
 /// Dangerous files that should be protected from auto-editing.
 /// These files can be used for code execution or data exfiltration.
@@ -28,12 +28,7 @@ pub const DANGEROUS_FILES: &[&str] = &[
 ];
 
 /// Dangerous directories that should be protected from auto-editing.
-pub const DANGEROUS_DIRECTORIES: &[&str] = &[
-    ".git",
-    ".vscode",
-    ".idea",
-    ".claude",
-];
+pub const DANGEROUS_DIRECTORIES: &[&str] = &[".git", ".vscode", ".idea", ".claude"];
 
 /// Normalizes a path for case-insensitive comparison.
 /// Prevents bypassing security checks using mixed-case paths
@@ -89,10 +84,17 @@ pub fn get_claude_skill_scope(file_path: &str) -> Option<(String, String)> {
                     return None;
                 }
                 // Reject glob metacharacters
-                if skill_name.contains('*') || skill_name.contains('?') || skill_name.contains('[') || skill_name.contains(']') {
+                if skill_name.contains('*')
+                    || skill_name.contains('?')
+                    || skill_name.contains('[')
+                    || skill_name.contains(']')
+                {
                     return None;
                 }
-                return Some((skill_name.to_string(), format!("{}{}/**", prefix, skill_name)));
+                return Some((
+                    skill_name.to_string(),
+                    format!("{}{}/**", prefix, skill_name),
+                ));
             }
         }
     }
@@ -272,7 +274,10 @@ fn is_dangerous_file_path_to_auto_edit(path: &str) -> bool {
             if normalized_segment == normalize_case_for_comparison(dir) {
                 // Special case: .claude/worktrees/ is not dangerous
                 if *dir == ".claude" {
-                    let idx = path_segments.iter().position(|&s| s == *segment).unwrap_or(0);
+                    let idx = path_segments
+                        .iter()
+                        .position(|&s| s == *segment)
+                        .unwrap_or(0);
                     if idx + 1 < path_segments.len() {
                         let next = path_segments[idx + 1];
                         if normalize_case_for_comparison(next) == "worktrees" {
@@ -288,7 +293,10 @@ fn is_dangerous_file_path_to_auto_edit(path: &str) -> bool {
     // Check dangerous files
     if !file_name.is_empty() {
         let normalized_file_name = normalize_case_for_comparison(file_name);
-        if DANGEROUS_FILES.iter().any(|df| normalize_case_for_comparison(df) == normalized_file_name) {
+        if DANGEROUS_FILES
+            .iter()
+            .any(|df| normalize_case_for_comparison(df) == normalized_file_name)
+        {
             return true;
         }
     }
@@ -306,7 +314,10 @@ pub fn check_path_safety_for_auto_edit(
     // Check for suspicious Windows path patterns
     if has_suspicious_windows_path_pattern(&path_to_check) {
         return PathSafetyResult::Unsafe {
-            message: format!("Claude requested permissions to write to {}, which contains a suspicious Windows path pattern that requires manual approval.", path),
+            message: format!(
+                "Claude requested permissions to write to {}, which contains a suspicious Windows path pattern that requires manual approval.",
+                path
+            ),
             classifier_approvable: false,
         };
     }
@@ -314,7 +325,10 @@ pub fn check_path_safety_for_auto_edit(
     // Check for Claude config files
     if is_claude_config_file_path(&path_to_check) {
         return PathSafetyResult::Unsafe {
-            message: format!("Claude requested permissions to write to {}, but you haven't granted it yet.", path),
+            message: format!(
+                "Claude requested permissions to write to {}, but you haven't granted it yet.",
+                path
+            ),
             classifier_approvable: true,
         };
     }
@@ -322,7 +336,10 @@ pub fn check_path_safety_for_auto_edit(
     // Check for dangerous files
     if is_dangerous_file_path_to_auto_edit(&path_to_check) {
         return PathSafetyResult::Unsafe {
-            message: format!("Claude requested permissions to edit {} which is a sensitive file.", path),
+            message: format!(
+                "Claude requested permissions to edit {} which is a sensitive file.",
+                path
+            ),
             classifier_approvable: true,
         };
     }
@@ -369,7 +386,9 @@ pub fn is_dangerous_removal_path(resolved_path: &str) -> bool {
         }
     }
 
-    let parent = Path::new(&normalized_path).parent().map(|p| p.to_string_lossy().to_string());
+    let parent = Path::new(&normalized_path)
+        .parent()
+        .map(|p| p.to_string_lossy().to_string());
     if parent.as_deref() == Some("/") {
         return true;
     }
@@ -449,34 +468,32 @@ fn is_session_memory_path(absolute_path: &str) -> bool {
 }
 
 /// Checks if a path is an internal editable path.
-pub fn check_editable_internal_path(
-    _path: &str,
-    _input: &serde_json::Value,
-) -> InternalPathResult {
+pub fn check_editable_internal_path(_path: &str, _input: &serde_json::Value) -> InternalPathResult {
     InternalPathResult::Passthrough
 }
 
 /// Checks if a path is an internal readable path.
-pub fn check_readable_internal_path(
-    _path: &str,
-    _input: &serde_json::Value,
-) -> InternalPathResult {
+pub fn check_readable_internal_path(_path: &str, _input: &serde_json::Value) -> InternalPathResult {
     InternalPathResult::Passthrough
 }
 
 /// Result of internal path check.
 pub enum InternalPathResult {
-    Allow { decision_reason: PermissionDecisionReason },
+    Allow {
+        decision_reason: PermissionDecisionReason,
+    },
     Passthrough,
 }
 
 /// Gets all working directories from context.
 pub fn all_working_directories(context: &ToolPermissionContext) -> Vec<String> {
-    let mut dirs = vec![std::env::current_dir()
-        .ok()
-        .unwrap_or_default()
-        .to_string_lossy()
-        .to_string()];
+    let mut dirs = vec![
+        std::env::current_dir()
+            .ok()
+            .unwrap_or_default()
+            .to_string_lossy()
+            .to_string(),
+    ];
     dirs.extend(context.additional_working_directories.keys().cloned());
     dirs
 }

@@ -7,8 +7,9 @@
 use crate::constants::env::ai_code;
 use crate::constants::env::ai_code::SIMPLE;
 use crate::constants::tools::{
-    get_async_agent_allowed_tools, AGENT_TOOL_NAME, BASH_TOOL_NAME, FILE_EDIT_TOOL_NAME,
-    FILE_READ_TOOL_NAME, SEND_MESSAGE_TOOL_NAME, SYNTHETIC_OUTPUT_TOOL_NAME, TASK_STOP_TOOL_NAME,
+    AGENT_TOOL_NAME, BASH_TOOL_NAME, FILE_EDIT_TOOL_NAME, FILE_READ_TOOL_NAME,
+    SEND_MESSAGE_TOOL_NAME, SYNTHETIC_OUTPUT_TOOL_NAME, TASK_STOP_TOOL_NAME,
+    get_async_agent_allowed_tools,
 };
 use crate::utils::env_utils::is_env_truthy;
 use std::collections::HashSet;
@@ -69,9 +70,7 @@ pub fn match_session_mode(session_mode: Option<&str>) -> Option<String> {
     // SAFETY: This is used for coordinator mode configuration in the SDK
     if session_is_coordinator {
         unsafe { std::env::set_var(ai_code::COORDINATOR_MODE, "1") };
-        Some(
-            "Entered coordinator mode to match resumed session.".to_string(),
-        )
+        Some("Entered coordinator mode to match resumed session.".to_string())
     } else {
         // SAFETY: This is used for coordinator mode configuration in the SDK
         unsafe { std::env::remove_var(ai_code::COORDINATOR_MODE) };
@@ -110,9 +109,7 @@ pub fn get_coordinator_user_context(
     );
 
     if !mcp_clients.is_empty() {
-        content.push_str(
-            "\n\nWorkers also have access to MCP tools from connected MCP servers: ",
-        );
+        content.push_str("\n\nWorkers also have access to MCP tools from connected MCP servers: ");
         content.push_str(&mcp_clients.join(", "));
     }
 
@@ -421,10 +418,16 @@ mod tests {
 
     #[test]
     fn test_is_pr_activity_subscription_tool() {
-        assert!(is_pr_activity_subscription_tool("github_subscribe_pr_activity"));
-        assert!(is_pr_activity_subscription_tool("myServer_unsubscribe_pr_activity"));
+        assert!(is_pr_activity_subscription_tool(
+            "github_subscribe_pr_activity"
+        ));
+        assert!(is_pr_activity_subscription_tool(
+            "myServer_unsubscribe_pr_activity"
+        ));
         assert!(!is_pr_activity_subscription_tool("github_create_issue"));
-        assert!(!is_pr_activity_subscription_tool("subscribe_something_else"));
+        assert!(!is_pr_activity_subscription_tool(
+            "subscribe_something_else"
+        ));
     }
 
     #[test]

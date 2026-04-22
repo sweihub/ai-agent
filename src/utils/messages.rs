@@ -305,9 +305,7 @@ const AUTO_MODE_REJECTION_PREFIX: &str = "Permission for this action has been de
 pub fn build_yolo_rejection_message(reason: &str) -> String {
     format!(
         "{}{}. If you have other tasks that don't depend on this action, continue working on those. {} To allow this type of action in the future, the user can add a Bash permission rule to their settings.",
-        AUTO_MODE_REJECTION_PREFIX,
-        reason,
-        DENIAL_WORKAROUND_GUIDANCE
+        AUTO_MODE_REJECTION_PREFIX, reason, DENIAL_WORKAROUND_GUIDANCE
     )
 }
 

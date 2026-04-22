@@ -5,7 +5,7 @@
 //! are stripped from settings-sourced env so the host's routing config isn't
 //! overridden by a user's ~/.ai/settings.json.
 
-use crate::constants::env::{ai_code, ai};
+use crate::constants::env::{ai, ai_code};
 use std::collections::HashSet;
 
 /// Provider-managed environment variables that control inference routing

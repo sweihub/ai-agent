@@ -1,8 +1,8 @@
 // Source: ~/claudecode/openclaudecode/src/tools/AgentTool/builtInAgents.ts
 use super::AgentDefinition;
 use super::built_in_dir::{
-    claude_code_guide_agent, explore_agent, general_purpose_agent, plan_agent,
-    statusline_setup, verification_agent,
+    claude_code_guide_agent, explore_agent, general_purpose_agent, plan_agent, statusline_setup,
+    verification_agent,
 };
 
 /// Check if explore/plan built-in agents are enabled.
@@ -50,9 +50,8 @@ pub fn get_built_in_agents() -> Vec<AgentDefinition> {
 
     // Include Code Guide agent for non-SDK entrypoints
     let entrypoint = std::env::var("AI_CODE_ENTRYPOINT").unwrap_or_default();
-    let is_non_sdk_entrypoint = entrypoint != "sdk-ts"
-        && entrypoint != "sdk-py"
-        && entrypoint != "sdk-cli";
+    let is_non_sdk_entrypoint =
+        entrypoint != "sdk-ts" && entrypoint != "sdk-py" && entrypoint != "sdk-cli";
 
     if is_non_sdk_entrypoint {
         agents.push(claude_code_guide_agent::claude_code_guide_agent());

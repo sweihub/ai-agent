@@ -18,21 +18,21 @@ pub async fn read_zip_cache_known_marketplaces() -> KnownMarketplacesFile {
     };
 
     match tokio::fs::read_to_string(&path).await {
-        Ok(content) => {
-            match serde_json::from_str::<KnownMarketplacesFile>(&content) {
-                Ok(parsed) => parsed,
-                Err(e) => {
-                    log::debug!("Invalid known_marketplaces.json in zip cache: {}", e);
-                    HashMap::new()
-                }
+        Ok(content) => match serde_json::from_str::<KnownMarketplacesFile>(&content) {
+            Ok(parsed) => parsed,
+            Err(e) => {
+                log::debug!("Invalid known_marketplaces.json in zip cache: {}", e);
+                HashMap::new()
             }
-        }
+        },
         Err(_) => HashMap::new(),
     }
 }
 
 /// Write known_marketplaces.json to the zip cache atomically.
-pub async fn write_zip_cache_known_marketplaces(data: &KnownMarketplacesFile) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+pub async fn write_zip_cache_known_marketplaces(
+    data: &KnownMarketplacesFile,
+) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let path = get_zip_cache_known_marketplaces_path()?;
     let content = serde_json::to_string_pretty(data)?;
     atomic_write_to_zip_cache(&path, content.as_bytes()).await
@@ -93,7 +93,8 @@ async fn read_marketplace_json_content(dir: &str) -> Option<String> {
 }
 
 /// Sync marketplace data to zip cache for offline access.
-pub async fn sync_marketplaces_to_zip_cache() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+pub async fn sync_marketplaces_to_zip_cache() -> Result<(), Box<dyn std::error::Error + Send + Sync>>
+{
     let known_marketplaces =
         match super::marketplace_manager::load_known_marketplaces_config_safe().await {
             Ok(m) => m,

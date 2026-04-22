@@ -28,10 +28,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Step 2: Create agent and prompt it to use the skill
     println!("\n--- Agent using Skill tool ---\n");
-    let mut agent = Agent::new(
-        &std::env::var("AI_MODEL").unwrap_or_else(|_| "claude-sonnet-4-6".to_string()),
-        10,
-    );
+    let agent =
+        Agent::new(&std::env::var("AI_MODEL").unwrap_or_else(|_| "claude-sonnet-4-6".to_string()))
+            .max_turns(10);
     agent.set_system_prompt(
         "You have access to a Skill tool. When user asks to use a skill, invoke it with Skill tool. \
         The Skill tool will return the skill content. Read the skill content and use appropriate tools (like Bash) to execute the commands in the skill."
@@ -39,7 +38,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Prompt the agent to use the singer skill - it should invoke Skill tool,
     // then read the skill content and use Bash to execute the echo command
-    let result = agent.query("Please sing a song using the 'singer' skill. Execute the skill's commands.").await?;
+    let result = agent
+        .query("Please sing a song using the 'singer' skill. Execute the skill's commands.")
+        .await?;
 
     println!("--- Agent Response ---\n");
     println!("{}", result.text.trim());

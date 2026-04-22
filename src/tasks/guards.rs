@@ -73,9 +73,21 @@ impl std::fmt::Debug for LocalShellTaskState {
             .field("r#type", &self.r#type)
             .field("command", &self.command)
             .field("result", &self.result)
-            .field("completion_status_sent_in_attachment", &self.completion_status_sent_in_attachment)
-            .field("shell_command", &self.shell_command.as_ref().map(|_| "<dyn ShellCommandTrait>"))
-            .field("unregister_cleanup", &self.unregister_cleanup.as_ref().map(|_| "<dyn FnOnce()>"))
+            .field(
+                "completion_status_sent_in_attachment",
+                &self.completion_status_sent_in_attachment,
+            )
+            .field(
+                "shell_command",
+                &self
+                    .shell_command
+                    .as_ref()
+                    .map(|_| "<dyn ShellCommandTrait>"),
+            )
+            .field(
+                "unregister_cleanup",
+                &self.unregister_cleanup.as_ref().map(|_| "<dyn FnOnce()>"),
+            )
             .field("cleanup_timeout_id", &self.cleanup_timeout_id)
             .field("last_reported_total_lines", &self.last_reported_total_lines)
             .field("is_backgrounded", &self.is_backgrounded)

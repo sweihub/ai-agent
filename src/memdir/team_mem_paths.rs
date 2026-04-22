@@ -46,10 +46,7 @@ fn sanitize_path_key(key: &str) -> Result<String, PathTraversalError> {
     let mut has_url_encoded_traversal = false;
     let key_lower = key.to_lowercase();
     // Check for common URL-encoded patterns
-    if key_lower.contains("%2e%2e")
-        || key_lower.contains("%2e/")
-        || key_lower.contains("/%2e%2e")
-    {
+    if key_lower.contains("%2e%2e") || key_lower.contains("%2e/") || key_lower.contains("/%2e%2e") {
         has_url_encoded_traversal = true;
     }
 

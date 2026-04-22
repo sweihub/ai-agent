@@ -45,60 +45,56 @@ impl BackgroundTaskState {
     pub fn status(&self) -> crate::task::TaskStatus {
         match self {
             BackgroundTaskState::LocalShell(t) => t.status.clone(),
-            BackgroundTaskState::LocalAgent(t) => {
-                t.get("status")
-                    .and_then(|v| v.as_str())
-                    .and_then(|s| match s {
-                        "pending" => Some(crate::task::TaskStatus::pending),
-                        "running" => Some(crate::task::TaskStatus::running),
-                        "completed" => Some(crate::task::TaskStatus::completed),
-                        "failed" => Some(crate::task::TaskStatus::failed),
-                        "killed" => Some(crate::task::TaskStatus::killed),
-                        _ => None,
-                    })
-                    .unwrap_or(crate::task::TaskStatus::pending)
-            }
-            BackgroundTaskState::RemoteAgent(t) => {
-                t.get("status")
-                    .and_then(|v| v.as_str())
-                    .and_then(|s| match s {
-                        "pending" => Some(crate::task::TaskStatus::pending),
-                        "running" => Some(crate::task::TaskStatus::running),
-                        "completed" => Some(crate::task::TaskStatus::completed),
-                        "failed" => Some(crate::task::TaskStatus::failed),
-                        "killed" => Some(crate::task::TaskStatus::killed),
-                        _ => None,
-                    })
-                    .unwrap_or(crate::task::TaskStatus::pending)
-            }
-            BackgroundTaskState::InProcessTeammate(t) => {
-                t.get("status")
-                    .and_then(|v| v.as_str())
-                    .and_then(|s| match s {
-                        "pending" => Some(crate::task::TaskStatus::pending),
-                        "running" => Some(crate::task::TaskStatus::running),
-                        "completed" => Some(crate::task::TaskStatus::completed),
-                        "failed" => Some(crate::task::TaskStatus::failed),
-                        "killed" => Some(crate::task::TaskStatus::killed),
-                        _ => None,
-                    })
-                    .unwrap_or(crate::task::TaskStatus::pending)
-            }
+            BackgroundTaskState::LocalAgent(t) => t
+                .get("status")
+                .and_then(|v| v.as_str())
+                .and_then(|s| match s {
+                    "pending" => Some(crate::task::TaskStatus::pending),
+                    "running" => Some(crate::task::TaskStatus::running),
+                    "completed" => Some(crate::task::TaskStatus::completed),
+                    "failed" => Some(crate::task::TaskStatus::failed),
+                    "killed" => Some(crate::task::TaskStatus::killed),
+                    _ => None,
+                })
+                .unwrap_or(crate::task::TaskStatus::pending),
+            BackgroundTaskState::RemoteAgent(t) => t
+                .get("status")
+                .and_then(|v| v.as_str())
+                .and_then(|s| match s {
+                    "pending" => Some(crate::task::TaskStatus::pending),
+                    "running" => Some(crate::task::TaskStatus::running),
+                    "completed" => Some(crate::task::TaskStatus::completed),
+                    "failed" => Some(crate::task::TaskStatus::failed),
+                    "killed" => Some(crate::task::TaskStatus::killed),
+                    _ => None,
+                })
+                .unwrap_or(crate::task::TaskStatus::pending),
+            BackgroundTaskState::InProcessTeammate(t) => t
+                .get("status")
+                .and_then(|v| v.as_str())
+                .and_then(|s| match s {
+                    "pending" => Some(crate::task::TaskStatus::pending),
+                    "running" => Some(crate::task::TaskStatus::running),
+                    "completed" => Some(crate::task::TaskStatus::completed),
+                    "failed" => Some(crate::task::TaskStatus::failed),
+                    "killed" => Some(crate::task::TaskStatus::killed),
+                    _ => None,
+                })
+                .unwrap_or(crate::task::TaskStatus::pending),
             BackgroundTaskState::LocalWorkflow(t) => t.status.clone(),
             BackgroundTaskState::MonitorMcp(t) => t.status.clone(),
-            BackgroundTaskState::Dream(t) => {
-                t.get("status")
-                    .and_then(|v| v.as_str())
-                    .and_then(|s| match s {
-                        "pending" => Some(crate::task::TaskStatus::pending),
-                        "running" => Some(crate::task::TaskStatus::running),
-                        "completed" => Some(crate::task::TaskStatus::completed),
-                        "failed" => Some(crate::task::TaskStatus::failed),
-                        "killed" => Some(crate::task::TaskStatus::killed),
-                        _ => None,
-                    })
-                    .unwrap_or(crate::task::TaskStatus::pending)
-            }
+            BackgroundTaskState::Dream(t) => t
+                .get("status")
+                .and_then(|v| v.as_str())
+                .and_then(|s| match s {
+                    "pending" => Some(crate::task::TaskStatus::pending),
+                    "running" => Some(crate::task::TaskStatus::running),
+                    "completed" => Some(crate::task::TaskStatus::completed),
+                    "failed" => Some(crate::task::TaskStatus::failed),
+                    "killed" => Some(crate::task::TaskStatus::killed),
+                    _ => None,
+                })
+                .unwrap_or(crate::task::TaskStatus::pending),
         }
     }
 }
@@ -109,9 +105,7 @@ impl BackgroundTaskState {
 /// 2. It has been explicitly backgrounded (not a foreground task)
 pub fn is_background_task(task: &BackgroundTaskState) -> bool {
     let status = task.status();
-    if status != crate::task::TaskStatus::running
-        && status != crate::task::TaskStatus::pending
-    {
+    if status != crate::task::TaskStatus::running && status != crate::task::TaskStatus::pending {
         return false;
     }
 

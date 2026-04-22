@@ -48,12 +48,12 @@ pub mod zip_cache;
 pub mod zip_cache_adapters;
 
 pub use loader::{
-    get_known_marketplace_names, get_marketplace_cache_only, get_plugin_by_id_cache_only,
-    get_plugin_cache_path, get_versioned_cache_path, get_versioned_zip_cache_path,
-    load_all_plugins, load_all_plugins_cache_only, cache_plugin, clear_plugin_cache,
+    cache_plugin, clear_plugin_cache, get_known_marketplace_names, get_marketplace_cache_only,
+    get_plugin_by_id_cache_only, get_plugin_cache_path, get_versioned_cache_path,
+    get_versioned_zip_cache_path, load_all_plugins, load_all_plugins_cache_only,
     parse_plugin_identifier,
 };
 pub use types::{
-    KnownMarketplace, KnownMarketplacesFile, PluginMarketplace, PluginMarketplaceEntry,
-    PluginMarketplaceMetadata, PluginMarketplaceOwner, PluginSource, PluginId,
+    KnownMarketplace, KnownMarketplacesFile, PluginId, PluginMarketplace, PluginMarketplaceEntry,
+    PluginMarketplaceMetadata, PluginMarketplaceOwner, PluginSource,
 };

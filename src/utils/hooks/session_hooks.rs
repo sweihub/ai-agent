@@ -4,12 +4,10 @@
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 
-use crate::utils::hooks::hooks_settings::{HookEvent, HookCommand, is_hook_equal};
+use crate::utils::hooks::hooks_settings::{HookCommand, HookEvent, is_hook_equal};
 
 /// Function hook callback - returns true if check passes, false to block
-pub type FunctionHookCallback = Box<
-    dyn Fn(&[serde_json::Value]) -> bool + Send + Sync,
->;
+pub type FunctionHookCallback = Box<dyn Fn(&[serde_json::Value]) -> bool + Send + Sync>;
 
 /// Function hook type with callback embedded.
 /// Session-scoped only, cannot be persisted to settings.json.
@@ -335,29 +333,30 @@ pub fn get_session_function_hooks(
 
     let mut result = HashMap::new();
 
-    let extract_function_hooks = |session_matchers: &[SessionHookMatcher]| -> Vec<FunctionHookMatcher> {
-        session_matchers
-            .iter()
-            .map(|sm| {
-                let function_hooks: Vec<FunctionHook> = sm
-                    .hooks
-                    .iter()
-                    .filter_map(|entry| {
-                        if let SessionHookCommand::Function(ref fh) = entry.hook {
-                            Some(fh.clone())
-                        } else {
-                            None
-                        }
-                    })
-                    .collect();
-                FunctionHookMatcher {
-                    matcher: sm.matcher.clone(),
-                    hooks: function_hooks,
-                }
-            })
-            .filter(|m| !m.hooks.is_empty())
-            .collect()
-    };
+    let extract_function_hooks =
+        |session_matchers: &[SessionHookMatcher]| -> Vec<FunctionHookMatcher> {
+            session_matchers
+                .iter()
+                .map(|sm| {
+                    let function_hooks: Vec<FunctionHook> = sm
+                        .hooks
+                        .iter()
+                        .filter_map(|entry| {
+                            if let SessionHookCommand::Function(ref fh) = entry.hook {
+                                Some(fh.clone())
+                            } else {
+                                None
+                            }
+                        })
+                        .collect();
+                    FunctionHookMatcher {
+                        matcher: sm.matcher.clone(),
+                        hooks: function_hooks,
+                    }
+                })
+                .filter(|m| !m.hooks.is_empty())
+                .collect()
+        };
 
     if let Some(event) = event {
         if let Some(session_matchers) = store.hooks.get(event) {
@@ -422,7 +421,10 @@ pub fn clear_session_hooks(
     let mut state = SESSION_HOOKS_STATE.lock().unwrap();
     state.hooks.remove(session_id);
 
-    log_for_debugging(&format!("Cleared all session hooks for session {}", session_id));
+    log_for_debugging(&format!(
+        "Cleared all session hooks for session {}",
+        session_id
+    ));
 }
 
 /// Convert session hook matchers to regular hook matchets
@@ -481,14 +483,18 @@ mod tests {
             .entry("test-session".to_string())
             .or_insert_with(SessionStore::default);
 
-        store.hooks.entry(HookEvent::Stop).or_default().push(SessionHookMatcher {
-            matcher: String::new(),
-            skill_root: None,
-            hooks: vec![SessionHookEntry {
-                hook: SessionHookCommand::Regular(hook.clone()),
-                on_hook_success: None,
-            }],
-        });
+        store
+            .hooks
+            .entry(HookEvent::Stop)
+            .or_default()
+            .push(SessionHookMatcher {
+                matcher: String::new(),
+                skill_root: None,
+                hooks: vec![SessionHookEntry {
+                    hook: SessionHookCommand::Regular(hook.clone()),
+                    on_hook_success: None,
+                }],
+            });
 
         // Verify it was added
         let store = state.hooks.get("test-session").unwrap();
@@ -512,19 +518,23 @@ mod tests {
                 .entry("clear-test-session".to_string())
                 .or_insert_with(SessionStore::default);
 
-            store.hooks.entry(HookEvent::Stop).or_default().push(SessionHookMatcher {
-                matcher: String::new(),
-                skill_root: None,
-                hooks: vec![SessionHookEntry {
-                    hook: SessionHookCommand::Regular(HookCommand::Command {
-                        command: "echo test".to_string(),
-                        shell: None,
-                        if_condition: None,
-                        timeout: None,
-                    }),
-                    on_hook_success: None,
-                }],
-            });
+            store
+                .hooks
+                .entry(HookEvent::Stop)
+                .or_default()
+                .push(SessionHookMatcher {
+                    matcher: String::new(),
+                    skill_root: None,
+                    hooks: vec![SessionHookEntry {
+                        hook: SessionHookCommand::Regular(HookCommand::Command {
+                            command: "echo test".to_string(),
+                            shell: None,
+                            if_condition: None,
+                            timeout: None,
+                        }),
+                        on_hook_success: None,
+                    }],
+                });
         }
 
         // Clear them

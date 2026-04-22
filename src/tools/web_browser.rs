@@ -174,7 +174,7 @@ impl WebBrowserTool {
                     tool_use_id: "".to_string(),
                     content: "Browser is already running.".to_string(),
                     is_error: None,
-                was_persisted: None,
+                    was_persisted: None,
                 });
             }
         }
@@ -185,7 +185,7 @@ impl WebBrowserTool {
         let mut state = self.state.lock().await;
         state.is_running = true;
         drop(state);
-        
+
         // Store chrome path on self (requires mutable access)
         // Note: In a real implementation, this would be stored in BrowserState
         // For now, we track it via the is_running flag
@@ -280,25 +280,23 @@ impl WebBrowserTool {
                         tab_title, tab_id, url, url
                     ),
                     is_error: None,
-                was_persisted: None,
+                    was_persisted: None,
                 })
             }
             None if !has_tabs => {
                 // Auto-create a tab if none exists
                 self.navigate_new_tab(url).await
             }
-            None => {
-                Ok(ToolResult {
-                    result_type: "text".to_string(),
-                    tool_use_id: "".to_string(),
-                    content: format!(
-                        "No active tab found, but {} tabs exist. Use 'create_tab' or 'get_tabs'.",
-                        if has_tabs { "some" } else { "no" }
-                    ),
-                    is_error: Some(true),
+            None => Ok(ToolResult {
+                result_type: "text".to_string(),
+                tool_use_id: "".to_string(),
+                content: format!(
+                    "No active tab found, but {} tabs exist. Use 'create_tab' or 'get_tabs'.",
+                    if has_tabs { "some" } else { "no" }
+                ),
+                is_error: Some(true),
                 was_persisted: None,
-                })
-            }
+            }),
         }
     }
 
@@ -359,8 +357,9 @@ impl WebBrowserTool {
 
         drop(state);
 
-        let (tab_id, tab_title, tab_url) = active_tab_info
-            .ok_or_else(|| AgentError::Tool("No active tab. Create a tab and navigate first.".to_string()))?;
+        let (tab_id, tab_title, tab_url) = active_tab_info.ok_or_else(|| {
+            AgentError::Tool("No active tab. Create a tab and navigate first.".to_string())
+        })?;
 
         let full_page = input["full_page"].as_bool().unwrap_or(false);
         let save_path = input["path"].as_str().unwrap_or("");
@@ -395,11 +394,7 @@ impl WebBrowserTool {
                 Saved to: {}\n\n\
                 Note: In a full implementation, this would use the browser's screenshot API\n\
                 to capture the current viewport or full page as a PNG image.",
-                full_page_note,
-                tab_title,
-                tab_id,
-                tab_url,
-                screenshot_path
+                full_page_note, tab_title, tab_id, tab_url, screenshot_path
             ),
             is_error: None,
             was_persisted: None,
@@ -412,9 +407,9 @@ impl WebBrowserTool {
         input: &serde_json::Value,
         _context: &ToolContext,
     ) -> Result<ToolResult, AgentError> {
-        let script = input["script"]
-            .as_str()
-            .ok_or_else(|| AgentError::Tool("script is required for evaluate action".to_string()))?;
+        let script = input["script"].as_str().ok_or_else(|| {
+            AgentError::Tool("script is required for evaluate action".to_string())
+        })?;
 
         let state = self.state.lock().await;
         if !state.is_running {
@@ -435,8 +430,9 @@ impl WebBrowserTool {
 
         drop(state);
 
-        let (tab_id, tab_title, tab_url) = active_tab_info
-            .ok_or_else(|| AgentError::Tool("No active tab. Create a tab and navigate first.".to_string()))?;
+        let (tab_id, tab_title, tab_url) = active_tab_info.ok_or_else(|| {
+            AgentError::Tool("No active tab. Create a tab and navigate first.".to_string())
+        })?;
 
         // In a full implementation, use CDP Runtime.evaluate
         Ok(ToolResult {
@@ -448,10 +444,7 @@ impl WebBrowserTool {
                 Script:\n{}\n\n\
                 Note: In a full implementation, this would use CDP Runtime.evaluate\n\
                 to execute the script in the page context and return the result.",
-                tab_title,
-                tab_id,
-                tab_url,
-                script
+                tab_title, tab_id, tab_url, script
             ),
             is_error: None,
             was_persisted: None,
@@ -531,7 +524,10 @@ impl WebBrowserTool {
             .iter()
             .map(|t| {
                 let active_marker = if t.is_active { " (active)" } else { "" };
-                format!("  - [{}] {}{}  \n    URL: {}", t.id, t.title, active_marker, t.url)
+                format!(
+                    "  - [{}] {}{}  \n    URL: {}",
+                    t.id, t.title, active_marker, t.url
+                )
             })
             .collect();
 
@@ -635,7 +631,7 @@ impl WebBrowserTool {
                         tool_use_id: "".to_string(),
                         content: format!("Tab '{}' not found.", id),
                         is_error: Some(true),
-                was_persisted: None,
+                        was_persisted: None,
                     });
                 }
             }
@@ -653,7 +649,7 @@ impl WebBrowserTool {
                         tool_use_id: "".to_string(),
                         content: "No active tab to close.".to_string(),
                         is_error: Some(true),
-                was_persisted: None,
+                        was_persisted: None,
                     });
                 }
             }
@@ -706,8 +702,9 @@ impl WebBrowserTool {
 
         drop(state);
 
-        let (tab_id, tab_title, tab_url) = active_tab_info
-            .ok_or_else(|| AgentError::Tool("No active tab. Create a tab and navigate first.".to_string()))?;
+        let (tab_id, tab_title, tab_url) = active_tab_info.ok_or_else(|| {
+            AgentError::Tool("No active tab. Create a tab and navigate first.".to_string())
+        })?;
 
         Ok(ToolResult {
             result_type: "text".to_string(),
@@ -717,10 +714,7 @@ impl WebBrowserTool {
                 Note: In a full implementation, this would use CDP DOM APIs\n\
                 to find and click the element matching the CSS selector.\n\
                 Use 'screenshot' to verify the click had the expected effect.",
-                selector,
-                tab_title,
-                tab_id,
-                tab_url
+                selector, tab_title, tab_id, tab_url
             ),
             is_error: None,
             was_persisted: None,
@@ -760,8 +754,9 @@ impl WebBrowserTool {
 
         drop(state);
 
-        let (tab_id, tab_title, tab_url) = active_tab_info
-            .ok_or_else(|| AgentError::Tool("No active tab. Create a tab and navigate first.".to_string()))?;
+        let (tab_id, tab_title, tab_url) = active_tab_info.ok_or_else(|| {
+            AgentError::Tool("No active tab. Create a tab and navigate first.".to_string())
+        })?;
 
         Ok(ToolResult {
             result_type: "text".to_string(),
@@ -771,10 +766,7 @@ impl WebBrowserTool {
                 Note: In a full implementation, this would use CDP DOM APIs\n\
                 to find the input element and set its value.\n\
                 Use 'screenshot' to verify the form was filled correctly.",
-                selector,
-                tab_title,
-                tab_id,
-                tab_url
+                selector, tab_title, tab_id, tab_url
             ),
             is_error: None,
             was_persisted: None,
@@ -787,9 +779,9 @@ impl WebBrowserTool {
         input: &serde_json::Value,
         _context: &ToolContext,
     ) -> Result<ToolResult, AgentError> {
-        let selector = input["selector"]
-            .as_str()
-            .ok_or_else(|| AgentError::Tool("selector is required for get_text action".to_string()))?;
+        let selector = input["selector"].as_str().ok_or_else(|| {
+            AgentError::Tool("selector is required for get_text action".to_string())
+        })?;
 
         let state = self.state.lock().await;
         if !state.is_running {
@@ -810,8 +802,9 @@ impl WebBrowserTool {
 
         drop(state);
 
-        let (tab_id, tab_title, tab_url) = active_tab_info
-            .ok_or_else(|| AgentError::Tool("No active tab. Create a tab and navigate first.".to_string()))?;
+        let (tab_id, tab_title, tab_url) = active_tab_info.ok_or_else(|| {
+            AgentError::Tool("No active tab. Create a tab and navigate first.".to_string())
+        })?;
 
         Ok(ToolResult {
             result_type: "text".to_string(),
@@ -820,10 +813,7 @@ impl WebBrowserTool {
                 "Retrieved text from element '{}' in tab '{}' (id: {}).  \nURL: {}\n\n\
                 Note: In a full implementation, this would use CDP DOM APIs\n\
                 to find the element and extract its text content.",
-                selector,
-                tab_title,
-                tab_id,
-                tab_url
+                selector, tab_title, tab_id, tab_url
             ),
             is_error: None,
             was_persisted: None,
@@ -858,8 +848,9 @@ impl WebBrowserTool {
 
         drop(state);
 
-        let (tab_id, tab_title, tab_url) = active_tab_info
-            .ok_or_else(|| AgentError::Tool("No active tab. Create a tab and navigate first.".to_string()))?;
+        let (tab_id, tab_title, tab_url) = active_tab_info.ok_or_else(|| {
+            AgentError::Tool("No active tab. Create a tab and navigate first.".to_string())
+        })?;
 
         let wait_description = match selector {
             Some(s) => format!("for selector '{}'", s),
@@ -873,10 +864,7 @@ impl WebBrowserTool {
                 "Waited {} in tab '{}' (id: {}).  \nURL: {}\n\n\
                 Note: In a full implementation, this would use CDP DOM APIs\n\
                 to wait for the element to appear or a timeout to elapse.",
-                wait_description,
-                tab_title,
-                tab_id,
-                tab_url
+                wait_description, tab_title, tab_id, tab_url
             ),
             is_error: None,
             was_persisted: None,
@@ -905,7 +893,8 @@ impl WebBrowserTool {
         }
 
         Err(AgentError::Tool(
-            "No chromium-based browser found. Install google-chrome or chromium-browser.".to_string(),
+            "No chromium-based browser found. Install google-chrome or chromium-browser."
+                .to_string(),
         ))
     }
 

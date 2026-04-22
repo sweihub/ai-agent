@@ -11,7 +11,7 @@
  * 3. Executing hooks and handling the output
  * 4. Using matchers to filter hooks by tool name
  */
-use ai_agent::hooks::{HookRegistry, HookDefinition, HookInput, HOOK_EVENTS};
+use ai_agent::hooks::{HOOK_EVENTS, HookDefinition, HookInput, HookRegistry};
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -54,7 +54,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Check if hooks are registered
     println!("\n--- Checking Hooks ---");
     println!("Has PreToolUse hooks: {}", registry.has_hooks("PreToolUse"));
-    println!("Has PostToolUse hooks: {}", registry.has_hooks("PostToolUse"));
+    println!(
+        "Has PostToolUse hooks: {}",
+        registry.has_hooks("PostToolUse")
+    );
 
     // Execute hooks for PreToolUse event
     println!("\n--- Executing Hooks ---");
@@ -96,7 +99,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     }));
 
     let results_bash = registry.execute("PreToolUse", input_bash).await;
-    println!("Results for Bash tool: {} hooks matched", results_bash.len());
+    println!(
+        "Results for Bash tool: {} hooks matched",
+        results_bash.len()
+    );
 
     // Demonstrate PostToolUse hook
     println!("\n--- PostToolUse Hook ---");
@@ -131,7 +137,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let session_input = HookInput::new("SessionStart");
     let session_results = registry.execute("SessionStart", session_input).await;
-    println!("SessionStart results: {} hooks executed", session_results.len());
+    println!(
+        "SessionStart results: {} hooks executed",
+        session_results.len()
+    );
 
     println!("\n--- done ---");
     Ok(())

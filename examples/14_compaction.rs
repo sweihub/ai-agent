@@ -19,12 +19,17 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Load config from .env
     let config = EnvConfig::load();
-    let model = config.model.unwrap_or_else(|| "claude-sonnet-4-6".to_string());
+    let model = config
+        .model
+        .unwrap_or_else(|| "claude-sonnet-4-6".to_string());
 
     println!("Using model: {}", model);
-    println!("Auto-compact threshold: {} tokens\n", get_auto_compact_threshold(&model));
+    println!(
+        "Auto-compact threshold: {} tokens\n",
+        get_auto_compact_threshold(&model)
+    );
 
-    let mut agent = Agent::new(&model, 10);
+    let agent = Agent::new(&model).max_turns(10);
 
     // A paragraph to repeat - about 100 tokens each time
     let paragraph = "Lorem ipsum dolor sit amet, consectetur adipiscing elit. \
@@ -47,14 +52,22 @@ Sunt in culpa qui officia deserunt mollit anim id est laborum.";
 
         // Show message count
         println!("Messages: {}", agent.get_messages().len());
-        println!("Response: {}\n", result.text.trim().lines().next().unwrap_or(""));
+        println!(
+            "Response: {}\n",
+            result.text.trim().lines().next().unwrap_or("")
+        );
     }
 
     // Now ask about early content to trigger recall
     println!("--- Final Query ---");
-    let result = agent.query("What did I ask you to remember in turn 1?").await?;
+    let result = agent
+        .query("What did I ask you to remember in turn 1?")
+        .await?;
     println!("Messages: {}", agent.get_messages().len());
-    println!("Response: {}\n", result.text.trim().lines().next().unwrap_or(""));
+    println!(
+        "Response: {}\n",
+        result.text.trim().lines().next().unwrap_or("")
+    );
 
     println!("=== done ===");
 

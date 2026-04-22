@@ -104,7 +104,8 @@ fn convert_plugin_hooks_to_matchers(
 }
 
 /// Load and register hooks from all enabled plugins.
-pub async fn load_plugin_hooks() -> Result<HashMap<String, Vec<PluginHookMatcher>>, Box<dyn std::error::Error + Send + Sync>> {
+pub async fn load_plugin_hooks()
+-> Result<HashMap<String, Vec<PluginHookMatcher>>, Box<dyn std::error::Error + Send + Sync>> {
     let plugin_result = load_all_plugins_cache_only().await?;
     let mut all_plugin_hooks: HashMap<String, Vec<PluginHookMatcher>> = HashMap::new();
 
@@ -116,10 +117,7 @@ pub async fn load_plugin_hooks() -> Result<HashMap<String, Vec<PluginHookMatcher
         let plugin_matchers = convert_plugin_hooks_to_matchers(plugin);
 
         for (event, matchers) in plugin_matchers {
-            all_plugin_hooks
-                .entry(event)
-                .or_default()
-                .extend(matchers);
+            all_plugin_hooks.entry(event).or_default().extend(matchers);
         }
     }
 
@@ -151,8 +149,11 @@ pub fn clear_plugin_hook_cache() {
 /// Remove hooks from plugins no longer in the enabled set.
 pub async fn prune_removed_plugin_hooks() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let plugin_result = load_all_plugins_cache_only().await?;
-    let enabled_roots: std::collections::HashSet<_> =
-        plugin_result.enabled.iter().map(|p| p.path.clone()).collect();
+    let enabled_roots: std::collections::HashSet<_> = plugin_result
+        .enabled
+        .iter()
+        .map(|p| p.path.clone())
+        .collect();
 
     let cache = PLUGIN_HOOK_CACHE.lock().unwrap();
     let current = match cache.as_ref() {

@@ -54,10 +54,7 @@ pub enum ValidationResult {
     /// Input is valid.
     Valid,
     /// Input is invalid with an error message and code.
-    Invalid {
-        message: String,
-        error_code: i64,
-    },
+    Invalid { message: String, error_code: i64 },
 }
 
 // ---------------------------------------------------------------------------
@@ -166,7 +163,11 @@ pub struct ToolUseContext {
     >,
     pub handle_elicitation: Option<
         Arc<
-            dyn Fn(String, serde_json::Value, ())
+            dyn Fn(
+                    String,
+                    serde_json::Value,
+                    (),
+                )
                     -> std::pin::Pin<Box<dyn Future<Output = serde_json::Value> + Send>>
                 + Send
                 + Sync,
@@ -174,22 +175,23 @@ pub struct ToolUseContext {
     >,
     pub set_tool_jsx: Option<SetToolJsxFn>,
     pub add_notification: Option<Arc<dyn Fn(serde_json::Value) + Send + Sync>>,
-    pub append_system_message: Option<
-        Box<dyn Fn(SystemMessage) + Send + Sync>,
-    >,
-    pub send_os_notification: Option<
-        Box<dyn Fn(String, String) + Send + Sync>,
-    >,
-    pub nested_memory_attachment_triggers: Option<Arc<std::sync::Mutex<std::collections::HashSet<String>>>>,
-    pub loaded_nested_memory_paths: Option<Arc<std::sync::Mutex<std::collections::HashSet<String>>>>,
-    pub dynamic_skill_dir_triggers: Option<Arc<std::sync::Mutex<std::collections::HashSet<String>>>>,
+    pub append_system_message: Option<Box<dyn Fn(SystemMessage) + Send + Sync>>,
+    pub send_os_notification: Option<Box<dyn Fn(String, String) + Send + Sync>>,
+    pub nested_memory_attachment_triggers:
+        Option<Arc<std::sync::Mutex<std::collections::HashSet<String>>>>,
+    pub loaded_nested_memory_paths:
+        Option<Arc<std::sync::Mutex<std::collections::HashSet<String>>>>,
+    pub dynamic_skill_dir_triggers:
+        Option<Arc<std::sync::Mutex<std::collections::HashSet<String>>>>,
     pub discovered_skill_names: Option<Arc<std::sync::Mutex<std::collections::HashSet<String>>>>,
     pub user_modified: bool,
-    pub set_in_progress_tool_use_ids:
-        Box<dyn Fn(Box<dyn Fn(&std::collections::HashSet<String>) -> std::collections::HashSet<String>>) + Send + Sync>,
+    pub set_in_progress_tool_use_ids: Box<
+        dyn Fn(Box<dyn Fn(&std::collections::HashSet<String>) -> std::collections::HashSet<String>>)
+            + Send
+            + Sync,
+    >,
     pub set_has_interruptible_tool_in_progress: Option<Box<dyn Fn(bool) + Send + Sync>>,
-    pub set_response_length:
-        Box<dyn Fn(Box<dyn Fn(usize) -> usize>) + Send + Sync>,
+    pub set_response_length: Box<dyn Fn(Box<dyn Fn(usize) -> usize>) + Send + Sync>,
     pub push_api_metrics_entry: Option<Box<dyn Fn(u64) + Send + Sync>>,
     pub set_stream_mode: Option<Box<dyn Fn(String) + Send + Sync>>,
     pub on_compact_progress: Option<Box<dyn Fn(CompactProgressEvent) + Send + Sync>>,
@@ -206,12 +208,22 @@ pub struct ToolUseContext {
     pub messages: Vec<Message>,
     pub file_reading_limits: Option<FileReadingLimits>,
     pub glob_limits: Option<GlobLimits>,
-    pub tool_decisions: Option<
-        Arc<std::sync::Mutex<HashMap<String, ToolDecisionEntry>>>,
-    >,
+    pub tool_decisions: Option<Arc<std::sync::Mutex<HashMap<String, ToolDecisionEntry>>>>,
     pub query_tracking: Option<QueryChainTracking>,
     pub request_prompt: Option<
-        Arc<dyn Fn(String, Option<String>) -> Box<dyn Fn(serde_json::Value) -> std::pin::Pin<Box<dyn Future<Output = serde_json::Value> + Send>> + Send> + Send + Sync>,
+        Arc<
+            dyn Fn(
+                    String,
+                    Option<String>,
+                ) -> Box<
+                    dyn Fn(
+                            serde_json::Value,
+                        )
+                            -> std::pin::Pin<Box<dyn Future<Output = serde_json::Value> + Send>>
+                        + Send,
+                > + Send
+                + Sync,
+        >,
     >,
     pub tool_use_id: Option<String>,
     pub critical_system_reminder_experimental: Option<String>,
@@ -344,8 +356,9 @@ pub struct McpMeta {
 // ---------------------------------------------------------------------------
 
 /// Callback type for reporting progress during tool execution.
-pub type ToolCallProgressFn<P = ToolProgressData> =
-    Arc<dyn Fn(ToolProgress<P>) -> std::pin::Pin<Box<dyn Future<Output = ()> + Send>> + Send + Sync>;
+pub type ToolCallProgressFn<P = ToolProgressData> = Arc<
+    dyn Fn(ToolProgress<P>) -> std::pin::Pin<Box<dyn Future<Output = ()> + Send>> + Send + Sync,
+>;
 
 // ---------------------------------------------------------------------------
 // Tool matching utilities
@@ -365,7 +378,9 @@ pub fn find_tool_by_name<'a>(
     tools: &'a [ToolDefinition],
     name: &str,
 ) -> Option<&'a ToolDefinition> {
-    tools.iter().find(|t| tool_matches_name(&t.name, None, name))
+    tools
+        .iter()
+        .find(|t| tool_matches_name(&t.name, None, name))
 }
 
 // ---------------------------------------------------------------------------
@@ -390,9 +405,7 @@ pub enum ContentBlockParam {
     #[serde(rename = "text")]
     Text { text: String },
     #[serde(rename = "image")]
-    Image {
-        source: ImageSource,
-    },
+    Image { source: ImageSource },
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -470,13 +483,18 @@ pub trait Tool: Send + Sync {
                     &str,
                     bool,
                 ) -> std::pin::Pin<
-                    Box<dyn Future<Output = Result<PermissionDecision, crate::error::AgentError>> + Send>,
+                    Box<
+                        dyn Future<Output = Result<PermissionDecision, crate::error::AgentError>>
+                            + Send,
+                    >,
                 > + Send
                 + Sync,
         >,
         parent_message: Arc<AssistantMessage>,
         on_progress: Option<Arc<dyn Fn(ToolProgress) + Send + Sync>>,
-    ) -> std::pin::Pin<Box<dyn Future<Output = Result<ToolResult, crate::error::AgentError>> + Send + '_>>;
+    ) -> std::pin::Pin<
+        Box<dyn Future<Output = Result<ToolResult, crate::error::AgentError>> + Send + '_>,
+    >;
 
     /// Generate a description for this tool given specific input.
     fn description(
@@ -507,9 +525,11 @@ pub trait Tool: Send + Sync {
         _context: Arc<ToolUseContext>,
     ) -> std::pin::Pin<Box<dyn Future<Output = PermissionResult> + Send + '_>> {
         Box::pin(async move {
-            let updated_input = input
-                .as_object()
-                .map(|o| o.clone().into_iter().collect::<HashMap<String, serde_json::Value>>());
+            let updated_input = input.as_object().map(|o| {
+                o.clone()
+                    .into_iter()
+                    .collect::<HashMap<String, serde_json::Value>>()
+            });
             PermissionResult::Allow {
                 updated_input,
                 user_modified: None,
@@ -961,10 +981,14 @@ pub struct ToolDefaults {
     pub is_concurrency_safe: bool,
     pub is_read_only: bool,
     pub is_destructive: bool,
-    pub check_permissions:
-        Arc<dyn Fn(serde_json::Value) -> std::pin::Pin<Box<dyn Future<Output = PermissionResult> + Send>> + Send + Sync>,
-    pub to_auto_classifier_input:
-        Arc<dyn Fn(serde_json::Value) -> serde_json::Value + Send + Sync>,
+    pub check_permissions: Arc<
+        dyn Fn(
+                serde_json::Value,
+            ) -> std::pin::Pin<Box<dyn Future<Output = PermissionResult> + Send>>
+            + Send
+            + Sync,
+    >,
+    pub to_auto_classifier_input: Arc<dyn Fn(serde_json::Value) -> serde_json::Value + Send + Sync>,
     pub user_facing_name: Arc<dyn Fn() -> String + Send + Sync>,
 }
 
@@ -1045,7 +1069,14 @@ pub struct ToolBuilder {
                                 &str,
                                 bool,
                             ) -> std::pin::Pin<
-                                Box<dyn Future<Output = Result<PermissionDecision, crate::error::AgentError>> + Send>,
+                                Box<
+                                    dyn Future<
+                                            Output = Result<
+                                                PermissionDecision,
+                                                crate::error::AgentError,
+                                            >,
+                                        > + Send,
+                                >,
                             > + Send
                             + Sync,
                     >,
@@ -1073,8 +1104,9 @@ pub struct ToolBuilder {
         Arc<
             dyn Fn(
                     Arc<
-                        dyn Fn() -> std::pin::Pin<Box<dyn Future<Output = ToolPermissionContext> + Send>>
-                            + Send
+                        dyn Fn() -> std::pin::Pin<
+                                Box<dyn Future<Output = ToolPermissionContext> + Send>,
+                            > + Send
                             + Sync,
                     >,
                     &[ToolDefinition],
@@ -1087,7 +1119,10 @@ pub struct ToolBuilder {
     >,
     validate_input_fn: Option<
         Arc<
-            dyn Fn(serde_json::Value, Arc<ToolUseContext>)
+            dyn Fn(
+                    serde_json::Value,
+                    Arc<ToolUseContext>,
+                )
                     -> std::pin::Pin<Box<dyn Future<Output = ValidationResult> + Send>>
                 + Send
                 + Sync,
@@ -1095,7 +1130,10 @@ pub struct ToolBuilder {
     >,
     check_permissions_fn: Option<
         Arc<
-            dyn Fn(serde_json::Value, Arc<ToolUseContext>)
+            dyn Fn(
+                    serde_json::Value,
+                    Arc<ToolUseContext>,
+                )
                     -> std::pin::Pin<Box<dyn Future<Output = PermissionResult> + Send>>
                 + Send
                 + Sync,
@@ -1118,14 +1156,12 @@ pub struct ToolBuilder {
     is_mcp: bool,
     is_lsp: bool,
     interrupt_behavior: String,
-    is_search_or_read_fn:
-        Option<Arc<dyn Fn(serde_json::Value) -> SearchOrReadInfo + Send + Sync>>,
+    is_search_or_read_fn: Option<Arc<dyn Fn(serde_json::Value) -> SearchOrReadInfo + Send + Sync>>,
     is_open_world_fn: Option<Arc<dyn Fn(serde_json::Value) -> bool + Send + Sync>>,
     requires_user_interaction: bool,
     backfill_observable_input_fn: Option<Arc<dyn Fn(&mut serde_json::Value) + Send + Sync>>,
     get_path_fn: Option<Arc<dyn Fn(serde_json::Value) -> Option<String> + Send + Sync>>,
-    user_facing_name_fn:
-        Option<Arc<dyn Fn(Option<&serde_json::Value>) -> String + Send + Sync>>,
+    user_facing_name_fn: Option<Arc<dyn Fn(Option<&serde_json::Value>) -> String + Send + Sync>>,
     user_facing_name_background_color_fn:
         Option<Arc<dyn Fn(Option<&serde_json::Value>) -> Option<String> + Send + Sync>>,
     is_transparent_wrapper: bool,
@@ -1135,52 +1171,29 @@ pub struct ToolBuilder {
         Option<Arc<dyn Fn(Option<&serde_json::Value>) -> Option<String> + Send + Sync>>,
     to_auto_classifier_input_fn:
         Option<Arc<dyn Fn(serde_json::Value) -> serde_json::Value + Send + Sync>>,
-    map_tool_result_fn: Option<
-        Arc<
-            dyn Fn(serde_json::Value, &str) -> ToolResultBlockParam
-                + Send
-                + Sync,
-        >,
-    >,
+    map_tool_result_fn:
+        Option<Arc<dyn Fn(serde_json::Value, &str) -> ToolResultBlockParam + Send + Sync>>,
     render_tool_result_message_fn: Option<
         Arc<
-            dyn Fn(
-                    serde_json::Value,
-                    &[ProgressMessage],
-                    ToolResultRenderOptions,
-                ) -> Option<String>
+            dyn Fn(serde_json::Value, &[ProgressMessage], ToolResultRenderOptions) -> Option<String>
                 + Send
                 + Sync,
         >,
     >,
     extract_search_text_fn: Option<Arc<dyn Fn(serde_json::Value) -> String + Send + Sync>>,
-    render_tool_use_message_fn: Option<
-        Arc<dyn Fn(serde_json::Value, ToolUseRenderOptions) -> String + Send + Sync>,
-    >,
+    render_tool_use_message_fn:
+        Option<Arc<dyn Fn(serde_json::Value, ToolUseRenderOptions) -> String + Send + Sync>>,
     is_result_truncated_fn: Option<Arc<dyn Fn(serde_json::Value) -> bool + Send + Sync>>,
-    render_tool_use_tag_fn:
-        Option<Arc<dyn Fn(serde_json::Value) -> Option<String> + Send + Sync>>,
+    render_tool_use_tag_fn: Option<Arc<dyn Fn(serde_json::Value) -> Option<String> + Send + Sync>>,
     render_tool_use_progress_message_fn: Option<
-        Arc<
-            dyn Fn(&[ProgressMessage], ToolProgressRenderOptions) -> Option<String>
-                + Send
-                + Sync,
-        >,
+        Arc<dyn Fn(&[ProgressMessage], ToolProgressRenderOptions) -> Option<String> + Send + Sync>,
     >,
     render_tool_use_queued_message_fn: Option<Arc<dyn Fn() -> Option<String> + Send + Sync>>,
     render_tool_use_rejected_message_fn: Option<
-        Arc<
-            dyn Fn(serde_json::Value, ToolRejectedRenderOptions) -> Option<String>
-                + Send
-                + Sync,
-        >,
+        Arc<dyn Fn(serde_json::Value, ToolRejectedRenderOptions) -> Option<String> + Send + Sync>,
     >,
     render_tool_use_error_message_fn: Option<
-        Arc<
-            dyn Fn(serde_json::Value, ToolErrorRenderOptions) -> Option<String>
-                + Send
-                + Sync,
-        >,
+        Arc<dyn Fn(serde_json::Value, ToolErrorRenderOptions) -> Option<String> + Send + Sync>,
     >,
     render_grouped_tool_uses_fn: Option<
         Arc<
@@ -1308,14 +1321,22 @@ impl ToolBuilder {
                             &str,
                             bool,
                         ) -> std::pin::Pin<
-                            Box<dyn Future<Output = Result<PermissionDecision, crate::error::AgentError>> + Send>,
+                            Box<
+                                dyn Future<
+                                        Output = Result<
+                                            PermissionDecision,
+                                            crate::error::AgentError,
+                                        >,
+                                    > + Send,
+                            >,
                         > + Send
                         + Sync,
                 >,
                 Arc<AssistantMessage>,
                 Option<Arc<dyn Fn(ToolProgress) + Send + Sync>>,
-            ) -> std::pin::Pin<Box<dyn Future<Output = Result<ToolResult, crate::error::AgentError>> + Send>>
-            + Send
+            ) -> std::pin::Pin<
+                Box<dyn Future<Output = Result<ToolResult, crate::error::AgentError>> + Send>,
+            > + Send
             + Sync
             + 'static,
     {
@@ -1343,7 +1364,8 @@ impl ToolBuilder {
     where
         F: Fn(
                 Arc<
-                    dyn Fn() -> std::pin::Pin<Box<dyn Future<Output = ToolPermissionContext> + Send>>
+                    dyn Fn()
+                            -> std::pin::Pin<Box<dyn Future<Output = ToolPermissionContext> + Send>>
                         + Send
                         + Sync,
                 >,
@@ -1361,8 +1383,10 @@ impl ToolBuilder {
 
     pub fn validate_input_fn<F>(mut self, f: F) -> Self
     where
-        F: Fn(serde_json::Value, Arc<ToolUseContext>)
-                -> std::pin::Pin<Box<dyn Future<Output = ValidationResult> + Send>>
+        F: Fn(
+                serde_json::Value,
+                Arc<ToolUseContext>,
+            ) -> std::pin::Pin<Box<dyn Future<Output = ValidationResult> + Send>>
             + Send
             + Sync
             + 'static,
@@ -1373,8 +1397,10 @@ impl ToolBuilder {
 
     pub fn check_permissions_fn<F>(mut self, f: F) -> Self
     where
-        F: Fn(serde_json::Value, Arc<ToolUseContext>)
-                -> std::pin::Pin<Box<dyn Future<Output = PermissionResult> + Send>>
+        F: Fn(
+                serde_json::Value,
+                Arc<ToolUseContext>,
+            ) -> std::pin::Pin<Box<dyn Future<Output = PermissionResult> + Send>>
             + Send
             + Sync
             + 'static,
@@ -1636,10 +1662,7 @@ impl ToolBuilder {
 
     pub fn render_tool_use_error_message_fn<F>(mut self, f: F) -> Self
     where
-        F: Fn(serde_json::Value, ToolErrorRenderOptions) -> Option<String>
-            + Send
-            + Sync
-            + 'static,
+        F: Fn(serde_json::Value, ToolErrorRenderOptions) -> Option<String> + Send + Sync + 'static,
     {
         self.render_tool_use_error_message_fn = Some(Arc::new(f));
         self
@@ -1716,13 +1739,14 @@ impl Tool for BuiltTool {
     }
 
     fn input_schema(&self) -> ToolInputSchema {
-        self.inner.input_schema.clone().unwrap_or_else(|| {
-            ToolInputSchema {
+        self.inner
+            .input_schema
+            .clone()
+            .unwrap_or_else(|| ToolInputSchema {
                 schema_type: "object".to_string(),
                 properties: serde_json::json!({}),
                 required: None,
-            }
-        })
+            })
     }
 
     fn input_json_schema(&self) -> Option<ToolInputJsonSchema> {
@@ -1746,27 +1770,33 @@ impl Tool for BuiltTool {
                     &str,
                     bool,
                 ) -> std::pin::Pin<
-                    Box<dyn Future<Output = Result<PermissionDecision, crate::error::AgentError>> + Send>,
+                    Box<
+                        dyn Future<Output = Result<PermissionDecision, crate::error::AgentError>>
+                            + Send,
+                    >,
                 > + Send
                 + Sync,
         >,
         parent_message: Arc<AssistantMessage>,
         on_progress: Option<Arc<dyn Fn(ToolProgress) + Send + Sync>>,
-    ) -> std::pin::Pin<Box<dyn Future<Output = Result<ToolResult, crate::error::AgentError>> + Send + '_>> {
+    ) -> std::pin::Pin<
+        Box<dyn Future<Output = Result<ToolResult, crate::error::AgentError>> + Send + '_>,
+    > {
         if let Some(f) = &self.inner.call_fn {
             let f = Arc::clone(f);
             let can_use_tool = Arc::clone(&can_use_tool);
             let context = Arc::clone(&context);
             let parent_message = Arc::clone(&parent_message);
             let on_progress = on_progress.clone();
-            Box::pin(async move {
-                f(args, context, can_use_tool, parent_message, on_progress).await
-            })
+            Box::pin(
+                async move { f(args, context, can_use_tool, parent_message, on_progress).await },
+            )
         } else {
             Box::pin(async {
-                Err(crate::error::AgentError::Tool(
-                    format!("Tool '{}' has no call implementation", self.inner.name),
-                ))
+                Err(crate::error::AgentError::Tool(format!(
+                    "Tool '{}' has no call implementation",
+                    self.inner.name
+                )))
             })
         }
     }
@@ -1782,13 +1812,9 @@ impl Tool for BuiltTool {
             let f = Arc::clone(f);
             let tools = tools.to_vec();
             let tpc = tool_permission_context.clone();
-            Box::pin(async move {
-                f(input, is_non_interactive_session, &tpc, &tools).await
-            })
+            Box::pin(async move { f(input, is_non_interactive_session, &tpc, &tools).await })
         } else {
-            Box::pin(async move {
-                format!("Tool: {}", self.inner.name)
-            })
+            Box::pin(async move { format!("Tool: {}", self.inner.name) })
         }
     }
 
@@ -1900,14 +1926,14 @@ impl Tool for BuiltTool {
     }
 
     fn is_search_or_read_command(&self, input: serde_json::Value) -> SearchOrReadInfo {
-        self.inner
-            .is_search_or_read_fn
-            .as_ref()
-            .map_or(SearchOrReadInfo {
+        self.inner.is_search_or_read_fn.as_ref().map_or(
+            SearchOrReadInfo {
                 is_search: false,
                 is_read: false,
                 is_list: false,
-            }, |f| f(input))
+            },
+            |f| f(input),
+        )
     }
 
     fn is_open_world(&self, input: serde_json::Value) -> bool {
@@ -1939,7 +1965,10 @@ impl Tool for BuiltTool {
             .unwrap_or_else(|| self.inner.name.clone())
     }
 
-    fn user_facing_name_background_color(&self, input: Option<&serde_json::Value>) -> Option<String> {
+    fn user_facing_name_background_color(
+        &self,
+        input: Option<&serde_json::Value>,
+    ) -> Option<String> {
         self.inner
             .user_facing_name_background_color_fn
             .as_ref()
@@ -2099,7 +2128,17 @@ impl Tool for BuiltTool {
         self.inner
             .render_grouped_tool_use_fn
             .as_ref()
-            .and_then(|f| f(param, is_resolved, is_error, is_in_progress, progress_messages, result, options))
+            .and_then(|f| {
+                f(
+                    param,
+                    is_resolved,
+                    is_error,
+                    is_in_progress,
+                    progress_messages,
+                    result,
+                    options,
+                )
+            })
     }
 
     fn render_grouped_tool_use_fallback(
@@ -2130,12 +2169,16 @@ impl Tool for BuiltTool {
             let agents = agents.to_vec();
             let allowed_agent_types = allowed_agent_types.map(|s| s.to_vec());
             Box::pin(async move {
-                f(get_tool_permission_context, &tools, &agents, allowed_agent_types.as_deref()).await
+                f(
+                    get_tool_permission_context,
+                    &tools,
+                    &agents,
+                    allowed_agent_types.as_deref(),
+                )
+                .await
             })
         } else {
-            Box::pin(async move {
-                format!("Use the {} tool.", self.inner.name)
-            })
+            Box::pin(async move { format!("Use the {} tool.", self.inner.name) })
         }
     }
 }
@@ -2143,4 +2186,3 @@ impl Tool for BuiltTool {
 // ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------
-

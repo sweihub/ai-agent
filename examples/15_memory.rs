@@ -14,8 +14,8 @@
  * - AI_DISABLE_AUTO_MEMORY: Set to "1" to disable memory
  */
 use ai_agent::{
-    memdir::{ensure_memory_dir_exists, get_auto_mem_path, get_memory_entrypoint},
     Agent,
+    memdir::{ensure_memory_dir_exists, get_auto_mem_path, get_memory_entrypoint},
 };
 
 use std::fs;
@@ -46,10 +46,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("\n--- Memory Prompt Content ---\n");
 
     // Now create an agent - it will automatically load the memory
-    let mut agent = Agent::new(
-        &std::env::var("AI_MODEL").unwrap_or_else(|_| "claude-sonnet-4-6".to_string()),
-        5,
-    );
+    let agent =
+        Agent::new(&std::env::var("AI_MODEL").unwrap_or_else(|_| "claude-sonnet-4-6".to_string()))
+            .max_turns(5);
 
     // Ask about user preferences stored in memory
     let result = agent

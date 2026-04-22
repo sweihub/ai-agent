@@ -99,13 +99,12 @@ fn collect_unfinished_tasks() -> Vec<TaskInfo> {
 }
 
 /// Format a nudge message listing unfinished tasks.
-pub fn format_nudge(
-    incomplete_todos: &[TodoItemInfo],
-    incomplete_tasks: &[TaskInfo],
-) -> String {
+pub fn format_nudge(incomplete_todos: &[TodoItemInfo], incomplete_tasks: &[TaskInfo]) -> String {
     let mut lines = Vec::new();
 
-    lines.push("You have unfinished items that may not be complete. Review and address them:".to_string());
+    lines.push(
+        "You have unfinished items that may not be complete. Review and address them:".to_string(),
+    );
 
     if !incomplete_todos.is_empty() {
         lines.push(String::new());
@@ -130,7 +129,10 @@ pub fn format_nudge(
                 .as_deref()
                 .map(|o| format!(" ({})", o))
                 .unwrap_or_default();
-            lines.push(format!("  - {} [{}]{}{}", task.id, task.status, task.subject, owner));
+            lines.push(format!(
+                "  - {} [{}]{}{}",
+                task.id, task.status, task.subject, owner
+            ));
         }
     }
 
@@ -177,14 +179,12 @@ mod tests {
 
     #[test]
     fn test_format_nudge_with_tasks() {
-        let tasks = vec![
-            TaskInfo {
-                id: "task-1".to_string(),
-                subject: "Add error handling".to_string(),
-                status: "pending".to_string(),
-                owner: Some("agent-1".to_string()),
-            },
-        ];
+        let tasks = vec![TaskInfo {
+            id: "task-1".to_string(),
+            subject: "Add error handling".to_string(),
+            status: "pending".to_string(),
+            owner: Some("agent-1".to_string()),
+        }];
         let msg = format_nudge(&[], &tasks);
         assert!(msg.contains("task-1"));
         assert!(msg.contains("[pending]"));

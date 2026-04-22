@@ -39,7 +39,10 @@ pub struct StopTaskResult {
 /// Throws `StopTaskError` when the task cannot be stopped (not found,
 /// not running, or unsupported type). Callers can inspect the error variant
 /// to distinguish the failure reason.
-pub async fn stop_task(task_id: &str, context: &StopTaskContext) -> Result<StopTaskResult, StopTaskError> {
+pub async fn stop_task(
+    task_id: &str,
+    context: &StopTaskContext,
+) -> Result<StopTaskResult, StopTaskError> {
     let app_state = (context.get_app_state)();
 
     let task = app_state
@@ -87,7 +90,9 @@ pub async fn stop_task(task_id: &str, context: &StopTaskContext) -> Result<StopT
         let suppressed_clone = suppressed.clone();
 
         (context.set_app_state)(Box::new(move |prev: &serde_json::Value| {
-            let prev_task = prev.get("tasks").and_then(|t| t.get(task_id_owned.as_str()));
+            let prev_task = prev
+                .get("tasks")
+                .and_then(|t| t.get(task_id_owned.as_str()));
             if let Some(prev_task) = prev_task {
                 if prev_task.get("notified").and_then(|n| n.as_bool()) == Some(false) {
                     suppressed_clone.store(true, std::sync::atomic::Ordering::SeqCst);
@@ -97,7 +102,10 @@ pub async fn stop_task(task_id: &str, context: &StopTaskContext) -> Result<StopT
                             if let Some(tasks_obj) = tasks.as_object_mut() {
                                 if let Some(task) = tasks_obj.get_mut(task_id_owned.as_str()) {
                                     if let Some(task_obj) = task.as_object_mut() {
-                                        task_obj.insert("notified".to_string(), serde_json::json!(true));
+                                        task_obj.insert(
+                                            "notified".to_string(),
+                                            serde_json::json!(true),
+                                        );
                                     }
                                 }
                             }
@@ -113,14 +121,22 @@ pub async fn stop_task(task_id: &str, context: &StopTaskContext) -> Result<StopT
         // task_notification SDK event — emit it directly so SDK consumers see
         // the task close.
         if suppressed.load(std::sync::atomic::Ordering::SeqCst) {
-            let tool_use_id = task.get("toolUseId").and_then(|v| v.as_str()).map(|s| s.to_string());
-            let summary = task.get("description").and_then(|v| v.as_str()).map(|s| s.to_string());
+            let tool_use_id = task
+                .get("toolUseId")
+                .and_then(|v| v.as_str())
+                .map(|s| s.to_string());
+            let summary = task
+                .get("description")
+                .and_then(|v| v.as_str())
+                .map(|s| s.to_string());
             emit_task_terminated_sdk(task_id, tool_use_id, summary);
         }
     }
 
     let command = if is_shell_task {
-        task.get("command").and_then(|v| v.as_str()).map(|s| s.to_string())
+        task.get("command")
+            .and_then(|v| v.as_str())
+            .map(|s| s.to_string())
     } else {
         task.get("description")
             .and_then(|v| v.as_str())

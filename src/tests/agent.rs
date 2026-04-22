@@ -1,8 +1,7 @@
+use crate::Agent;
 use crate::agent::build_agent_system_prompt;
 use crate::env::EnvConfig;
-use crate::types::{AgentOptions, ContentDelta};
-use crate::Agent;
-use crate::AgentError;
+use crate::types::ContentDelta;
 
 /// Test that Agent tool correctly extracts all parameters from input
 #[tokio::test]
@@ -129,10 +128,7 @@ pub fn has_required_env_vars() -> bool {
 /// Test Agent creation with options
 #[tokio::test]
 async fn test_create_agent() {
-    let agent = Agent::create(AgentOptions {
-        model: Some("claude-sonnet-4-6".to_string()),
-        ..Default::default()
-    });
+    let agent = Agent::new("claude-sonnet-4-6");
     assert!(!agent.get_model().is_empty());
 }
 
@@ -151,15 +147,14 @@ async fn test_agent_tool_calling_with_real_env_config() {
 
     // Verify config is loaded
     assert!(config.base_url.is_some(), "Base URL should be configured");
-    assert!(config.auth_token.is_some(), "Auth token should be configured");
+    assert!(
+        config.auth_token.is_some(),
+        "Auth token should be configured"
+    );
     assert!(config.model.is_some(), "Model should be configured");
 
     // Create agent with real config
-    let agent = Agent::create(AgentOptions {
-        model: config.model.clone(),
-        tools: vec![],
-        ..Default::default()
-    });
+    let agent = Agent::new(config.model.as_ref().unwrap());
 
     // Verify agent was created with the configured model
     let model = agent.get_model();
@@ -190,12 +185,9 @@ async fn test_agent_prompt_with_real_api() {
     use crate::get_all_tools;
     let tools = get_all_tools();
 
-    let mut agent = Agent::create(AgentOptions {
-        model: config.model.clone(),
-        max_turns: Some(3),
-        tools,
-        ..Default::default()
-    });
+    let agent = Agent::new(config.model.as_ref().unwrap())
+        .max_turns(3)
+        .tools(tools);
 
     // Make a simple prompt that should trigger tool use
     let result = agent.query("What is 2 + 2? Just give me the answer.").await;
@@ -233,15 +225,14 @@ async fn test_agent_with_multiple_tools_real_config() {
     // Verify we have tools available
     assert!(!tools.is_empty(), "Should have tools available");
 
-    let mut agent = Agent::create(AgentOptions {
-        model: config.model.clone(),
-        max_turns: Some(3),
-        tools,
-        ..Default::default()
-    });
+    let agent = Agent::new(config.model.as_ref().unwrap())
+        .max_turns(3)
+        .tools(tools);
 
     // Prompt that might use tools
-    let result = agent.query("List all Rust files in the current directory using glob").await;
+    let result = agent
+        .query("List all Rust files in the current directory using glob")
+        .await;
 
     // Should get a response (may or may not use tools depending on model)
     assert!(result.is_ok(), "Agent should respond");
@@ -276,17 +267,17 @@ async fn test_tool_executors_registered() {
     // Verify tools are available
     let tool_names: Vec<&str> = tools.iter().map(|t| t.name.as_str()).collect();
     assert!(tool_names.contains(&"Bash"), "Should have Bash tool");
-    assert!(tool_names.contains(&"FileRead"), "Should have FileRead tool");
+    assert!(
+        tool_names.contains(&"FileRead"),
+        "Should have FileRead tool"
+    );
     assert!(tool_names.contains(&"Glob"), "Should have Glob tool");
     println!("Available tools: {:?}", tool_names);
 
-    // Create agent - this will call register_all_tool_executors internally
-    let mut agent = Agent::create(AgentOptions {
-        model: config.model.clone(),
-        max_turns: Some(3),
-        tools,
-        ..Default::default()
-    });
+    // Create agent
+    let agent = Agent::new(config.model.as_ref().unwrap())
+        .max_turns(3)
+        .tools(tools);
 
     // Prompt that should definitely use the Bash tool
     let result = agent
@@ -300,8 +291,7 @@ async fn test_tool_executors_registered() {
 
     // Check that the tool was actually used (response should contain output)
     let text_lower = response.text.to_lowercase();
-    let tool_was_used =
-        text_lower.contains("hello from tool test") || text_lower.contains("tool");
+    let tool_was_used = text_lower.contains("hello from tool test") || text_lower.contains("tool");
     println!(
         "Tool calling test - Response: {} (tool_used: {})",
         response.text, tool_was_used
@@ -330,12 +320,9 @@ async fn test_glob_tool_via_agent() {
     use crate::get_all_tools;
     let tools = get_all_tools();
 
-    let mut agent = Agent::create(AgentOptions {
-        model: config.model.clone(),
-        max_turns: Some(3),
-        tools,
-        ..Default::default()
-    });
+    let agent = Agent::new(config.model.as_ref().unwrap())
+        .max_turns(3)
+        .tools(tools);
 
     // Prompt that should use Glob tool
     let result = agent
@@ -370,12 +357,9 @@ async fn test_fileread_tool_via_agent() {
     use crate::get_all_tools;
     let tools = get_all_tools();
 
-    let mut agent = Agent::create(AgentOptions {
-        model: config.model.clone(),
-        max_turns: Some(3),
-        tools,
-        ..Default::default()
-    });
+    let agent = Agent::new(config.model.as_ref().unwrap())
+        .max_turns(3)
+        .tools(tools);
 
     // Prompt that should use FileRead tool
     let result = agent
@@ -411,12 +395,9 @@ async fn test_multiple_tool_calls() {
     use crate::get_all_tools;
     let tools = get_all_tools();
 
-    let mut agent = Agent::create(AgentOptions {
-        model: config.model.clone(),
-        max_turns: Some(5),
-        tools,
-        ..Default::default()
-    });
+    let agent = Agent::new(config.model.as_ref().unwrap())
+        .max_turns(5)
+        .tools(tools);
 
     // Prompt that should use multiple tools
     let result = agent
@@ -453,12 +434,9 @@ async fn test_agent_remembers_context_across_queries() {
     use crate::get_all_tools;
     let tools = get_all_tools();
 
-    let mut agent = Agent::create(AgentOptions {
-        model: config.model.clone(),
-        max_turns: Some(5),
-        tools,
-        ..Default::default()
-    });
+    let agent = Agent::new(config.model.as_ref().unwrap())
+        .max_turns(5)
+        .tools(tools);
 
     // First turn: tell the agent something specific to remember
     let result1 = agent
@@ -467,7 +445,10 @@ async fn test_agent_remembers_context_across_queries() {
 
     assert!(result1.is_ok(), "First query should succeed");
     let response1 = result1.unwrap();
-    assert!(!response1.text.is_empty(), "First response should not be empty");
+    assert!(
+        !response1.text.is_empty(),
+        "First response should not be empty"
+    );
     println!("Turn 1 response: {}", response1.text);
 
     // Second turn: ask about what was just said - the agent should remember
@@ -477,7 +458,10 @@ async fn test_agent_remembers_context_across_queries() {
 
     assert!(result2.is_ok(), "Second query should succeed");
     let response2 = result2.unwrap();
-    assert!(!response2.text.is_empty(), "Second response should not be empty");
+    assert!(
+        !response2.text.is_empty(),
+        "Second response should not be empty"
+    );
     println!("Turn 2 response: {}", response2.text);
 
     // Verify the agent remembered the context
@@ -486,13 +470,25 @@ async fn test_agent_remembers_context_across_queries() {
     let remembers_color = text_lower.contains("blue");
     let remembers_city = text_lower.contains("seattle");
 
-    assert!(remembers_color, "Agent should remember favorite color is blue. Response: {}", response2.text);
-    assert!(remembers_city, "Agent should remember living in Seattle. Response: {}", response2.text);
+    assert!(
+        remembers_color,
+        "Agent should remember favorite color is blue. Response: {}",
+        response2.text
+    );
+    assert!(
+        remembers_city,
+        "Agent should remember living in Seattle. Response: {}",
+        response2.text
+    );
 
     // Also verify the message history is being accumulated
     let messages = agent.get_messages();
     // Should have at least: user msg 1, assistant msg 1, user msg 2, assistant msg 2
-    assert!(messages.len() >= 4, "Should have at least 4 messages in history, got {}", messages.len());
+    assert!(
+        messages.len() >= 4,
+        "Should have at least 4 messages in history, got {}",
+        messages.len()
+    );
     println!("Message history has {} messages", messages.len());
 }
 
@@ -521,15 +517,18 @@ async fn test_tool_search_discovers_and_uses_deferred_tool() {
 
     // Verify we have ToolSearch available
     let tool_names: Vec<&str> = tools.iter().map(|t| t.name.as_str()).collect();
-    assert!(tool_names.contains(&"ToolSearch"), "Should have ToolSearch tool");
-    assert!(tool_names.contains(&"WebSearch"), "Should have WebSearch (deferred) tool");
+    assert!(
+        tool_names.contains(&"ToolSearch"),
+        "Should have ToolSearch tool"
+    );
+    assert!(
+        tool_names.contains(&"WebSearch"),
+        "Should have WebSearch (deferred) tool"
+    );
 
-    let mut agent = Agent::create(AgentOptions {
-        model: config.model.clone(),
-        max_turns: Some(10), // More turns since ToolSearch discovery needs extra round
-        tools,
-        ..Default::default()
-    });
+    let agent = Agent::new(config.model.as_ref().unwrap())
+        .max_turns(10)
+        .tools(tools);
 
     // Ask the agent to discover and use WebSearch via ToolSearch
     let result = agent
@@ -538,15 +537,22 @@ async fn test_tool_search_discovers_and_uses_deferred_tool() {
 
     assert!(result.is_ok(), "Agent should respond successfully");
     let response = result.unwrap();
-    assert!(!response.text.is_empty(), "Agent returned empty response (possible API issue).");
+    assert!(
+        !response.text.is_empty(),
+        "Agent returned empty response (possible API issue)."
+    );
 
     // Verify ToolSearch was used to discover WebSearch by checking message history.
     // The LLM should discover WebSearch via ToolSearch before using it to answer the question.
     let messages = agent.get_messages();
-    let has_tool_search_call = messages.iter().any(|m| {
-        m.content.contains("ToolSearch") || m.content.contains("WebSearch")
-    });
-    assert!(has_tool_search_call, "Agent should have used ToolSearch to discover WebSearch. Messages: {:?}", messages);
+    let has_tool_search_call = messages
+        .iter()
+        .any(|m| m.content.contains("ToolSearch") || m.content.contains("WebSearch"));
+    assert!(
+        has_tool_search_call,
+        "Agent should have used ToolSearch to discover WebSearch. Messages: {:?}",
+        messages
+    );
 }
 
 /// Test that AgentEvent streaming events are properly emitted during agent execution.
@@ -579,16 +585,13 @@ async fn test_agent_events_emitted_correctly() {
         std::sync::Arc::new(Mutex::new(Vec::new()));
     let events_clone = events_received.clone();
 
-    // Create agent with event callback using Agent::create
-    let mut agent = Agent::create(AgentOptions {
-        model: config.model.clone(),
-        max_turns: Some(5),
-        tools,
-        on_event: Some(std::sync::Arc::new(move |event| {
+    // Create agent with event callback
+    let agent = Agent::new(config.model.as_ref().unwrap())
+        .max_turns(5)
+        .tools(tools)
+        .on_event(move |event| {
             events_clone.lock().unwrap().push(event);
-        })),
-        ..Default::default()
-    });
+        });
 
     // Prompt that will use the Bash tool
     let result = tokio::time::timeout(
@@ -608,44 +611,82 @@ async fn test_agent_events_emitted_correctly() {
     let events = events_received.lock().unwrap();
 
     // Verify we received Thinking event
-    let has_thinking = events.iter().any(|e| matches!(e, crate::types::AgentEvent::Thinking { .. }));
-    assert!(has_thinking, "Should have received Thinking event. Events: {:?}", events);
+    let has_thinking = events
+        .iter()
+        .any(|e| matches!(e, crate::types::AgentEvent::Thinking { .. }));
+    assert!(
+        has_thinking,
+        "Should have received Thinking event. Events: {:?}",
+        events
+    );
 
     // Verify we received MessageStart event
-    let has_message_start = events.iter().any(|e| matches!(e, crate::types::AgentEvent::MessageStart { .. }));
-    assert!(has_message_start, "Should have received MessageStart event. Events: {:?}", events);
+    let has_message_start = events
+        .iter()
+        .any(|e| matches!(e, crate::types::AgentEvent::MessageStart { .. }));
+    assert!(
+        has_message_start,
+        "Should have received MessageStart event. Events: {:?}",
+        events
+    );
 
     // Verify we received MessageStop event
-    let has_message_stop = events.iter().any(|e| matches!(e, crate::types::AgentEvent::MessageStop));
-    assert!(has_message_stop, "Should have received MessageStop event. Events: {:?}", events);
+    let has_message_stop = events
+        .iter()
+        .any(|e| matches!(e, crate::types::AgentEvent::MessageStop));
+    assert!(
+        has_message_stop,
+        "Should have received MessageStop event. Events: {:?}",
+        events
+    );
 
     // Verify we received ContentBlockDelta event (text content)
-    let has_content_delta = events.iter().any(|e| {
-        match e {
-            crate::types::AgentEvent::ContentBlockDelta { delta, .. } => {
-                match delta {
-                    ContentDelta::Text { text } => !text.is_empty(),
-                    _ => false,
-                }
-            }
+    let has_content_delta = events.iter().any(|e| match e {
+        crate::types::AgentEvent::ContentBlockDelta { delta, .. } => match delta {
+            ContentDelta::Text { text } => !text.is_empty(),
             _ => false,
-        }
+        },
+        _ => false,
     });
-    assert!(has_content_delta, "Should have received ContentBlockDelta with text. Events: {:?}", events);
+    assert!(
+        has_content_delta,
+        "Should have received ContentBlockDelta with text. Events: {:?}",
+        events
+    );
 
     // Verify we received ToolStart event (command should trigger Bash tool)
     let has_tool_start = events.iter().any(|e| matches!(e, crate::types::AgentEvent::ToolStart { tool_name, .. } if tool_name == "Bash" || tool_name == "bash"));
-    println!("ToolStart check: {:?}", events.iter().filter(|e| matches!(e, crate::types::AgentEvent::ToolStart { .. })).collect::<Vec<_>>());
-    assert!(has_tool_start, "Should have received ToolStart event for Bash tool. Events: {:?}", events);
+    println!(
+        "ToolStart check: {:?}",
+        events
+            .iter()
+            .filter(|e| matches!(e, crate::types::AgentEvent::ToolStart { .. }))
+            .collect::<Vec<_>>()
+    );
+    assert!(
+        has_tool_start,
+        "Should have received ToolStart event for Bash tool. Events: {:?}",
+        events
+    );
 
     // Verify we received ToolComplete event
-    let has_tool_complete = events.iter().any(|e| matches!(e, crate::types::AgentEvent::ToolComplete { .. }));
-    assert!(has_tool_complete, "Should have received ToolComplete event. Events: {:?}", events);
+    let has_tool_complete = events
+        .iter()
+        .any(|e| matches!(e, crate::types::AgentEvent::ToolComplete { .. }));
+    assert!(
+        has_tool_complete,
+        "Should have received ToolComplete event. Events: {:?}",
+        events
+    );
 
     // Verify the output contains our test string
     let text_lower = response.text.to_lowercase();
     let has_expected_output = text_lower.contains("eventtest123");
-    assert!(has_expected_output, "Response should contain 'EventTest123'. Response: {}", response.text);
+    assert!(
+        has_expected_output,
+        "Response should contain 'EventTest123'. Response: {}",
+        response.text
+    );
 
     println!("All event checks passed! Events received:");
     for (i, event) in events.iter().enumerate() {
@@ -682,23 +723,21 @@ async fn test_agent_max_turns_reached_event() {
     let events_clone = events_received.clone();
 
     // Create agent with max_turns=1 (forces MaxTurnsReached)
-    let mut agent = Agent::create(AgentOptions {
-        model: config.model.clone(),
-        max_turns: Some(1), // Only 1 turn - will hit limit when tool is needed
-        tools,
-        on_event: Some(std::sync::Arc::new(move |event| {
+    let agent = Agent::new(config.model.as_ref().unwrap())
+        .max_turns(1)
+        .tools(tools)
+        .on_event(move |event| {
             events_clone.lock().unwrap().push(event);
-        })),
-        ..Default::default()
-    });
+        });
 
     // Prompt that requires tool use (will need more than 1 turn)
-    let result = agent
-        .query("Run this command: echo 'MaxTurnsTest'")
-        .await;
+    let result = agent.query("Run this command: echo 'MaxTurnsTest'").await;
 
     // Should still return a result (may be truncated due to max turns)
-    assert!(result.is_ok(), "Agent should return result even with max turns");
+    assert!(
+        result.is_ok(),
+        "Agent should return result even with max turns"
+    );
     let response = result.unwrap();
     println!("Agent response (max_turns=1): {}", response.text);
 
@@ -706,17 +745,41 @@ async fn test_agent_max_turns_reached_event() {
     let events = events_received.lock().unwrap();
 
     // Verify we received MessageStart event
-    let has_message_start = events.iter().any(|e| matches!(e, crate::types::AgentEvent::MessageStart { .. }));
-    assert!(has_message_start, "Should have received MessageStart event. Events: {:?}", events);
+    let has_message_start = events
+        .iter()
+        .any(|e| matches!(e, crate::types::AgentEvent::MessageStart { .. }));
+    assert!(
+        has_message_start,
+        "Should have received MessageStart event. Events: {:?}",
+        events
+    );
 
     // Verify we received MessageStop event
-    let has_message_stop = events.iter().any(|e| matches!(e, crate::types::AgentEvent::MessageStop));
-    assert!(has_message_stop, "Should have received MessageStop event. Events: {:?}", events);
+    let has_message_stop = events
+        .iter()
+        .any(|e| matches!(e, crate::types::AgentEvent::MessageStop));
+    assert!(
+        has_message_stop,
+        "Should have received MessageStop event. Events: {:?}",
+        events
+    );
 
     // Verify we received MaxTurnsReached event
-    let has_max_turns = events.iter().any(|e| matches!(e, crate::types::AgentEvent::MaxTurnsReached { .. }));
-    println!("MaxTurnsReached check: {:?}", events.iter().filter(|e| matches!(e, crate::types::AgentEvent::MaxTurnsReached { .. })).collect::<Vec<_>>());
-    assert!(has_max_turns, "Should have received MaxTurnsReached event. Events: {:?}", events);
+    let has_max_turns = events
+        .iter()
+        .any(|e| matches!(e, crate::types::AgentEvent::MaxTurnsReached { .. }));
+    println!(
+        "MaxTurnsReached check: {:?}",
+        events
+            .iter()
+            .filter(|e| matches!(e, crate::types::AgentEvent::MaxTurnsReached { .. }))
+            .collect::<Vec<_>>()
+    );
+    assert!(
+        has_max_turns,
+        "Should have received MaxTurnsReached event. Events: {:?}",
+        events
+    );
 
     println!("MaxTurnsReached test passed! Events received:");
     for (i, event) in events.iter().enumerate() {
@@ -753,15 +816,12 @@ async fn test_agent_tool_error_event() {
     let events_clone = events_received.clone();
 
     // Create agent with event callback
-    let mut agent = Agent::create(AgentOptions {
-        model: config.model.clone(),
-        max_turns: Some(3),
-        tools,
-        on_event: Some(std::sync::Arc::new(move |event| {
+    let agent = Agent::new(config.model.as_ref().unwrap())
+        .max_turns(3)
+        .tools(tools)
+        .on_event(move |event| {
             events_clone.lock().unwrap().push(event);
-        })),
-        ..Default::default()
-    });
+        });
 
     // Prompt that tries to access a non-existing file (will trigger tool error)
     let result = agent
@@ -769,7 +829,10 @@ async fn test_agent_tool_error_event() {
         .await;
 
     // Should still return a result (agent handles error)
-    assert!(result.is_ok(), "Agent should return result even with tool error");
+    assert!(
+        result.is_ok(),
+        "Agent should return result even with tool error"
+    );
     let response = result.unwrap();
     println!("Agent response (tool error case): {}", response.text);
 
@@ -777,21 +840,53 @@ async fn test_agent_tool_error_event() {
     let events = events_received.lock().unwrap();
 
     // Verify we received MessageStart event
-    let has_message_start = events.iter().any(|e| matches!(e, crate::types::AgentEvent::MessageStart { .. }));
-    assert!(has_message_start, "Should have received MessageStart event. Events: {:?}", events);
+    let has_message_start = events
+        .iter()
+        .any(|e| matches!(e, crate::types::AgentEvent::MessageStart { .. }));
+    assert!(
+        has_message_start,
+        "Should have received MessageStart event. Events: {:?}",
+        events
+    );
 
     // Verify we received MessageStop event
-    let has_message_stop = events.iter().any(|e| matches!(e, crate::types::AgentEvent::MessageStop));
-    assert!(has_message_stop, "Should have received MessageStop event. Events: {:?}", events);
+    let has_message_stop = events
+        .iter()
+        .any(|e| matches!(e, crate::types::AgentEvent::MessageStop));
+    assert!(
+        has_message_stop,
+        "Should have received MessageStop event. Events: {:?}",
+        events
+    );
 
     // Verify we received ToolStart event
-    let has_tool_start = events.iter().any(|e| matches!(e, crate::types::AgentEvent::ToolStart { .. }));
-    println!("ToolStart check: {:?}", events.iter().filter(|e| matches!(e, crate::types::AgentEvent::ToolStart { .. })).collect::<Vec<_>>());
-    assert!(has_tool_start, "Should have received ToolStart event. Events: {:?}", events);
+    let has_tool_start = events
+        .iter()
+        .any(|e| matches!(e, crate::types::AgentEvent::ToolStart { .. }));
+    println!(
+        "ToolStart check: {:?}",
+        events
+            .iter()
+            .filter(|e| matches!(e, crate::types::AgentEvent::ToolStart { .. }))
+            .collect::<Vec<_>>()
+    );
+    assert!(
+        has_tool_start,
+        "Should have received ToolStart event. Events: {:?}",
+        events
+    );
 
     // Verify we received ToolError event (file not found should trigger error)
-    let has_tool_error = events.iter().any(|e| matches!(e, crate::types::AgentEvent::ToolError { .. }));
-    println!("ToolError check: {:?}", events.iter().filter(|e| matches!(e, crate::types::AgentEvent::ToolError { .. })).collect::<Vec<_>>());
+    let has_tool_error = events
+        .iter()
+        .any(|e| matches!(e, crate::types::AgentEvent::ToolError { .. }));
+    println!(
+        "ToolError check: {:?}",
+        events
+            .iter()
+            .filter(|e| matches!(e, crate::types::AgentEvent::ToolError { .. }))
+            .collect::<Vec<_>>()
+    );
 
     // Note: ToolError may or may not fire depending on how the LLM handles the error
     // The important thing is we get a response
@@ -825,21 +920,26 @@ async fn test_persisted_engine_accumulates_messages() {
         return;
     }
 
-    let mut agent = Agent::new("claude-sonnet-4-6", 5);
+    let agent = Agent::new("claude-sonnet-4-6").max_turns(5);
 
     // Before any query, message list should be empty
-    assert!(agent.get_messages().is_empty(), "Messages should be empty before first query");
+    assert!(
+        agent.get_messages().is_empty(),
+        "Messages should be empty before first query"
+    );
 
     // First call — store the message count after
     let result1 = agent.query("Say 'Hello' and nothing else.").await;
     assert!(result1.is_ok(), "First query should succeed");
     let msgs1 = agent.get_messages();
-    assert!(msgs1.len() >= 2, "After first query: expected >=2 messages, got {}", msgs1.len());
+    assert!(
+        msgs1.len() >= 2,
+        "After first query: expected >=2 messages, got {}",
+        msgs1.len()
+    );
 
     // Second call — message list must be longer (accumulates)
-    let result2 = agent
-        .query("Repeat back what I just said to you.")
-        .await;
+    let result2 = agent.query("Repeat back what I just said to you.").await;
     assert!(result2.is_ok(), "Second query should succeed");
     let msgs2 = agent.get_messages();
     assert!(
@@ -882,7 +982,7 @@ async fn test_reset_clears_engine_state() {
         return;
     }
 
-    let mut agent = Agent::new("claude-sonnet-4-6", 5);
+    let agent = Agent::new("claude-sonnet-4-6").max_turns(5);
 
     // First query
     let _r1 = agent.query("Say 'ResetTest'.").await;
@@ -915,7 +1015,12 @@ async fn test_reset_clears_engine_state() {
         "Agent should accumulate messages again after reset"
     );
 
-    println!("Reset test: {} -> clear -> {} -> {} messages", msgs_before.len(), msgs_after.len(), msgs_after2.len());
+    println!(
+        "Reset test: {} -> clear -> {} -> {} messages",
+        msgs_before.len(),
+        msgs_after.len(),
+        msgs_after2.len()
+    );
 }
 
 /// Verify that the agent remembers context across query() calls via the
@@ -928,7 +1033,7 @@ async fn test_persisted_engine_llm_remembers_context() {
         return;
     }
 
-    let mut agent = Agent::new("claude-sonnet-4-6", 5);
+    let agent = Agent::new("claude-sonnet-4-6").max_turns(5);
 
     // Turn 1: give the agent a specific fact to embed in conversation context
     let _r1 = agent

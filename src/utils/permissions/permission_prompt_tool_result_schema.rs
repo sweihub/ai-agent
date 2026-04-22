@@ -3,12 +3,11 @@
 
 //! Zod schemas for permission prompt tool results, ported to Rust validation.
 
+use crate::types::permissions::{
+    PermissionAllowDecision, PermissionDecision, PermissionDecisionReason, PermissionUpdate,
+};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use crate::types::permissions::{
-    PermissionAllowDecision, PermissionDecision, PermissionDecisionReason,
-    PermissionUpdate,
-};
 
 /// Input schema for permission prompt tool.
 #[derive(Debug, Clone, Serialize, Deserialize)]

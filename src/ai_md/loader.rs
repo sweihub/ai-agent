@@ -1,7 +1,7 @@
 //! AI.md loader implementation
 
-use crate::ai_md::types::*;
 use crate::ai_md::AI_MD_INSTRUCTION_PROMPT;
+use crate::ai_md::types::*;
 use crate::error::AgentError;
 use std::collections::HashSet;
 use std::fs;

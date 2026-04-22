@@ -4,8 +4,8 @@
 //! Cmdlets are case-insensitive; all matching is done in lowercase.
 
 use once_cell::sync::Lazy;
-use std::collections::HashSet;
 use regex::Regex;
+use std::collections::HashSet;
 
 /// Command configuration for allowlist
 #[derive(Debug, Clone, Default)]
@@ -155,68 +155,67 @@ static SAFE_EXTERNAL_EXES: Lazy<HashSet<&'static str>> = Lazy::new(|| {
 });
 
 /// Windows PATHEXT extensions
-static WINDOWS_PATHEXT: Lazy<Regex> = Lazy::new(|| {
-    Regex::new(r"\.(exe|cmd|bat|com)$").unwrap()
-});
+static WINDOWS_PATHEXT: Lazy<Regex> = Lazy::new(|| Regex::new(r"\.(exe|cmd|bat|com)$").unwrap());
 
 /// Common PowerShell aliases mapping to canonical cmdlet names
-static COMMON_ALIASES: Lazy<std::collections::HashMap<&'static str, &'static str>> = Lazy::new(|| {
-    let mut map = std::collections::HashMap::new();
-    // File operations
-    map.insert("rm", "remove-item");
-    map.insert("del", "remove-item");
-    map.insert("ri", "remove-item");
-    map.insert("rd", "remove-item");
-    map.insert("rmdir", "remove-item");
-    map.insert("gc", "get-content");
-    map.insert("cat", "get-content");
-    map.insert("type", "get-content");
-    map.insert("gci", "get-childitem");
-    map.insert("dir", "get-childitem");
-    map.insert("ls", "get-childitem");
-    map.insert("ni", "new-item");
-    map.insert("mkdir", "new-item");
-    map.insert("cp", "copy-item");
-    map.insert("copy", "copy-item");
-    map.insert("cpi", "copy-item");
-    map.insert("mv", "move-item");
-    map.insert("move", "move-item");
-    map.insert("mi", "move-item");
-    map.insert("ren", "rename-item");
-    map.insert("rni", "rename-item");
-    map.insert("si", "set-item");
-    map.insert("sc", "set-content");
-    map.insert("set", "set-content");
-    map.insert("ac", "add-content");
-    // Navigation
-    map.insert("cd", "set-location");
-    map.insert("sl", "set-location");
-    map.insert("chdir", "set-location");
-    map.insert("pushd", "push-location");
-    map.insert("popd", "pop-location");
-    // Search
-    map.insert("select", "select-string");
-    map.insert("find", "findstr");
-    // Output
-    map.insert("echo", "write-output");
-    map.insert("write", "write-output");
-    // Aliases
-    map.insert("gal", "get-alias");
-    map.insert("gh", "get-help");
-    map.insert("gm", "get-member");
-    map.insert("gps", "get-process");
-    map.insert("gsv", "get-service");
-    map.insert("fl", "format-list");
-    map.insert("ft", "format-table");
-    map.insert("fw", "format-wide");
-    map.insert("sort", "sort-object");
-    map.insert("group", "group-object");
-    map.insert("where", "where-object");
-    map.insert("foreach", "foreach-object");
-    map.insert("%", "foreach-object");
-    map.insert("?", "where-object");
-    map
-});
+static COMMON_ALIASES: Lazy<std::collections::HashMap<&'static str, &'static str>> =
+    Lazy::new(|| {
+        let mut map = std::collections::HashMap::new();
+        // File operations
+        map.insert("rm", "remove-item");
+        map.insert("del", "remove-item");
+        map.insert("ri", "remove-item");
+        map.insert("rd", "remove-item");
+        map.insert("rmdir", "remove-item");
+        map.insert("gc", "get-content");
+        map.insert("cat", "get-content");
+        map.insert("type", "get-content");
+        map.insert("gci", "get-childitem");
+        map.insert("dir", "get-childitem");
+        map.insert("ls", "get-childitem");
+        map.insert("ni", "new-item");
+        map.insert("mkdir", "new-item");
+        map.insert("cp", "copy-item");
+        map.insert("copy", "copy-item");
+        map.insert("cpi", "copy-item");
+        map.insert("mv", "move-item");
+        map.insert("move", "move-item");
+        map.insert("mi", "move-item");
+        map.insert("ren", "rename-item");
+        map.insert("rni", "rename-item");
+        map.insert("si", "set-item");
+        map.insert("sc", "set-content");
+        map.insert("set", "set-content");
+        map.insert("ac", "add-content");
+        // Navigation
+        map.insert("cd", "set-location");
+        map.insert("sl", "set-location");
+        map.insert("chdir", "set-location");
+        map.insert("pushd", "push-location");
+        map.insert("popd", "pop-location");
+        // Search
+        map.insert("select", "select-string");
+        map.insert("find", "findstr");
+        // Output
+        map.insert("echo", "write-output");
+        map.insert("write", "write-output");
+        // Aliases
+        map.insert("gal", "get-alias");
+        map.insert("gh", "get-help");
+        map.insert("gm", "get-member");
+        map.insert("gps", "get-process");
+        map.insert("gsv", "get-service");
+        map.insert("fl", "format-list");
+        map.insert("ft", "format-table");
+        map.insert("fw", "format-wide");
+        map.insert("sort", "sort-object");
+        map.insert("group", "group-object");
+        map.insert("where", "where-object");
+        map.insert("foreach", "foreach-object");
+        map.insert("%", "foreach-object");
+        map.insert("?", "where-object");
+        map
+    });
 
 /// .NET read-only flags
 static DOTNET_READ_ONLY_FLAGS: Lazy<HashSet<&'static str>> = Lazy::new(|| {
@@ -257,9 +256,7 @@ static GIT_GLOBAL_FLAGS_WITH_VALUES: Lazy<HashSet<&'static str>> = Lazy::new(|| 
 });
 
 /// Dangerous git short flags with attached values
-static DANGEROUS_GIT_SHORT_FLAGS_ATTACHED: Lazy<Vec<&'static str>> = Lazy::new(|| {
-    vec!["-c", "-C"]
-});
+static DANGEROUS_GIT_SHORT_FLAGS_ATTACHED: Lazy<Vec<&'static str>> = Lazy::new(|| vec!["-c", "-C"]);
 
 /// Resolves a command name to its canonical cmdlet name
 pub fn resolve_to_canonical(name: &str) -> String {
@@ -392,7 +389,10 @@ pub fn is_read_only_command(command: &str) -> bool {
     }
 
     // Check for redirection to file (not null)
-    if trimmed_command.contains(">") && !trimmed_command.contains("> $null") && !trimmed_command.contains(">|") {
+    if trimmed_command.contains(">")
+        && !trimmed_command.contains("> $null")
+        && !trimmed_command.contains(">|")
+    {
         return false;
     }
 
@@ -495,10 +495,29 @@ pub fn is_git_safe(args: &[String]) -> bool {
 
     // Read-only git subcommands
     let read_only_git = [
-        "status", "diff", "log", "show", "blame", "branch", "tag",
-        "stash", "remote", "reflog", "ls-files", "ls-tree", "rev-parse",
-        "show-ref", "name-rev", "describe", "shortlog", "diff-tree",
-        "cat-file", "verify-pack", "fsck", "check-ignore", "checkout-index",
+        "status",
+        "diff",
+        "log",
+        "show",
+        "blame",
+        "branch",
+        "tag",
+        "stash",
+        "remote",
+        "reflog",
+        "ls-files",
+        "ls-tree",
+        "rev-parse",
+        "show-ref",
+        "name-rev",
+        "describe",
+        "shortlog",
+        "diff-tree",
+        "cat-file",
+        "verify-pack",
+        "fsck",
+        "check-ignore",
+        "checkout-index",
     ];
 
     if !read_only_git.contains(&subcmd.as_str()) {
@@ -507,7 +526,15 @@ pub fn is_git_safe(args: &[String]) -> bool {
 
     // Check remaining flags
     let flag_args: Vec<String> = args[idx + 1..].to_vec();
-    let safe_flags = vec!["--name-only", "--oneline", "-q", "--quiet", "-s", "--short", "--stat"];
+    let safe_flags = vec![
+        "--name-only",
+        "--oneline",
+        "-q",
+        "--quiet",
+        "-s",
+        "--short",
+        "--stat",
+    ];
 
     validate_flags(&flag_args, &safe_flags)
 }
@@ -529,8 +556,20 @@ pub fn is_docker_safe(args: &[String]) -> bool {
 
     // Read-only docker commands
     let read_only_docker = [
-        "ps", "images", "ls", "inspect", "logs", "top", "stats", "port",
-        "network", "volume", "container", "image", "version", "info",
+        "ps",
+        "images",
+        "ls",
+        "inspect",
+        "logs",
+        "top",
+        "stats",
+        "port",
+        "network",
+        "volume",
+        "container",
+        "image",
+        "version",
+        "info",
     ];
 
     if !read_only_docker.contains(&subcmd.as_str()) {

@@ -22,13 +22,13 @@ use crate::constants::tools::{
     BASH_TOOL_NAME, FILE_EDIT_TOOL_NAME, FILE_READ_TOOL_NAME, FILE_WRITE_TOOL_NAME, GLOB_TOOL_NAME,
     GREP_TOOL_NAME,
 };
-use crate::memdir::paths::{get_auto_mem_path, is_auto_mem_path, is_auto_memory_enabled};
 use crate::memdir::ENTRYPOINT_NAME;
 use crate::memdir::memory_scan::scan_memory_files;
+use crate::memdir::paths::{get_auto_mem_path, is_auto_mem_path, is_auto_memory_enabled};
 use crate::tool::ToolUseContext;
 use crate::types::message::{
-    AssistantMessage, AssistantMessageContent, Message, SystemMessage, UserContent,
-    UserMessage, UserMessageContent,
+    AssistantMessage, AssistantMessageContent, Message, SystemMessage, UserContent, UserMessage,
+    UserMessageContent,
 };
 use crate::utils::forked_agent::{
     CacheSafeParams, CanUseToolFn, ForkedAgentConfig, ForkedAgentResult, PermissionDecision,
@@ -169,20 +169,65 @@ fn has_memory_writes_since(messages: &[Message], since_uuid: Option<&str>) -> bo
 fn is_bash_read_only(input: &serde_json::Value) -> bool {
     if let Some(command) = input.get("command").and_then(|c| c.as_str()) {
         // Check for write operations FIRST (before prefix matching)
-        if command.contains(" > ") || command.contains(" >> ")
-            || command.contains(" 2> ") || command.contains(" 2>> ")
+        if command.contains(" > ")
+            || command.contains(" >> ")
+            || command.contains(" 2> ")
+            || command.contains(" 2>> ")
         {
             return false;
         }
         let read_only_prefixes = [
-            "ls", "find", "cat", "stat", "wc", "head", "tail", "grep", "less",
-            "more", "type", "which", "file", "du", "df", "pwd", "echo", "sort",
-            "uniq", "diff", "comm", "cut", "awk", "tr", "xxd", "od",
-            "hexdump", "basename", "dirname", "readlink", "realpath", "env",
-            "printenv", "date", "uptime", "free", "ps", "journalctl",
-            "systemctl status", "mount", "ip", "ifconfig", "ping",
-            "curl", "man", "info",
-            "--help", "-h", "-V", "--version", "touch -r",
+            "ls",
+            "find",
+            "cat",
+            "stat",
+            "wc",
+            "head",
+            "tail",
+            "grep",
+            "less",
+            "more",
+            "type",
+            "which",
+            "file",
+            "du",
+            "df",
+            "pwd",
+            "echo",
+            "sort",
+            "uniq",
+            "diff",
+            "comm",
+            "cut",
+            "awk",
+            "tr",
+            "xxd",
+            "od",
+            "hexdump",
+            "basename",
+            "dirname",
+            "readlink",
+            "realpath",
+            "env",
+            "printenv",
+            "date",
+            "uptime",
+            "free",
+            "ps",
+            "journalctl",
+            "systemctl status",
+            "mount",
+            "ip",
+            "ifconfig",
+            "ping",
+            "curl",
+            "man",
+            "info",
+            "--help",
+            "-h",
+            "-V",
+            "--version",
+            "touch -r",
         ];
         for prefix in &read_only_prefixes {
             if command.starts_with(prefix) {
@@ -191,10 +236,25 @@ fn is_bash_read_only(input: &serde_json::Value) -> bool {
         }
         // No destructive commands
         let destructive_prefixes = [
-            "rm ", "mv ", "cp ", "dd ", "truncate ", "mkfs ",
-            "chmod ", "chown ", "sync", "shutdown", "reboot",
-            "mount --", "umount", "mkswap", "swapoff",
-            "mkfs.", "fsck", "fdisk", "wipefs",
+            "rm ",
+            "mv ",
+            "cp ",
+            "dd ",
+            "truncate ",
+            "mkfs ",
+            "chmod ",
+            "chown ",
+            "sync",
+            "shutdown",
+            "reboot",
+            "mount --",
+            "umount",
+            "mkswap",
+            "swapoff",
+            "mkfs.",
+            "fsck",
+            "fdisk",
+            "wipefs",
         ];
         !destructive_prefixes.iter().any(|p| command.starts_with(p))
     } else {
@@ -213,51 +273,60 @@ fn deny_auto_mem_tool_string(tool_name: &str, reason: &str) -> String {
 fn create_auto_mem_can_use_tool(memory_dir: std::path::PathBuf) -> Arc<CanUseToolFn> {
     let memory_dir_str = memory_dir.to_string_lossy().to_string();
 
-    Arc::new(move |_tool_def, input, _tool_use_context, _assistant_msg, _query_source, _is_explicit| {
-        let tool_name = _tool_def.get("name").and_then(|n| n.as_str()).unwrap_or("").to_string();
-        let input = input.clone();
-        let memory_dir_path = memory_dir.clone();
-        let memory_dir_str = memory_dir_str.clone();
+    Arc::new(
+        move |_tool_def, input, _tool_use_context, _assistant_msg, _query_source, _is_explicit| {
+            let tool_name = _tool_def
+                .get("name")
+                .and_then(|n| n.as_str())
+                .unwrap_or("")
+                .to_string();
+            let input = input.clone();
+            let memory_dir_path = memory_dir.clone();
+            let memory_dir_str = memory_dir_str.clone();
 
-        Box::pin(async move {
-            let tool_name = tool_name;
-            if tool_name == FILE_READ_TOOL_NAME || tool_name == GREP_TOOL_NAME || tool_name == GLOB_TOOL_NAME {
-                return Ok(PermissionDecision::Allow);
-            }
-
-            if tool_name == BASH_TOOL_NAME {
-                if is_bash_read_only(&input) {
+            Box::pin(async move {
+                let tool_name = tool_name;
+                if tool_name == FILE_READ_TOOL_NAME
+                    || tool_name == GREP_TOOL_NAME
+                    || tool_name == GLOB_TOOL_NAME
+                {
                     return Ok(PermissionDecision::Allow);
                 }
-                return Err(deny_auto_mem_tool_string(
-                    &tool_name,
-                    "Only read-only shell commands are permitted in this context (ls, find, grep, cat, stat, wc, head, tail, and similar)",
-                ));
-            }
 
-            if tool_name == FILE_EDIT_TOOL_NAME || tool_name == FILE_WRITE_TOOL_NAME {
-                if let Some(file_path) = input.get("file_path").and_then(|p| p.as_str()) {
-                    if is_auto_mem_path(&std::path::Path::new(file_path)) {
+                if tool_name == BASH_TOOL_NAME {
+                    if is_bash_read_only(&input) {
                         return Ok(PermissionDecision::Allow);
                     }
+                    return Err(deny_auto_mem_tool_string(
+                        &tool_name,
+                        "Only read-only shell commands are permitted in this context (ls, find, grep, cat, stat, wc, head, tail, and similar)",
+                    ));
                 }
-            }
 
-            Err(deny_auto_mem_tool_string(
-                &tool_name,
-                &format!(
-                    "only {}, {}, {}, read-only {}, and {}/{} within {} are allowed",
-                    FILE_READ_TOOL_NAME,
-                    GREP_TOOL_NAME,
-                    GLOB_TOOL_NAME,
-                    BASH_TOOL_NAME,
-                    FILE_EDIT_TOOL_NAME,
-                    FILE_WRITE_TOOL_NAME,
-                    memory_dir_str,
-                ),
-            ))
-        })
-    })
+                if tool_name == FILE_EDIT_TOOL_NAME || tool_name == FILE_WRITE_TOOL_NAME {
+                    if let Some(file_path) = input.get("file_path").and_then(|p| p.as_str()) {
+                        if is_auto_mem_path(&std::path::Path::new(file_path)) {
+                            return Ok(PermissionDecision::Allow);
+                        }
+                    }
+                }
+
+                Err(deny_auto_mem_tool_string(
+                    &tool_name,
+                    &format!(
+                        "only {}, {}, {}, read-only {}, and {}/{} within {} are allowed",
+                        FILE_READ_TOOL_NAME,
+                        GREP_TOOL_NAME,
+                        GLOB_TOOL_NAME,
+                        BASH_TOOL_NAME,
+                        FILE_EDIT_TOOL_NAME,
+                        FILE_WRITE_TOOL_NAME,
+                        memory_dir_str,
+                    ),
+                ))
+            })
+        },
+    )
 }
 
 // ============================================================================
@@ -325,7 +394,8 @@ struct ExtractionState {
     last_memory_message_uuid: std::sync::Mutex<Option<String>>,
     in_progress: std::sync::Mutex<bool>,
     turns_since_last_extraction: std::sync::Mutex<usize>,
-    pending_context: std::sync::Mutex<Option<(ExtractMemoryContext, Option<AppendSystemMessageFn>)>>,
+    pending_context:
+        std::sync::Mutex<Option<(ExtractMemoryContext, Option<AppendSystemMessageFn>)>>,
 }
 
 impl ExtractionState {
@@ -347,9 +417,7 @@ impl ExtractionState {
             turns_since_last_extraction: std::sync::Mutex::new(
                 *self.turns_since_last_extraction.lock().unwrap(),
             ),
-            pending_context: std::sync::Mutex::new(
-                self.pending_context.lock().unwrap().clone(),
-            ),
+            pending_context: std::sync::Mutex::new(self.pending_context.lock().unwrap().clone()),
         }
     }
 }
@@ -500,20 +568,19 @@ async fn run_extraction(
         if written_paths.is_empty() {
             log::debug!("[extractMemories] no memories saved this run");
         } else {
-            log::debug!("[extractMemories] memories saved: {}", written_paths.join(", "));
+            log::debug!(
+                "[extractMemories] memories saved: {}",
+                written_paths.join(", ")
+            );
         }
 
         // Filter out MEMORY.md entries to get actual memory file paths.
-        let memory_paths: Vec<String> = uniq(
-            written_paths
-                .into_iter()
-                .filter(|p| {
-                    std::path::Path::new(p)
-                        .file_name()
-                        .map(|name| name.to_string_lossy() != ENTRYPOINT_NAME)
-                        .unwrap_or(false)
-                })
-        );
+        let memory_paths: Vec<String> = uniq(written_paths.into_iter().filter(|p| {
+            std::path::Path::new(p)
+                .file_name()
+                .map(|name| name.to_string_lossy() != ENTRYPOINT_NAME)
+                .unwrap_or(false)
+        }));
 
         if let Some(ref append_fn) = append_system_message {
             if !memory_paths.is_empty() {
@@ -534,7 +601,13 @@ async fn run_extraction(
         };
         if let Some((trailing_context, trailing_append)) = trailing {
             log::debug!("[extractMemories] running trailing extraction for stashed context");
-            Box::pin(do_extraction(state, trailing_context, trailing_append, true)).await;
+            Box::pin(do_extraction(
+                state,
+                trailing_context,
+                trailing_append,
+                true,
+            ))
+            .await;
         }
     }
 
@@ -545,8 +618,7 @@ async fn run_extraction(
 // Public API
 // ============================================================================
 
-static EXTRACTOR_STATE: std::sync::Mutex<Option<ExtractionState>> =
-    std::sync::Mutex::new(None);
+static EXTRACTOR_STATE: std::sync::Mutex<Option<ExtractionState>> = std::sync::Mutex::new(None);
 
 /// Initialize the memory extraction system.
 pub fn init_extract_memories() {
@@ -686,7 +758,10 @@ mod tests {
     #[test]
     fn test_count_model_visible_messages_since_not_found() {
         let messages = vec![test_user_message("1"), test_assistant_message("2")];
-        assert_eq!(count_model_visible_messages_since(&messages, Some("999")), 2);
+        assert_eq!(
+            count_model_visible_messages_since(&messages, Some("999")),
+            2
+        );
     }
 
     #[test]
@@ -730,11 +805,21 @@ mod tests {
     #[test]
     fn test_bash_read_only() {
         assert!(is_bash_read_only(&serde_json::json!({"command": "ls -la"})));
-        assert!(is_bash_read_only(&serde_json::json!({"command": "grep pattern file.txt"})));
-        assert!(is_bash_read_only(&serde_json::json!({"command": "cat file.txt"})));
-        assert!(!is_bash_read_only(&serde_json::json!({"command": "rm file.txt"})));
-        assert!(!is_bash_read_only(&serde_json::json!({"command": "echo hello > file.txt"})));
-        assert!(!is_bash_read_only(&serde_json::json!({"command": "cp a b"})));
+        assert!(is_bash_read_only(
+            &serde_json::json!({"command": "grep pattern file.txt"})
+        ));
+        assert!(is_bash_read_only(
+            &serde_json::json!({"command": "cat file.txt"})
+        ));
+        assert!(!is_bash_read_only(
+            &serde_json::json!({"command": "rm file.txt"})
+        ));
+        assert!(!is_bash_read_only(
+            &serde_json::json!({"command": "echo hello > file.txt"})
+        ));
+        assert!(!is_bash_read_only(
+            &serde_json::json!({"command": "cp a b"})
+        ));
     }
 
     #[test]

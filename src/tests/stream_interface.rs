@@ -10,11 +10,14 @@ async fn test_event_subscriber_stream_trait() {
     let (tx, mut rx) = tokio::sync::mpsc::channel::<()>(10);
     drop(tx);
     let result = rx.recv().await;
-    assert!(result.is_none(), "recv should return None when sender drops");
+    assert!(
+        result.is_none(),
+        "recv should return None when sender drops"
+    );
 
     // Now test the EventSubscriber pattern
     let (sub, guard) = {
-        let mut agent = crate::Agent::new("claude-sonnet-4-6", 1);
+        let agent = crate::Agent::new("claude-sonnet-4-6").max_turns(1);
         agent.subscribe()
     };
     drop(guard);
@@ -25,7 +28,7 @@ async fn test_event_subscriber_stream_trait() {
 /// Verify subscribe creates independent subscriber channels
 #[tokio::test]
 async fn test_subscribe_creates_independent_channels() {
-    let mut agent = crate::Agent::new("claude-sonnet-4-6", 1);
+    let agent = crate::Agent::new("claude-sonnet-4-6").max_turns(1);
     let (mut sub1, guard1) = agent.subscribe();
     let (mut sub2, guard2) = agent.subscribe();
 
@@ -42,7 +45,7 @@ async fn test_subscribe_creates_independent_channels() {
 /// Verify that CancelGuard drops properly
 #[tokio::test]
 async fn test_cancel_guard_cleanup() {
-    let mut agent = crate::Agent::new("claude-sonnet-4-6", 1);
+    let agent = crate::Agent::new("claude-sonnet-4-6").max_turns(1);
     let (_sub, guard) = agent.subscribe();
 
     // Guard should be droppable
@@ -50,5 +53,8 @@ async fn test_cancel_guard_cleanup() {
 
     // Agent should still be usable after guard drops
     let model = agent.get_model();
-    assert!(!model.is_empty(), "Agent should still be usable after guard drops, model={model}");
+    assert!(
+        !model.is_empty(),
+        "Agent should still be usable after guard drops, model={model}"
+    );
 }

@@ -19,13 +19,9 @@ pub const CONTEXT_LINES: usize = 3;
 
 /// Generate a structured patch from old and new file contents.
 /// Uses the `similar` crate for line-level diffing.
-pub fn generate_patch(
-    old_content: &str,
-    new_content: &str,
-) -> Vec<StructuredPatchHunk> {
+pub fn generate_patch(old_content: &str, new_content: &str) -> Vec<StructuredPatchHunk> {
     let old_escaped = escape_for_diff(old_content);
     let new_escaped = escape_for_diff(new_content);
-
 
     if old_escaped.lines().count() == 0 && new_escaped.lines().count() == 0 {
         return Vec::new();
@@ -120,7 +116,10 @@ pub fn generate_patch(
             }
         }
 
-        let all_lines: Vec<String> = current.iter().flat_map(|(_, lines)| lines.clone()).collect();
+        let all_lines: Vec<String> = current
+            .iter()
+            .flat_map(|(_, lines)| lines.clone())
+            .collect();
         hunks.push(StructuredPatchHunk {
             old_start: first_hunk_old.unwrap_or(0),
             old_lines: total_old,
@@ -134,7 +133,10 @@ pub fn generate_patch(
 }
 
 /// Count lines added and removed from a structured patch.
-pub fn count_lines_changed(patch: &[StructuredPatchHunk], new_file_content: Option<&str>) -> (usize, usize) {
+pub fn count_lines_changed(
+    patch: &[StructuredPatchHunk],
+    new_file_content: Option<&str>,
+) -> (usize, usize) {
     if patch.is_empty() {
         if let Some(content) = new_file_content {
             let additions = content.lines().count();
@@ -143,11 +145,15 @@ pub fn count_lines_changed(patch: &[StructuredPatchHunk], new_file_content: Opti
         return (0, 0);
     }
 
-    let additions = patch.iter().flat_map(|h| &h.lines)
+    let additions = patch
+        .iter()
+        .flat_map(|h| &h.lines)
         .filter(|l| l.starts_with('+'))
         .count();
 
-    let removals = patch.iter().flat_map(|h| &h.lines)
+    let removals = patch
+        .iter()
+        .flat_map(|h| &h.lines)
         .filter(|l| l.starts_with('-'))
         .count();
 
@@ -207,7 +213,10 @@ fn build_hunk(current: &[(ChangeTag, Vec<String>)]) -> StructuredPatchHunk {
         }
     }
 
-    let all_lines: Vec<String> = current.iter().flat_map(|(_, lines)| lines.clone()).collect();
+    let all_lines: Vec<String> = current
+        .iter()
+        .flat_map(|(_, lines)| lines.clone())
+        .collect();
     StructuredPatchHunk {
         old_start: first_hunk_old.unwrap_or(0),
         old_lines: total_old,

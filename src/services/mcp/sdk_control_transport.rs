@@ -121,10 +121,7 @@ impl SdkControlTransport {
         self.connected = true;
 
         // Log successful connection
-        log::info!(
-            "SDK transport connected for server: {}",
-            self.server_name
-        );
+        log::info!("SDK transport connected for server: {}", self.server_name);
 
         Ok(())
     }
@@ -200,11 +197,7 @@ impl SdkControlTransport {
             .request_timeout_ms
             .unwrap_or(30_000);
 
-        match tokio::time::timeout(
-            std::time::Duration::from_millis(timeout_ms),
-            response_rx,
-        )
-        .await
+        match tokio::time::timeout(std::time::Duration::from_millis(timeout_ms), response_rx).await
         {
             Ok(Ok(response)) => response,
             Ok(Err(e)) => Err(format!("Request cancelled: {}", e)),
@@ -273,10 +266,7 @@ impl SdkControlTransport {
         drop(inner);
 
         // In actual implementation, this would be sent over the wire
-        log::debug!(
-            "Sending notification to SDK transport: {}",
-            method
-        );
+        log::debug!("Sending notification to SDK transport: {}", method);
     }
 
     /// Initialize the MCP server (send initialize request)
@@ -303,9 +293,7 @@ impl SdkControlTransport {
         handler: impl Fn(TransportNotification) + Send + Sync + 'static,
     ) {
         let mut inner = self.inner.lock().await;
-        inner
-            .notification_handlers
-            .push(Arc::new(handler));
+        inner.notification_handlers.push(Arc::new(handler));
     }
 
     /// Get the message log

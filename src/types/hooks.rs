@@ -27,10 +27,21 @@ pub type SyncHookJSONOutput = serde_json::Value;
 pub fn is_hook_event(value: &str) -> bool {
     // Hook events list from SDK
     let events = [
-        "PreToolUse", "UserPromptSubmit", "SessionStart", "Setup", "SubagentStart",
-        "PostToolUse", "PostToolUseFailure", "PermissionDenied", "Notification",
-        "PermissionRequest", "Elicitation", "ElicitationResult", "CwdChanged",
-        "FileChanged", "WorktreeCreate",
+        "PreToolUse",
+        "UserPromptSubmit",
+        "SessionStart",
+        "Setup",
+        "SubagentStart",
+        "PostToolUse",
+        "PostToolUseFailure",
+        "PermissionDenied",
+        "Notification",
+        "PermissionRequest",
+        "Elicitation",
+        "ElicitationResult",
+        "CwdChanged",
+        "FileChanged",
+        "WorktreeCreate",
     ];
     events.contains(&value)
 }
@@ -260,19 +271,25 @@ pub fn is_async_hook_json_output(json: &HookJSONOutput) -> bool {
 /// Context passed to callback hooks for state access.
 pub struct HookCallbackContext {
     pub get_app_state: Box<dyn Fn() -> Box<dyn std::any::Any> + Send + Sync>,
-    pub update_attribution_state: Box<dyn Fn(Box<dyn std::any::Any>) -> Box<dyn std::any::Any> + Send + Sync>,
+    pub update_attribution_state:
+        Box<dyn Fn(Box<dyn std::any::Any>) -> Box<dyn std::any::Any> + Send + Sync>,
 }
 
 /// Hook that is a callback.
 pub struct HookCallback {
     pub callback_type: String, // "callback"
-    pub callback: Box<dyn Fn(
-        HookInput,
-        Option<String>,  // toolUseID
-        Option<tokio::sync::oneshot::Receiver<()>>,  // abort signal
-        Option<usize>,   // hookIndex
-        Option<HookCallbackContext>,
-    ) -> std::pin::Pin<Box<dyn std::future::Future<Output = HookJSONOutput> + Send>> + Send + Sync>,
+    pub callback: Box<
+        dyn Fn(
+                HookInput,
+                Option<String>,                             // toolUseID
+                Option<tokio::sync::oneshot::Receiver<()>>, // abort signal
+                Option<usize>,                              // hookIndex
+                Option<HookCallbackContext>,
+            )
+                -> std::pin::Pin<Box<dyn std::future::Future<Output = HookJSONOutput> + Send>>
+            + Send
+            + Sync,
+    >,
     /// Timeout in seconds for this hook
     pub timeout: Option<u64>,
     /// Internal hooks excluded from tengu_run_hook metrics

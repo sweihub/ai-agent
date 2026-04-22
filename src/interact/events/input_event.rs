@@ -125,10 +125,34 @@ impl Default for ParsedKey {
 
 /// Non-alphanumeric key names that should clear input.
 const NON_ALPHANUMERIC_KEYS: &[&str] = &[
-    "f1", "f2", "f3", "f4", "f5", "f6", "f7", "f8", "f9", "f10", "f11", "f12",
-    "up", "down", "left", "right", "clear", "end", "home",
-    "insert", "delete", "pageup", "pagedown",
-    "escape", "backspace", "wheelup", "wheeldown", "mouse",
+    "f1",
+    "f2",
+    "f3",
+    "f4",
+    "f5",
+    "f6",
+    "f7",
+    "f8",
+    "f9",
+    "f10",
+    "f11",
+    "f12",
+    "up",
+    "down",
+    "left",
+    "right",
+    "clear",
+    "end",
+    "home",
+    "insert",
+    "delete",
+    "pageup",
+    "pagedown",
+    "escape",
+    "backspace",
+    "wheelup",
+    "wheeldown",
+    "mouse",
 ];
 
 fn parse_key(keypress: &ParsedKey) -> Key {

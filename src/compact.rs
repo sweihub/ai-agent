@@ -304,8 +304,10 @@ pub fn strip_images_from_messages(messages: &[Message]) -> Vec<Message> {
                 MessageRole::Tool => {
                     // Tool results might contain image references
                     let content = msg.content.clone();
-                    if content.contains("![") || content.contains("<img")
-                        || content.contains("image") || content.contains("document")
+                    if content.contains("![")
+                        || content.contains("<img")
+                        || content.contains("image")
+                        || content.contains("document")
                     {
                         let stripped = strip_image_markdown(&content);
                         if stripped != content {
@@ -342,7 +344,9 @@ fn strip_image_markdown(content: &str) -> String {
                 let bracket_pos = i + close_bracket;
                 if bracket_pos + 1 < chars.len() && chars[bracket_pos + 1] == '(' {
                     // Find the closing )
-                    if let Some(close_paren) = chars[bracket_pos + 2..].iter().position(|&c| c == ')') {
+                    if let Some(close_paren) =
+                        chars[bracket_pos + 2..].iter().position(|&c| c == ')')
+                    {
                         let paren_pos = bracket_pos + 2 + close_paren;
                         // Extract alt text
                         let alt: String = chars[i + 2..bracket_pos].iter().collect();
@@ -375,9 +379,7 @@ pub fn strip_reinjected_attachments(messages: &[Message]) -> Vec<Message> {
     messages
         .iter()
         .map(|msg| {
-            if msg.content.contains("skill_discovery")
-                || msg.content.contains("skill_listing")
-            {
+            if msg.content.contains("skill_discovery") || msg.content.contains("skill_listing") {
                 Message {
                     role: msg.role.clone(),
                     content: "[Skill attachment content cleared for compaction]".to_string(),

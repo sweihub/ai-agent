@@ -5,17 +5,16 @@
 //!
 //! Handles rule matching, permission decisions, and the main permission pipeline.
 
-use std::collections::HashMap;
-use serde_json::Value;
-use crate::types::permissions::{
-    PermissionBehavior, PermissionDecision, PermissionDecisionReason,
-    PermissionDenyDecision, PermissionResult, PermissionRule,
-    PermissionRuleSource, PermissionRuleValue, PermissionUpdate,
-    ToolPermissionContext,
-};
 use super::permission_rule_parser::{
     permission_rule_value_from_string, permission_rule_value_to_string,
 };
+use crate::types::permissions::{
+    PermissionBehavior, PermissionDecision, PermissionDecisionReason, PermissionDenyDecision,
+    PermissionResult, PermissionRule, PermissionRuleSource, PermissionRuleValue, PermissionUpdate,
+    ToolPermissionContext,
+};
+use serde_json::Value;
+use std::collections::HashMap;
 
 /// Permission rule sources in priority order.
 const PERMISSION_RULE_SOURCES: &[&str] = &[
@@ -140,17 +139,22 @@ pub fn create_permission_request_message(
 ) -> String {
     if let Some(reason) = decision_reason {
         match reason {
-            PermissionDecisionReason::Hook { hook_name, reason: Some(r), .. } => {
+            PermissionDecisionReason::Hook {
+                hook_name,
+                reason: Some(r),
+                ..
+            } => {
                 return format!("Hook '{}' blocked this action: {}", hook_name, r);
             }
             PermissionDecisionReason::Hook { hook_name, .. } => {
-                return format!("Hook '{}' requires approval for this {} command", hook_name, tool_name);
+                return format!(
+                    "Hook '{}' requires approval for this {} command",
+                    hook_name, tool_name
+                );
             }
             PermissionDecisionReason::Rule { rule, .. } => {
                 let rule_string = permission_rule_value_to_string(&rule.rule_value);
-                let source_string = permission_rule_source_display_string(
-                    rule.source.as_str(),
-                );
+                let source_string = permission_rule_source_display_string(rule.source.as_str());
                 return format!(
                     "Permission rule '{}' from {} requires approval for this {} command",
                     rule_string, source_string, tool_name
@@ -188,10 +192,7 @@ pub fn create_permission_request_message(
 }
 
 /// Checks if the entire tool matches a rule.
-fn tool_matches_rule(
-    tool_name: &str,
-    rule: &PermissionRule,
-) -> bool {
+fn tool_matches_rule(tool_name: &str, rule: &PermissionRule) -> bool {
     if rule.rule_value.rule_content.is_some() {
         return false;
     }
@@ -244,8 +245,7 @@ pub fn get_rule_by_contents_for_tool_name(
     rules
         .into_iter()
         .filter(|rule| {
-            rule.rule_value.tool_name == tool_name
-                && rule.rule_value.rule_content.is_some()
+            rule.rule_value.tool_name == tool_name && rule.rule_value.rule_content.is_some()
         })
         .map(|rule| {
             let content = rule.rule_value.rule_content.clone().unwrap();
@@ -265,9 +265,7 @@ pub fn apply_permission_rules_to_permission_context(
 }
 
 /// Syncs permission rules from disk.
-pub fn sync_permission_rules_from_disk(
-    context: ToolPermissionContext,
-) -> ToolPermissionContext {
+pub fn sync_permission_rules_from_disk(context: ToolPermissionContext) -> ToolPermissionContext {
     use super::permissions_loader::load_all_permission_rules_from_disk;
     let rules = load_all_permission_rules_from_disk();
     apply_permission_rules_to_permission_context(context, rules)

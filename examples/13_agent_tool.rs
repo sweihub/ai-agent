@@ -12,7 +12,7 @@
  * - AI_AUTH_TOKEN: API authentication token
  * - AI_MODEL: Model name (defaults to claude-sonnet-4-6)
  */
-use ai_agent::{get_all_tools, Agent, AgentOptions, EnvConfig};
+use ai_agent::{Agent, EnvConfig, get_all_tools};
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -20,30 +20,34 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Load config from .env
     let config = EnvConfig::load();
-    let model = config.model.unwrap_or_else(|| "claude-sonnet-4-6".to_string());
+    let model = config
+        .model
+        .unwrap_or_else(|| "claude-sonnet-4-6".to_string());
 
     println!("Using model: {}\n", model);
 
     // Create agent with all tools including Agent tool
     let tools = get_all_tools();
-    println!("Available tools: {:?}\n", tools.iter().map(|t| &t.name).collect::<Vec<_>>());
+    println!(
+        "Available tools: {:?}\n",
+        tools.iter().map(|t| &t.name).collect::<Vec<_>>()
+    );
 
-    let mut agent = Agent::create(AgentOptions {
-        model: Some(model.to_string()),
-        max_turns: Some(10),
-        tools,
-        ..Default::default()
-    });
+    let agent = Agent::new(&model).max_turns(10).tools(tools);
 
     // Set system prompt to encourage tool use
-    agent.set_system_prompt("You have access to tools. When asked to spawn a subagent, \
-use the 'Agent' tool with the appropriate description and prompt.");
+    agent.set_system_prompt(
+        "You have access to tools. When asked to spawn a subagent, \
+use the 'Agent' tool with the appropriate description and prompt.",
+    );
 
     // The main agent will use the Agent tool to spawn a subagent
-    let result = agent.query(
-        "Use the 'Agent' tool to spawn a subagent. Description: 'count-numbers'. \
-        Prompt: 'Count from 1 to 3, one number per line.'"
-    ).await?;
+    let result = agent
+        .query(
+            "Use the 'Agent' tool to spawn a subagent. Description: 'count-numbers'. \
+        Prompt: 'Count from 1 to 3, one number per line.'",
+        )
+        .await?;
 
     println!("{}", result.text);
     println!("\n=== done ===");

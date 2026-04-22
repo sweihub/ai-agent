@@ -612,8 +612,8 @@ pub fn get_global_config_path() -> PathBuf {
         });
 
     dirs::home_dir()
-    .map(|h| h.join(".ai.json"))
-    .unwrap_or_else(|| PathBuf::from(".ai.json"))
+        .map(|h| h.join(".ai.json"))
+        .unwrap_or_else(|| PathBuf::from(".ai.json"))
 }
 
 /// Load global config from file
@@ -713,7 +713,8 @@ fn get_project_path_for_config() -> String {
 }
 
 // Session-level trust cache: trust only transitions false->true during a session
-static SESSION_TRUST_ACCEPTED: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+static SESSION_TRUST_ACCEPTED: std::sync::atomic::AtomicBool =
+    std::sync::atomic::AtomicBool::new(false);
 
 /// Check if trust dialog has been accepted for this session.
 /// Uses session-level cache (latched true) and checks global config paths.

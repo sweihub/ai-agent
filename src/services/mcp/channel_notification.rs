@@ -1,8 +1,8 @@
 // Source: /data/home/swei/claudecode/openclaudecode/src/services/mcp/channelNotification.ts
 //! Channel notifications - lets an MCP server push user messages into the conversation
 
-use std::collections::HashMap;
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 
 /// Channel message notification parameters
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -51,7 +51,9 @@ pub fn can_use_channels() -> bool {
 }
 
 /// Parse channel message notification
-pub fn parse_channel_message(notification: &ChannelMessageNotification) -> Option<&ChannelMessageParams> {
+pub fn parse_channel_message(
+    notification: &ChannelMessageNotification,
+) -> Option<&ChannelMessageParams> {
     if notification.method == "notifications/claude/channel" {
         Some(&notification.params)
     } else {

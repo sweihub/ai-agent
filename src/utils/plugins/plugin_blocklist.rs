@@ -36,7 +36,8 @@ pub fn detect_delisted_plugins(
 
 /// Detect delisted plugins across all marketplaces, auto-uninstall them,
 /// and record them as flagged.
-pub async fn detect_and_uninstall_delisted_plugins() -> Result<Vec<String>, Box<dyn std::error::Error + Send + Sync>> {
+pub async fn detect_and_uninstall_delisted_plugins()
+-> Result<Vec<String>, Box<dyn std::error::Error + Send + Sync>> {
     load_flagged_plugins().await?;
 
     let installed_plugins = load_installed_plugins_v2()?;
@@ -61,11 +62,7 @@ pub async fn detect_and_uninstall_delisted_plugins() -> Result<Vec<String>, Box<
             continue;
         }
 
-        let delisted = detect_delisted_plugins(
-            &installed_plugins,
-            &marketplace,
-            marketplace_name,
-        );
+        let delisted = detect_delisted_plugins(&installed_plugins, &marketplace, marketplace_name);
 
         for plugin_id in delisted {
             if already_flagged.contains_key(&plugin_id) {

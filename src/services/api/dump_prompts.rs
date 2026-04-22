@@ -83,7 +83,10 @@ pub fn clear_all_dump_state() {
 /// Add API request to cache
 pub fn add_api_request_to_cache(request_data: serde_json::Value) {
     // Only cache for ant users
-    if std::env::var("AI_CODE_USER_TYPE").map(|v| v == "ant").unwrap_or(false) {
+    if std::env::var("AI_CODE_USER_TYPE")
+        .map(|v| v == "ant")
+        .unwrap_or(false)
+    {
         let mut cache = CACHED_API_REQUESTS.lock().unwrap();
         cache.push_back(ApiRequestCacheEntry {
             timestamp: chrono::Utc::now().to_rfc3339(),
@@ -126,11 +129,15 @@ fn init_fingerprint(req: &serde_json::Value) -> String {
 
     let sys_len = match system {
         Some(serde_json::Value::String(s)) => s.len(),
-        Some(serde_json::Value::Array(arr)) => {
-            arr.iter()
-                .map(|b| b.get("text").and_then(|t| t.as_str()).map(|s| s.len()).unwrap_or(0))
-                .sum()
-        }
+        Some(serde_json::Value::Array(arr)) => arr
+            .iter()
+            .map(|b| {
+                b.get("text")
+                    .and_then(|t| t.as_str())
+                    .map(|s| s.len())
+                    .unwrap_or(0)
+            })
+            .sum(),
         _ => 0,
     };
 
@@ -177,12 +184,7 @@ fn append_to_file(file_path: &PathBuf, entries: &[String]) -> std::io::Result<()
 }
 
 /// Dump request to file
-fn dump_request(
-    body: &str,
-    ts: &str,
-    state: &mut DumpState,
-    file_path: &PathBuf,
-) {
+fn dump_request(body: &str, ts: &str, state: &mut DumpState, file_path: &PathBuf) {
     // Try to parse the request body
     let Ok(req) = serde_json::from_str::<serde_json::Value>(body) else {
         return;
@@ -192,7 +194,10 @@ fn dump_request(
     add_api_request_to_cache(req.clone());
 
     // Only dump for ant users
-    if std::env::var("AI_CODE_USER_TYPE").map(|v| v != "ant").unwrap_or(true) {
+    if std::env::var("AI_CODE_USER_TYPE")
+        .map(|v| v != "ant")
+        .unwrap_or(true)
+    {
         return;
     }
 
@@ -248,10 +253,7 @@ fn dump_request(
 
 /// Process API request for dump prompts
 /// This is called from the fetch wrapper
-pub fn process_dump_request(
-    body: &str,
-    agent_id_or_session_id: &str,
-) -> Option<String> {
+pub fn process_dump_request(body: &str, agent_id_or_session_id: &str) -> Option<String> {
     let timestamp = chrono::Utc::now().to_rfc3339();
     let file_path = get_dump_prompts_path(Some(agent_id_or_session_id));
 
@@ -269,7 +271,10 @@ pub fn process_dump_request(
 /// Get dump state for a session
 pub fn get_dump_state(agent_id_or_session_id: &str) -> DumpState {
     let states = DUMP_STATES.lock().unwrap();
-    states.get(agent_id_or_session_id).cloned().unwrap_or_default()
+    states
+        .get(agent_id_or_session_id)
+        .cloned()
+        .unwrap_or_default()
 }
 
 /// Set dump state for a session

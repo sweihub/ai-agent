@@ -51,9 +51,8 @@ impl TaskStopTool {
             .as_str()
             .or_else(|| input["shell_id"].as_str());
 
-        let task_id = id.ok_or_else(|| {
-            AgentError::Tool("Missing required parameter: task_id".to_string())
-        })?;
+        let task_id =
+            id.ok_or_else(|| AgentError::Tool("Missing required parameter: task_id".to_string()))?;
 
         // In a full implementation, this would:
         // 1. Look up the task in appState.tasks

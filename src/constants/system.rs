@@ -3,8 +3,7 @@ use crate::constants::env::ai_code;
 
 pub const DEFAULT_PREFIX: &str = "You are Claude Code, Anthropic's official CLI for Claude.";
 
-pub const AGENT_SDK_CLAUDE_CODE_PRESET_PREFIX: &str =
-    "You are Claude Code, Anthropic's official CLI for Claude, running within the Claude Agent SDK.";
+pub const AGENT_SDK_CLAUDE_CODE_PRESET_PREFIX: &str = "You are Claude Code, Anthropic's official CLI for Claude, running within the Claude Agent SDK.";
 
 pub const AGENT_SDK_PREFIX: &str = "You are a Claude agent, built on Anthropic's Claude Agent SDK.";
 

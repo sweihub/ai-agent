@@ -4,10 +4,10 @@
 use std::collections::HashMap;
 
 use super::marketplace_manager::{
-    add_marketplace_source, get_declared_marketplaces, load_known_marketplaces_config,
-    DeclaredMarketplace,
+    DeclaredMarketplace, add_marketplace_source, get_declared_marketplaces,
+    load_known_marketplaces_config,
 };
-use super::schemas::{is_local_marketplace_source, MarketplaceSource};
+use super::schemas::{MarketplaceSource, is_local_marketplace_source};
 
 /// Result of comparing declared vs materialized marketplaces.
 pub struct MarketplaceDiff {
@@ -105,7 +105,9 @@ pub struct ReconcileResult {
 }
 
 /// Make known_marketplaces.json consistent with declared intent.
-pub async fn reconcile_marketplaces(opts: Option<ReconcileOptions>) -> Result<ReconcileResult, Box<dyn std::error::Error + Send + Sync>> {
+pub async fn reconcile_marketplaces(
+    opts: Option<ReconcileOptions>,
+) -> Result<ReconcileResult, Box<dyn std::error::Error + Send + Sync>> {
     let declared = get_declared_marketplaces();
     if declared.is_empty() {
         return Ok(ReconcileResult {
@@ -136,7 +138,11 @@ pub async fn reconcile_marketplaces(opts: Option<ReconcileOptions>) -> Result<Re
     }
 
     for entry in diff.source_changed {
-        work.push((entry.name.clone(), entry.declared_source, "update".to_string()));
+        work.push((
+            entry.name.clone(),
+            entry.declared_source,
+            "update".to_string(),
+        ));
     }
 
     let mut skipped = Vec::new();
@@ -150,9 +156,7 @@ pub async fn reconcile_marketplaces(opts: Option<ReconcileOptions>) -> Result<Re
             }
         }
 
-        if action == "update"
-            && is_local_marketplace_source(&source)
-        {
+        if action == "update" && is_local_marketplace_source(&source) {
             skipped.push(name);
             continue;
         }

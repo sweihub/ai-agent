@@ -115,7 +115,9 @@ pub fn get_cyber_risk_instruction() -> String {
 /// Get simple intro section (line 175-184)
 pub fn get_simple_intro_section(output_style_config: Option<&OutputStyleConfig>) -> String {
     let style_part = match output_style_config {
-        Some(config) => format!("according to your \"Output Style\" below, which describes how you should respond to user queries."),
+        Some(config) => format!(
+            "according to your \"Output Style\" below, which describes how you should respond to user queries."
+        ),
         None => "with software engineering tasks.".to_string(),
     };
     format!(
@@ -153,7 +155,10 @@ pub fn get_simple_doing_tasks_section(output_style_config: Option<&OutputStyleCo
         "To give feedback, users should report the issue at https://github.com/anthropics/claude-code/issues",
     ];
 
-    let ask_tool_text = format!("If an approach fails, diagnose why before switching tactics—read the error, check your assumptions, try a focused fix. Don't retry the identical action blindly, but don't abandon a viable approach after a single failure either. Escalate to the user with {} only when you're genuinely stuck after investigation, not as a first response to friction.", ASK_USER_QUESTION_TOOL_NAME);
+    let ask_tool_text = format!(
+        "If an approach fails, diagnose why before switching tactics—read the error, check your assumptions, try a focused fix. Don't retry the identical action blindly, but don't abandon a viable approach after a single failure either. Escalate to the user with {} only when you're genuinely stuck after investigation, not as a first response to friction.",
+        ASK_USER_QUESTION_TOOL_NAME
+    );
 
     let items: Vec<&str> = vec![
         "The user will primarily request you to perform software engineering tasks. These may include solving bugs, adding new functionality, refactoring code, explaining code, and more. When given an unclear or generic instruction, consider it in the context of these software engineering tasks and the current working directory. For example, if the user asks you to change \"methodName\" to snake case, do not reply with just \"method_name\", instead find the method in the code and modify the code.",
@@ -216,12 +221,30 @@ pub fn get_using_your_tools_section(enabled_tools: &HashSet<String>) -> String {
 
     // Simplified - not checking REPL mode or embedded tools
     let provided_tool_subitems = vec![
-        format!("To read files use {} instead of cat, head, tail, or sed", FILE_READ_TOOL_NAME),
-        format!("To edit files use {} instead of sed or awk", FILE_EDIT_TOOL_NAME),
-        format!("To create files use {} instead of cat with heredoc or echo redirection", FILE_WRITE_TOOL_NAME),
-        format!("To search for files use {} instead of find or ls", GLOB_TOOL_NAME),
-        format!("To search the content of files, use {} instead of grep or rg", GREP_TOOL_NAME),
-        format!("Reserve using the {} exclusively for system commands and terminal operations that require shell execution. If you are unsure and a relevant dedicated tool exists, default to using the dedicated tool and only fallback on using the {} tool for these if it is absolutely necessary.", BASH_TOOL_NAME, BASH_TOOL_NAME),
+        format!(
+            "To read files use {} instead of cat, head, tail, or sed",
+            FILE_READ_TOOL_NAME
+        ),
+        format!(
+            "To edit files use {} instead of sed or awk",
+            FILE_EDIT_TOOL_NAME
+        ),
+        format!(
+            "To create files use {} instead of cat with heredoc or echo redirection",
+            FILE_WRITE_TOOL_NAME
+        ),
+        format!(
+            "To search for files use {} instead of find or ls",
+            GLOB_TOOL_NAME
+        ),
+        format!(
+            "To search the content of files, use {} instead of grep or rg",
+            GREP_TOOL_NAME
+        ),
+        format!(
+            "Reserve using the {} exclusively for system commands and terminal operations that require shell execution. If you are unsure and a relevant dedicated tool exists, default to using the dedicated tool and only fallback on using the {} tool for these if it is absolutely necessary.",
+            BASH_TOOL_NAME, BASH_TOOL_NAME
+        ),
     ];
 
     let bullets = prepend_bullets(provided_tool_subitems.iter().map(|s| s.as_str()).collect());
@@ -231,9 +254,10 @@ pub fn get_using_your_tools_section(enabled_tools: &HashSet<String>) -> String {
     });
 
     let items = {
-        let mut i = vec![
-            format!("Do NOT use the {} to run commands when a relevant dedicated tool is provided. Using dedicated tools allows the user to better understand and review your work. This is CRITICAL to assisting the user:", BASH_TOOL_NAME),
-        ];
+        let mut i = vec![format!(
+            "Do NOT use the {} to run commands when a relevant dedicated tool is provided. Using dedicated tools allows the user to better understand and review your work. This is CRITICAL to assisting the user:",
+            BASH_TOOL_NAME
+        )];
         i.extend(bullets);
         if let Some(ti) = task_item {
             i.push(ti);
@@ -364,7 +388,10 @@ pub fn get_shell_info_line() -> String {
 
     let platform = std::env::consts::OS;
     if platform == "windows" {
-        format!("Shell: {} (use Unix shell syntax, not Windows — e.g., /dev/null not NUL, forward slashes in paths)", shell_name)
+        format!(
+            "Shell: {} (use Unix shell syntax, not Windows — e.g., /dev/null not NUL, forward slashes in paths)",
+            shell_name
+        )
     } else {
         format!("Shell: {}", shell_name)
     }
@@ -545,8 +572,7 @@ pub const SUMMARIZE_TOOL_RESULTS_SECTION: &str = "When working with tool results
 pub const DEFAULT_PREFIX: &str = "You are Claude Code, Anthropic's official CLI for Claude.";
 
 /// Agent SDK prefix when running within Claude Agent SDK with preset
-pub const AGENT_SDK_CLAUDE_CODE_PRESET_PREFIX: &str =
-    "You are Claude Code, Anthropic's official CLI for Claude, running within the Claude Agent SDK.";
+pub const AGENT_SDK_CLAUDE_CODE_PRESET_PREFIX: &str = "You are Claude Code, Anthropic's official CLI for Claude, running within the Claude Agent SDK.";
 
 /// Agent SDK prefix for non-interactive mode
 pub const AGENT_SDK_PREFIX: &str = "You are a Claude agent, built on Anthropic's Claude Agent SDK.";

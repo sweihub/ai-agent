@@ -4,7 +4,8 @@ use crate::types::*;
 
 pub const REMOTE_TRIGGER_TOOL_NAME: &str = "RemoteTrigger";
 
-pub const DESCRIPTION: &str = "Manage scheduled remote Claude Code agents (triggers) via the claude.ai CCR API";
+pub const DESCRIPTION: &str =
+    "Manage scheduled remote Claude Code agents (triggers) via the claude.ai CCR API";
 
 /// RemoteTrigger tool - manage remote agent triggers via API
 pub struct RemoteTriggerTool;
@@ -67,32 +68,29 @@ impl RemoteTriggerTool {
                 ("GET", format!("{}/{}", base_url, tid), None)
             }
             "create" => {
-                let b = body.ok_or_else(|| {
-                    AgentError::Tool("create action requires body".to_string())
-                })?;
+                let b = body
+                    .ok_or_else(|| AgentError::Tool("create action requires body".to_string()))?;
                 ("POST", base_url.to_string(), Some(b.clone()))
             }
             "update" => {
                 let tid = trigger_id.ok_or_else(|| {
                     AgentError::Tool("update action requires trigger_id".to_string())
                 })?;
-                let b = body.ok_or_else(|| {
-                    AgentError::Tool("update action requires body".to_string())
-                })?;
+                let b = body
+                    .ok_or_else(|| AgentError::Tool("update action requires body".to_string()))?;
                 ("POST", format!("{}/{}", base_url, tid), Some(b.clone()))
             }
             "run" => {
                 let tid = trigger_id.ok_or_else(|| {
                     AgentError::Tool("run action requires trigger_id".to_string())
                 })?;
-                ("POST", format!("{}/run", base_url), Some(serde_json::json!({})))
+                (
+                    "POST",
+                    format!("{}/run", base_url),
+                    Some(serde_json::json!({})),
+                )
             }
-            _ => {
-                return Err(AgentError::Tool(format!(
-                    "Unknown action: {}",
-                    action
-                )))
-            }
+            _ => return Err(AgentError::Tool(format!("Unknown action: {}", action))),
         };
 
         // Note: In a full implementation, this would make the actual HTTP request

@@ -87,10 +87,7 @@ pub fn substitute_plugin_variables(value: &str, plugin_path: &str, source: &str)
 }
 
 /// Substitute ${user_config.KEY} with saved option values.
-pub fn substitute_user_config_variables(
-    value: &str,
-    user_config: &PluginOptionValues,
-) -> String {
+pub fn substitute_user_config_variables(value: &str, user_config: &PluginOptionValues) -> String {
     let mut result = value.to_string();
     let re = regex::Regex::new(r"\$\{user_config\.([^}]+)\}").unwrap();
 
@@ -126,7 +123,10 @@ pub fn substitute_user_config_in_content(
                 .unwrap_or(false);
 
             if is_sensitive {
-                return format!("[sensitive option '{}' not available in skill content]", key);
+                return format!(
+                    "[sensitive option '{}' not available in skill content]",
+                    key
+                );
             }
         }
 

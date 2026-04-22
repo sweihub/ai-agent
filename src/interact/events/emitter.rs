@@ -63,7 +63,10 @@ impl EventEmitter {
         }));
 
         let mut guard = self.listeners.lock().unwrap();
-        guard.entry(event_type.to_string()).or_default().push(listener.clone());
+        guard
+            .entry(event_type.to_string())
+            .or_default()
+            .push(listener.clone());
 
         listener
     }

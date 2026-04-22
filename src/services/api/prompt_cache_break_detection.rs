@@ -118,7 +118,11 @@ pub fn get_tracking_key(query_source: &str, agent_id: Option<&str>) -> Option<St
 
     for prefix in TRACKED_SOURCE_PREFIXES {
         if query_source.starts_with(prefix) {
-            return Some(agent_id.map(String::from).unwrap_or_else(|| query_source.to_string()));
+            return Some(
+                agent_id
+                    .map(String::from)
+                    .unwrap_or_else(|| query_source.to_string()),
+            );
         }
     }
 
@@ -161,10 +165,16 @@ fn sanitize_tool_name(name: &str) -> String {
 }
 
 /// Compute per-tool hashes
-fn compute_per_tool_hashes(stripped_tools: &[serde_json::Value], names: &[String]) -> HashMap<String, u64> {
+fn compute_per_tool_hashes(
+    stripped_tools: &[serde_json::Value],
+    names: &[String],
+) -> HashMap<String, u64> {
     let mut hashes = HashMap::new();
     for (i, tool) in stripped_tools.iter().enumerate() {
-        let name = names.get(i).cloned().unwrap_or_else(|| format!("__idx_{}", i));
+        let name = names
+            .get(i)
+            .cloned()
+            .unwrap_or_else(|| format!("__idx_{}", i));
         let tool_str = serde_json::to_string(tool).unwrap_or_default();
         hashes.insert(name, compute_hash(&tool_str));
     }
@@ -175,12 +185,21 @@ fn compute_per_tool_hashes(stripped_tools: &[serde_json::Value], names: &[String
 fn get_system_char_count(system: &[serde_json::Value]) -> usize {
     system
         .iter()
-        .map(|b| b.get("text").and_then(|t| t.as_str()).map(|s| s.len()).unwrap_or(0))
+        .map(|b| {
+            b.get("text")
+                .and_then(|t| t.as_str())
+                .map(|s| s.len())
+                .unwrap_or(0)
+        })
         .sum()
 }
 
 /// Build diffable content
-fn build_diffable_content(system: &[serde_json::Value], tools: &[serde_json::Value], model: &str) -> String {
+fn build_diffable_content(
+    system: &[serde_json::Value],
+    tools: &[serde_json::Value],
+    model: &str,
+) -> String {
     let system_text = system
         .iter()
         .filter_map(|b| b.get("text").and_then(|t| t.as_str()))
@@ -192,8 +211,14 @@ fn build_diffable_content(system: &[serde_json::Value], tools: &[serde_json::Val
         .map(|t| {
             let name = t.get("name").and_then(|n| n.as_str()).unwrap_or("unknown");
             let desc = t.get("description").and_then(|d| d.as_str()).unwrap_or("");
-            let schema = t.get("input_schema").map(|s| serde_json::to_string(s).unwrap_or_default()).unwrap_or_default();
-            format!("{}\n  description: {}\n  input_schema: {}", name, desc, schema)
+            let schema = t
+                .get("input_schema")
+                .map(|s| serde_json::to_string(s).unwrap_or_default())
+                .unwrap_or_default();
+            format!(
+                "{}\n  description: {}\n  input_schema: {}",
+                name, desc, schema
+            )
         })
         .collect();
 
@@ -222,13 +247,28 @@ pub fn record_prompt_state(snapshot: PromptStateSnapshot) {
 
     let system_hash = compute_hash(&serde_json::to_string(&stripped_system).unwrap_or_default());
     let tools_hash = compute_hash(&serde_json::to_string(&stripped_tools).unwrap_or_default());
-    let cache_control_hash = compute_hash(&serde_json::to_string(
-        &system.iter().map(|b| b.get("cache_control").cloned().unwrap_or(serde_json::Value::Null)).collect::<Vec<_>>()
-    ).unwrap_or_default());
+    let cache_control_hash = compute_hash(
+        &serde_json::to_string(
+            &system
+                .iter()
+                .map(|b| {
+                    b.get("cache_control")
+                        .cloned()
+                        .unwrap_or(serde_json::Value::Null)
+                })
+                .collect::<Vec<_>>(),
+        )
+        .unwrap_or_default(),
+    );
 
     let tool_names: Vec<String> = tool_schemas
         .iter()
-        .map(|t| t.get("name").and_then(|n| n.as_str()).unwrap_or("unknown").to_string())
+        .map(|t| {
+            t.get("name")
+                .and_then(|n| n.as_str())
+                .unwrap_or("unknown")
+                .to_string()
+        })
         .collect();
 
     let system_char_count = get_system_char_count(system);
@@ -237,7 +277,8 @@ pub fn record_prompt_state(snapshot: PromptStateSnapshot) {
     let mut sorted_betas = snapshot.betas.clone().unwrap_or_default();
     sorted_betas.sort();
     let effort_str = snapshot.effort_value.clone().unwrap_or_default();
-    let extra_body_hash = snapshot.extra_body_params
+    let extra_body_hash = snapshot
+        .extra_body_params
         .as_ref()
         .map(|p| compute_hash(&serde_json::to_string(p).unwrap_or_default()))
         .unwrap_or(0);
@@ -258,20 +299,38 @@ pub fn record_prompt_state(snapshot: PromptStateSnapshot) {
         let betas_changed = sorted_betas != prev.betas;
         let auto_mode_changed = snapshot.auto_mode_active.unwrap_or(false) != prev.auto_mode_active;
         let overage_changed = snapshot.is_using_overage.unwrap_or(false) != prev.is_using_overage;
-        let cached_mc_changed = snapshot.cached_mc_enabled.unwrap_or(false) != prev.cached_mc_enabled;
+        let cached_mc_changed =
+            snapshot.cached_mc_enabled.unwrap_or(false) != prev.cached_mc_enabled;
         let effort_changed = effort_str != prev.effort_value;
         let extra_body_changed = extra_body_hash != prev.extra_body_hash;
 
-        if system_prompt_changed || tool_schemas_changed || model_changed || fast_mode_changed
-            || cache_control_changed || global_cache_strategy_changed || betas_changed
-            || auto_mode_changed || overage_changed || cached_mc_changed || effort_changed
+        if system_prompt_changed
+            || tool_schemas_changed
+            || model_changed
+            || fast_mode_changed
+            || cache_control_changed
+            || global_cache_strategy_changed
+            || betas_changed
+            || auto_mode_changed
+            || overage_changed
+            || cached_mc_changed
+            || effort_changed
             || extra_body_changed
         {
             let prev_tool_set: std::collections::HashSet<_> = prev.tool_names.iter().collect();
             let new_tool_set: std::collections::HashSet<_> = tool_names.iter().collect();
 
-            let added_tools: Vec<String> = tool_names.iter().filter(|n| !prev_tool_set.contains(n)).cloned().collect();
-            let removed_tools: Vec<String> = prev.tool_names.iter().filter(|n| !new_tool_set.contains(n)).cloned().collect();
+            let added_tools: Vec<String> = tool_names
+                .iter()
+                .filter(|n| !prev_tool_set.contains(n))
+                .cloned()
+                .collect();
+            let removed_tools: Vec<String> = prev
+                .tool_names
+                .iter()
+                .filter(|n| !new_tool_set.contains(n))
+                .cloned()
+                .collect();
 
             let mut changed_tool_schemas = Vec::new();
             if tool_schemas_changed {
@@ -312,8 +371,17 @@ pub fn record_prompt_state(snapshot: PromptStateSnapshot) {
                 new_model: model.clone(),
                 prev_global_cache_strategy: prev.global_cache_strategy.clone(),
                 new_global_cache_strategy: global_cache_strategy.clone(),
-                added_betas: sorted_betas.iter().filter(|b| !prev_beta_set.contains(b)).cloned().collect(),
-                removed_betas: prev.betas.iter().filter(|b| !new_beta_set.contains(b)).cloned().collect(),
+                added_betas: sorted_betas
+                    .iter()
+                    .filter(|b| !prev_beta_set.contains(b))
+                    .cloned()
+                    .collect(),
+                removed_betas: prev
+                    .betas
+                    .iter()
+                    .filter(|b| !new_beta_set.contains(b))
+                    .cloned()
+                    .collect(),
                 prev_effort_value: prev.effort_value.clone(),
                 new_effort_value: effort_str.clone(),
                 prev_diffable_content: prev.diffable_content.clone(),
@@ -345,28 +413,31 @@ pub fn record_prompt_state(snapshot: PromptStateSnapshot) {
             }
         }
 
-        states.insert(key, PreviousState {
-            system_hash,
-            tools_hash,
-            cache_control_hash,
-            tool_names: tool_names.clone(),
-            per_tool_hashes: compute_per_tool_hashes(&stripped_tools, &tool_names),
-            system_char_count,
-            model: model.clone(),
-            fast_mode: is_fast_mode,
-            global_cache_strategy,
-            betas: sorted_betas,
-            auto_mode_active: snapshot.auto_mode_active.unwrap_or(false),
-            is_using_overage: snapshot.is_using_overage.unwrap_or(false),
-            cached_mc_enabled: snapshot.cached_mc_enabled.unwrap_or(false),
-            effort_value: effort_str,
-            extra_body_hash,
-            call_count: 1,
-            pending_changes: None,
-            prev_cache_read_tokens: None,
-            cache_deletions_pending: false,
-            diffable_content,
-        });
+        states.insert(
+            key,
+            PreviousState {
+                system_hash,
+                tools_hash,
+                cache_control_hash,
+                tool_names: tool_names.clone(),
+                per_tool_hashes: compute_per_tool_hashes(&stripped_tools, &tool_names),
+                system_char_count,
+                model: model.clone(),
+                fast_mode: is_fast_mode,
+                global_cache_strategy,
+                betas: sorted_betas,
+                auto_mode_active: snapshot.auto_mode_active.unwrap_or(false),
+                is_using_overage: snapshot.is_using_overage.unwrap_or(false),
+                cached_mc_enabled: snapshot.cached_mc_enabled.unwrap_or(false),
+                effort_value: effort_str,
+                extra_body_hash,
+                call_count: 1,
+                pending_changes: None,
+                prev_cache_read_tokens: None,
+                cache_deletions_pending: false,
+                diffable_content,
+            },
+        );
     }
 }
 
@@ -409,14 +480,20 @@ pub async fn check_response_for_cache_break(
     // Handle cache deletions (expected drop)
     if state.cache_deletions_pending {
         state.cache_deletions_pending = false;
-        log::debug!("[PROMPT CACHE] cache deletion applied, cache read: {} → {} (expected drop)", prev_cache_read, cache_read_tokens);
+        log::debug!(
+            "[PROMPT CACHE] cache deletion applied, cache read: {} → {} (expected drop)",
+            prev_cache_read,
+            cache_read_tokens
+        );
         state.pending_changes = None;
         return;
     }
 
     // Detect cache break
     let token_drop = prev_cache_read - cache_read_tokens;
-    if cache_read_tokens >= (prev_cache_read as f64 * 0.95) as i64 || token_drop < MIN_CACHE_MISS_TOKENS {
+    if cache_read_tokens >= (prev_cache_read as f64 * 0.95) as i64
+        || token_drop < MIN_CACHE_MISS_TOKENS
+    {
         state.pending_changes = None;
         return;
     }
@@ -425,7 +502,10 @@ pub async fn check_response_for_cache_break(
     let mut parts = Vec::new();
     if let Some(ref changes) = state.pending_changes {
         if changes.model_changed {
-            parts.push(format!("model changed ({} → {})", changes.previous_model, changes.new_model));
+            parts.push(format!(
+                "model changed ({} → {})",
+                changes.previous_model, changes.new_model
+            ));
         }
         if changes.system_prompt_changed {
             let char_info = if changes.system_char_delta == 0 {
@@ -439,7 +519,10 @@ pub async fn check_response_for_cache_break(
         }
         if changes.tool_schemas_changed {
             let tool_diff = if changes.added_tool_count > 0 || changes.removed_tool_count > 0 {
-                format!(" (+{}/-{} tools)", changes.added_tool_count, changes.removed_tool_count)
+                format!(
+                    " (+{}/-{} tools)",
+                    changes.added_tool_count, changes.removed_tool_count
+                )
             } else {
                 " (tool prompt/schema changed, same tool set)".to_string()
             };
@@ -449,19 +532,47 @@ pub async fn check_response_for_cache_break(
             parts.push("fast mode toggled".to_string());
         }
         if changes.global_cache_strategy_changed {
-            parts.push(format!("global cache strategy changed ({} → {})",
-                if changes.prev_global_cache_strategy.is_empty() { "none" } else { &changes.prev_global_cache_strategy },
-                if changes.new_global_cache_strategy.is_empty() { "none" } else { &changes.new_global_cache_strategy }
+            parts.push(format!(
+                "global cache strategy changed ({} → {})",
+                if changes.prev_global_cache_strategy.is_empty() {
+                    "none"
+                } else {
+                    &changes.prev_global_cache_strategy
+                },
+                if changes.new_global_cache_strategy.is_empty() {
+                    "none"
+                } else {
+                    &changes.new_global_cache_strategy
+                }
             ));
         }
-        if changes.cache_control_changed && !changes.global_cache_strategy_changed && !changes.system_prompt_changed {
+        if changes.cache_control_changed
+            && !changes.global_cache_strategy_changed
+            && !changes.system_prompt_changed
+        {
             parts.push("cache_control changed (scope or TTL)".to_string());
         }
         if changes.betas_changed {
-            let added = if !changes.added_betas.is_empty() { format!("+{}", changes.added_betas.join(",")) } else { String::new() };
-            let removed = if !changes.removed_betas.is_empty() { format!("-{}", changes.removed_betas.join(",")) } else { String::new() };
-            let diff = [added, removed].into_iter().filter(|s| !s.is_empty()).collect::<Vec<_>>().join(" ");
-            parts.push(if diff.is_empty() { "betas changed".to_string() } else { format!("betas changed ({})", diff) });
+            let added = if !changes.added_betas.is_empty() {
+                format!("+{}", changes.added_betas.join(","))
+            } else {
+                String::new()
+            };
+            let removed = if !changes.removed_betas.is_empty() {
+                format!("-{}", changes.removed_betas.join(","))
+            } else {
+                String::new()
+            };
+            let diff = [added, removed]
+                .into_iter()
+                .filter(|s| !s.is_empty())
+                .collect::<Vec<_>>()
+                .join(" ");
+            parts.push(if diff.is_empty() {
+                "betas changed".to_string()
+            } else {
+                format!("betas changed ({})", diff)
+            });
         }
         if changes.auto_mode_changed {
             parts.push("auto mode toggled".to_string());
@@ -473,9 +584,18 @@ pub async fn check_response_for_cache_break(
             parts.push("cached microcompact toggled".to_string());
         }
         if changes.effort_changed {
-            parts.push(format!("effort changed ({} → {})",
-                if changes.prev_effort_value.is_empty() { "default" } else { &changes.prev_effort_value },
-                if changes.new_effort_value.is_empty() { "default" } else { &changes.new_effort_value }
+            parts.push(format!(
+                "effort changed ({} → {})",
+                if changes.prev_effort_value.is_empty() {
+                    "default"
+                } else {
+                    &changes.prev_effort_value
+                },
+                if changes.new_effort_value.is_empty() {
+                    "default"
+                } else {
+                    &changes.new_effort_value
+                }
             ));
         }
         if changes.extra_body_changed {
@@ -490,8 +610,14 @@ pub async fn check_response_for_cache_break(
     };
 
     // Log the cache break event (simplified - would log to analytics in full impl)
-    log::warn!("[PROMPT CACHE BREAK] {} [source={}, call #{}, cache read: {} → {}]",
-        reason, query_source, state.call_count, prev_cache_read, cache_read_tokens);
+    log::warn!(
+        "[PROMPT CACHE BREAK] {} [source={}, call #{}, cache read: {} → {}]",
+        reason,
+        query_source,
+        state.call_count,
+        prev_cache_read,
+        cache_read_tokens
+    );
 
     state.pending_changes = None;
 }
@@ -565,6 +691,11 @@ mod tests {
             serde_json::json!({"type": "text", "text": "world"}),
         ];
         let stripped = strip_cache_control(&items);
-        assert!(!stripped[0].as_object().unwrap().contains_key("cache_control"));
+        assert!(
+            !stripped[0]
+                .as_object()
+                .unwrap()
+                .contains_key("cache_control")
+        );
     }
 }

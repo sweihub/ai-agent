@@ -4,13 +4,13 @@
 //! Team memory is scoped per-repo (identified by git remote hash) and shared
 //! across all authenticated org members.
 
+use crate::AgentError;
 use crate::constants::env::system;
 use crate::utils::http::get_user_agent;
-use crate::AgentError;
 use std::collections::HashMap;
 use std::path::PathBuf;
-use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Mutex;
+use std::sync::atomic::{AtomicBool, Ordering};
 
 /// Team memory content - flat key-value storage
 #[derive(Debug, Clone, Default, serde::Serialize, serde::Deserialize)]
@@ -410,8 +410,16 @@ fn get_team_memory_auth_token() -> Option<String> {
     std::env::var("AI_CODE_OAUTH_TOKEN")
         .ok()
         .filter(|t| !t.is_empty())
-        .or_else(|| std::env::var("AI_OAUTH_TOKEN").ok().filter(|t| !t.is_empty()))
-        .or_else(|| std::env::var("AI_AUTH_TOKEN").ok().filter(|t| !t.is_empty()))
+        .or_else(|| {
+            std::env::var("AI_OAUTH_TOKEN")
+                .ok()
+                .filter(|t| !t.is_empty())
+        })
+        .or_else(|| {
+            std::env::var("AI_AUTH_TOKEN")
+                .ok()
+                .filter(|t| !t.is_empty())
+        })
 }
 
 /// Build HTTP headers for team memory requests
@@ -518,12 +526,19 @@ pub async fn pull_team_memory(
         .map_err(|e| AgentError::Internal(e))?;
 
     let client = reqwest::Client::builder()
-        .timeout(std::time::Duration::from_millis(TEAM_MEMORY_SYNC_TIMEOUT_MS))
+        .timeout(std::time::Duration::from_millis(
+            TEAM_MEMORY_SYNC_TIMEOUT_MS,
+        ))
         .build()
         .map_err(|e| AgentError::Internal(e.to_string()))?;
 
     // Try the hashes probe first
-    let hashes_response = match client.get(&hashes_url).headers(headers.clone()).send().await {
+    let hashes_response = match client
+        .get(&hashes_url)
+        .headers(headers.clone())
+        .send()
+        .await
+    {
         Ok(r) => r,
         Err(e) => {
             let is_timeout = e.is_timeout() || e.is_connect();
@@ -618,7 +633,11 @@ pub async fn pull_team_memory(
 
     // Update state with server checksums
     if let Some(version) = hashes_result.version {
-        log::debug!("Team memory version: {}, checksum: {:?}", version, hashes_result.checksum);
+        log::debug!(
+            "Team memory version: {}, checksum: {:?}",
+            version,
+            hashes_result.checksum
+        );
     }
 
     // Update server checksums from hashes response
@@ -656,7 +675,10 @@ pub async fn pull_team_memory(
 
     // Handle 304 Not Modified
     if full_status == 304 {
-        log::debug!("Team memory content not modified (304) for repo: {}", repo_slug);
+        log::debug!(
+            "Team memory content not modified (304) for repo: {}",
+            repo_slug
+        );
         return Ok(TeamMemorySyncFetchResult {
             success: true,
             data: None,
@@ -822,8 +844,7 @@ pub async fn push_team_memory(
     };
 
     let url = build_team_memory_url(repo_slug, None);
-    let mut headers = build_team_memory_headers(None, None)
-        .map_err(|e| AgentError::Internal(e))?;
+    let mut headers = build_team_memory_headers(None, None).map_err(|e| AgentError::Internal(e))?;
 
     // Add If-Match header for conflict detection
     if let Some(ref checksum) = state.last_known_checksum {
@@ -835,17 +856,13 @@ pub async fn push_team_memory(
     }
 
     let client = reqwest::Client::builder()
-        .timeout(std::time::Duration::from_millis(TEAM_MEMORY_SYNC_TIMEOUT_MS))
+        .timeout(std::time::Duration::from_millis(
+            TEAM_MEMORY_SYNC_TIMEOUT_MS,
+        ))
         .build()
         .map_err(|e| AgentError::Internal(e.to_string()))?;
 
-    let response = match client
-        .put(&url)
-        .headers(headers)
-        .json(&body)
-        .send()
-        .await
-    {
+    let response = match client.put(&url).headers(headers).json(&body).send().await {
         Ok(r) => r,
         Err(e) => {
             let is_timeout = e.is_timeout() || e.is_connect();
@@ -882,13 +899,12 @@ pub async fn push_team_memory(
     // Handle 413 Payload Too Large
     if status == 413 {
         let body_text = response.text().await.unwrap_or_default();
-        let max_entries = if let Ok(error_body) =
-            serde_json::from_str::<TeamMemoryTooManyEntries>(&body_text)
-        {
-            Some(error_body.error.details.max_entries)
-        } else {
-            None
-        };
+        let max_entries =
+            if let Ok(error_body) = serde_json::from_str::<TeamMemoryTooManyEntries>(&body_text) {
+                Some(error_body.error.details.max_entries)
+            } else {
+                None
+            };
 
         if let Some(max) = max_entries {
             state.server_max_entries = Some(max);
@@ -1057,4 +1073,3 @@ pub fn get_last_sync_error() -> Option<String> {
 }
 
 // ─── Tests ─────────────────────────────────────────────────────
-

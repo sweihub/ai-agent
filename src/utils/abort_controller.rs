@@ -1,7 +1,7 @@
 //! AbortController utilities
 
-use std::sync::atomic::Ordering;
 use std::sync::Arc;
+use std::sync::atomic::Ordering;
 
 /// Default max listeners for standard operations
 const DEFAULT_MAX_LISTENERS: usize = 50;

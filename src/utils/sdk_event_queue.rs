@@ -264,7 +264,8 @@ impl Default for SdkEventQueue {
 
 /// The global SDK event queue singleton.
 /// Only consumed (drained) in headless/streaming mode.
-static GLOBAL_QUEUE: std::sync::LazyLock<SdkEventQueue> = std::sync::LazyLock::new(SdkEventQueue::new);
+static GLOBAL_QUEUE: std::sync::LazyLock<SdkEventQueue> =
+    std::sync::LazyLock::new(SdkEventQueue::new);
 
 /// Enqueue an SDK event.
 /// In TUI mode (interactive session), events are dropped to avoid queue buildup.

@@ -2,10 +2,10 @@
 //!
 //! Build apps with the Claude API or Anthropic SDK.
 
-use crate::skills::bundled_skills::{
-    register_bundled_skill, BundledSkillDefinition, ContentBlock, SkillContext,
-};
 use crate::AgentError;
+use crate::skills::bundled_skills::{
+    BundledSkillDefinition, ContentBlock, SkillContext, register_bundled_skill,
+};
 
 const CLAUDE_API_PROMPT: &str = r#"# Claude API Skill
 

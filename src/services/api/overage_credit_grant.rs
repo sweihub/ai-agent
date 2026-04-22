@@ -62,7 +62,10 @@ pub struct OauthConfig {
 /// Get OAuth headers
 fn get_oauth_headers(access_token: &str) -> HashMap<String, String> {
     let mut headers = HashMap::new();
-    headers.insert("Authorization".to_string(), format!("Bearer {}", access_token));
+    headers.insert(
+        "Authorization".to_string(),
+        format!("Bearer {}", access_token),
+    );
     headers.insert("User-Agent".to_string(), get_user_agent());
     headers
 }
@@ -145,15 +148,13 @@ async fn fetch_overage_credit_grant() -> Option<OverageCreditGrantInfo> {
         .await;
 
     match response {
-        Ok(resp) => {
-            match resp.json::<OverageCreditGrantInfo>().await {
-                Ok(data) => Some(data),
-                Err(e) => {
-                    log::debug!("fetchOverageCreditGrant failed: {}", e);
-                    None
-                }
+        Ok(resp) => match resp.json::<OverageCreditGrantInfo>().await {
+            Ok(data) => Some(data),
+            Err(e) => {
+                log::debug!("fetchOverageCreditGrant failed: {}", e);
+                None
             }
-        }
+        },
         Err(e) => {
             log::debug!("fetchOverageCreditGrant failed: {}", e);
             None
@@ -228,19 +229,22 @@ pub async fn refresh_overage_credit_grant_cache() {
         // read — saveConfigWithLock re-reads config from disk under the file lock,
         // so another CLI instance may have written between any outer read and lock
         // acquire.
-        let prev_cached = prev.overage_credit_grant_cache
+        let prev_cached = prev
+            .overage_credit_grant_cache
             .as_ref()
             .and_then(|c| c.get(&org_id))
             .cloned();
         let existing = prev_cached.as_ref().map(|c| &c.info);
 
-        let data_unchanged = existing.map(|e| {
-            e.available == info.available
-                && e.eligible == info.eligible
-                && e.granted == info.granted
-                && e.amount_minor_units == info.amount_minor_units
-                && e.currency == info.currency
-        }).unwrap_or(false);
+        let data_unchanged = existing
+            .map(|e| {
+                e.available == info.available
+                    && e.eligible == info.eligible
+                    && e.granted == info.granted
+                    && e.amount_minor_units == info.amount_minor_units
+                    && e.currency == info.currency
+            })
+            .unwrap_or(false);
 
         // When data is unchanged and timestamp is still fresh, skip the write entirely
         if data_unchanged {

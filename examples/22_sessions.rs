@@ -14,33 +14,36 @@
  * - AI_AUTH_TOKEN: API authentication token
  * - AI_MODEL: Model name (defaults to claude-sonnet-4-6)
  */
-use ai_agent::{session, Agent, AgentOptions, EnvConfig};
+use ai_agent::{Agent, EnvConfig, session};
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("--- Example 22: Session Management ---\n");
 
     let config = EnvConfig::load();
-    let model = config.model.clone().unwrap_or_else(|| "claude-sonnet-4-6".to_string());
+    let model = config
+        .model
+        .clone()
+        .unwrap_or_else(|| "claude-sonnet-4-6".to_string());
 
     println!("Using model: {}\n", model);
 
     // Create agent
-    let mut agent = Agent::create(AgentOptions {
-        model: Some(model.clone()),
-        max_turns: Some(5),
-        ..Default::default()
-    });
+    let agent = Agent::new(&model).max_turns(5);
 
     // First turn: ask a question
     println!("=== Turn 1: Ask a question ===");
-    let result = agent.query("What is the capital of France? Answer in one line.").await?;
+    let result = agent
+        .query("What is the capital of France? Answer in one line.")
+        .await?;
     println!("{}", result.text);
     println!();
 
     // Second turn: follow up
     println!("=== Turn 2: Follow up ===");
-    let result = agent.query("Now name three tourist attractions there.").await?;
+    let result = agent
+        .query("Now name three tourist attractions there.")
+        .await?;
     println!("{}", result.text);
     println!();
 
@@ -67,7 +70,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("=== Listing all sessions ===");
     let sessions = session::list_sessions().await?;
     for s in &sessions {
-        println!("- {} [{}] - {} messages", s.id, s.tag.as_deref().unwrap_or("no tag"), s.message_count);
+        println!(
+            "- {} [{}] - {} messages",
+            s.id,
+            s.tag.as_deref().unwrap_or("no tag"),
+            s.message_count
+        );
     }
     println!();
 
@@ -86,7 +94,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         println!("Summary: {:?}", data.metadata.summary);
         // Show the conversation
         for (i, msg) in data.messages.iter().enumerate() {
-            println!("[{}] {:?}: {}", i, msg.role, &msg.content[..msg.content.len().min(80)]);
+            println!(
+                "[{}] {:?}: {}",
+                i,
+                msg.role,
+                &msg.content[..msg.content.len().min(80)]
+            );
         }
     }
     println!();
@@ -97,11 +110,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     if let Some(data) = original {
         println!("Original session: {} messages", data.messages.len());
         // Resume with a follow-up question
-        let mut agent2 = Agent::create(AgentOptions {
-            model: Some(model),
-            max_turns: Some(3),
-            ..Default::default()
-        });
+        let agent2 = Agent::new(&model).max_turns(3);
 
         // Note: To truly resume, you'd need to inject messages into the engine
         // For now, we demonstrate the session API works

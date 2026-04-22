@@ -188,7 +188,11 @@ enum RepoClass {
 pub fn get_attribution_repo_root() -> String {
     std::env::current_dir()
         .map(|p| p.to_string_lossy().to_string())
-        .unwrap_or_else(|_| crate::utils::get_original_cwd().to_string_lossy().to_string())
+        .unwrap_or_else(|_| {
+            crate::utils::get_original_cwd()
+                .to_string_lossy()
+                .to_string()
+        })
 }
 
 /// Synchronously return the cached repo classification.
@@ -267,8 +271,7 @@ pub fn sanitize_model_name(short_name: &str) -> String {
 
 /// Get the current client surface from environment.
 pub fn get_client_surface() -> String {
-    std::env::var(ai::CODE_ENTRYPOINT)
-        .unwrap_or_else(|_| "cli".to_string())
+    std::env::var(ai::CODE_ENTRYPOINT).unwrap_or_else(|_| "cli".to_string())
 }
 
 /// Build a surface key that includes the model name.

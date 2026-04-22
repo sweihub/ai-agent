@@ -2,10 +2,10 @@
 //!
 //! Claude in Chrome extension integration (feature-gated: auto-enabled).
 
-use crate::skills::bundled_skills::{
-    register_bundled_skill, BundledSkillDefinition, ContentBlock, SkillContext,
-};
 use crate::AgentError;
+use crate::skills::bundled_skills::{
+    BundledSkillDefinition, ContentBlock, SkillContext, register_bundled_skill,
+};
 
 const CLAUDE_IN_CHROME_PROMPT: &str = r#"# Claude in Chrome
 

@@ -3,7 +3,7 @@
 use std::fs;
 use std::path::Path;
 
-use crate::memdir::memory_types::{parse_frontmatter, MemoryType};
+use crate::memdir::memory_types::{MemoryType, parse_frontmatter};
 
 /// Maximum number of memory files to scan
 pub const MAX_MEMORY_FILES: usize = 200;

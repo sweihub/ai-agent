@@ -3,10 +3,10 @@
 
 use super::cache_utils::clear_all_caches;
 use super::load_plugin_hooks::load_plugin_hooks;
+use super::loader::load_all_plugins;
 use super::lsp_plugin_integration::load_plugin_lsp_servers;
 use super::mcp_plugin_integration::load_plugin_mcp_servers;
 use super::orphaned_plugin_filter::clear_plugin_cache_exclusions;
-use super::loader::load_all_plugins;
 
 /// Result of refreshing active plugins.
 pub struct RefreshActivePluginsResult {
@@ -21,7 +21,8 @@ pub struct RefreshActivePluginsResult {
 }
 
 /// Refresh all active plugin components.
-pub async fn refresh_active_plugins() -> Result<RefreshActivePluginsResult, Box<dyn std::error::Error + Send + Sync>> {
+pub async fn refresh_active_plugins()
+-> Result<RefreshActivePluginsResult, Box<dyn std::error::Error + Send + Sync>> {
     log::debug!("refresh_active_plugins: clearing all plugin caches");
     clear_all_caches();
     clear_plugin_cache_exclusions();
@@ -59,21 +60,30 @@ pub async fn refresh_active_plugins() -> Result<RefreshActivePluginsResult, Box<
     }
 
     // Count hooks from enabled plugins
-    let hook_count: usize = enabled.iter().map(|p| {
-        p.hooks_config.as_ref().map_or(0, |config| {
-            if let Some(obj) = config.as_object() {
-                obj.values().map(|v| {
-                    v.as_array().map_or(0, |arr| {
-                        arr.iter().map(|m| {
-                            m.get("hooks").and_then(|h| h.as_array()).map_or(0, |hooks| hooks.len())
-                        }).sum::<usize>()
-                    })
-                }).sum::<usize>()
-            } else {
-                0
-            }
+    let hook_count: usize = enabled
+        .iter()
+        .map(|p| {
+            p.hooks_config.as_ref().map_or(0, |config| {
+                if let Some(obj) = config.as_object() {
+                    obj.values()
+                        .map(|v| {
+                            v.as_array().map_or(0, |arr| {
+                                arr.iter()
+                                    .map(|m| {
+                                        m.get("hooks")
+                                            .and_then(|h| h.as_array())
+                                            .map_or(0, |hooks| hooks.len())
+                                    })
+                                    .sum::<usize>()
+                            })
+                        })
+                        .sum::<usize>()
+                } else {
+                    0
+                }
+            })
         })
-    }).sum();
+        .sum();
 
     log::debug!(
         "refresh_active_plugins: {} enabled, 0 commands, 0 agents, {} hooks, {} MCP, {} LSP",

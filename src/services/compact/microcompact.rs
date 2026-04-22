@@ -15,8 +15,8 @@ use crate::tools::config_tools::{
 use crate::types::Message;
 use crate::utils::env_utils;
 use std::collections::HashSet;
-use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Mutex;
+use std::sync::atomic::{AtomicBool, Ordering};
 
 /// Message shown when tool result content is cleared
 pub const TIME_BASED_MC_CLEARED_MESSAGE: &str = "[Old tool result content cleared]";

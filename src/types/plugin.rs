@@ -376,13 +376,19 @@ pub struct PluginLoadResult {
 pub fn get_plugin_error_message(error: &PluginError) -> String {
     match error {
         PluginError::GenericError { error: msg, .. } => msg.clone(),
-        PluginError::PathNotFound { path, component, .. } => {
+        PluginError::PathNotFound {
+            path, component, ..
+        } => {
             format!("Path not found: {} ({:?})", path, component)
         }
-        PluginError::GitAuthFailed { auth_type, git_url, .. } => {
+        PluginError::GitAuthFailed {
+            auth_type, git_url, ..
+        } => {
             format!("Git authentication failed ({:?}): {}", auth_type, git_url)
         }
-        PluginError::GitTimeout { operation, git_url, .. } => {
+        PluginError::GitTimeout {
+            operation, git_url, ..
+        } => {
             format!("Git {:?} timeout: {}", operation, git_url)
         }
         PluginError::NetworkError { url, details, .. } => {
@@ -395,22 +401,46 @@ pub fn get_plugin_error_message(error: &PluginError) -> String {
         PluginError::ManifestParseError { parse_error, .. } => {
             format!("Manifest parse error: {}", parse_error)
         }
-        PluginError::ManifestValidationError { validation_errors, .. } => {
-            format!("Manifest validation failed: {}", validation_errors.join(", "))
+        PluginError::ManifestValidationError {
+            validation_errors, ..
+        } => {
+            format!(
+                "Manifest validation failed: {}",
+                validation_errors.join(", ")
+            )
         }
-        PluginError::PluginNotFound { plugin_id, marketplace, .. } => {
-            format!("Plugin {} not found in marketplace {}", plugin_id, marketplace)
+        PluginError::PluginNotFound {
+            plugin_id,
+            marketplace,
+            ..
+        } => {
+            format!(
+                "Plugin {} not found in marketplace {}",
+                plugin_id, marketplace
+            )
         }
         PluginError::MarketplaceNotFound { marketplace, .. } => {
             format!("Marketplace {} not found", marketplace)
         }
-        PluginError::MarketplaceLoadFailed { marketplace, reason, .. } => {
+        PluginError::MarketplaceLoadFailed {
+            marketplace,
+            reason,
+            ..
+        } => {
             format!("Marketplace {} failed to load: {}", marketplace, reason)
         }
-        PluginError::McpConfigInvalid { server_name, validation_error, .. } => {
+        PluginError::McpConfigInvalid {
+            server_name,
+            validation_error,
+            ..
+        } => {
             format!("MCP server {} invalid: {}", server_name, validation_error)
         }
-        PluginError::McpServerSuppressedDuplicate { server_name, duplicate_of, .. } => {
+        PluginError::McpServerSuppressedDuplicate {
+            server_name,
+            duplicate_of,
+            ..
+        } => {
             let dup = if duplicate_of.starts_with("plugin:") {
                 format!(
                     "server provided by plugin \"{}\"",
@@ -419,58 +449,144 @@ pub fn get_plugin_error_message(error: &PluginError) -> String {
             } else {
                 format!("already-configured \"{}\"", duplicate_of)
             };
-            format!("MCP server \"{}\" skipped — same command/URL as {}", server_name, dup)
+            format!(
+                "MCP server \"{}\" skipped — same command/URL as {}",
+                server_name, dup
+            )
         }
         PluginError::HookLoadFailed { reason, .. } => {
             format!("Hook load failed: {}", reason)
         }
-        PluginError::ComponentLoadFailed { component, path, reason, .. } => {
+        PluginError::ComponentLoadFailed {
+            component,
+            path,
+            reason,
+            ..
+        } => {
             format!("{:?} load failed from {}: {}", component, path, reason)
         }
         PluginError::McpbDownloadFailed { url, reason, .. } => {
             format!("Failed to download MCPB from {}: {}", url, reason)
         }
-        PluginError::McpbExtractFailed { mcpb_path, reason, .. } => {
+        PluginError::McpbExtractFailed {
+            mcpb_path, reason, ..
+        } => {
             format!("Failed to extract MCPB {}: {}", mcpb_path, reason)
         }
-        PluginError::McpbInvalidManifest { mcpb_path, validation_error, .. } => {
-            format!("MCPB manifest invalid at {}: {}", mcpb_path, validation_error)
+        PluginError::McpbInvalidManifest {
+            mcpb_path,
+            validation_error,
+            ..
+        } => {
+            format!(
+                "MCPB manifest invalid at {}: {}",
+                mcpb_path, validation_error
+            )
         }
-        PluginError::LspConfigInvalid { plugin, server_name, validation_error, .. } => {
-            format!("Plugin \"{}\" has invalid LSP server config for \"{}\": {}", plugin, server_name, validation_error)
+        PluginError::LspConfigInvalid {
+            plugin,
+            server_name,
+            validation_error,
+            ..
+        } => {
+            format!(
+                "Plugin \"{}\" has invalid LSP server config for \"{}\": {}",
+                plugin, server_name, validation_error
+            )
         }
-        PluginError::LspServerStartFailed { plugin, server_name, reason, .. } => {
-            format!("Plugin \"{}\" failed to start LSP server \"{}\": {}", plugin, server_name, reason)
+        PluginError::LspServerStartFailed {
+            plugin,
+            server_name,
+            reason,
+            ..
+        } => {
+            format!(
+                "Plugin \"{}\" failed to start LSP server \"{}\": {}",
+                plugin, server_name, reason
+            )
         }
-        PluginError::LspServerCrashed { plugin, server_name, exit_code, signal, .. } => {
+        PluginError::LspServerCrashed {
+            plugin,
+            server_name,
+            exit_code,
+            signal,
+            ..
+        } => {
             if let Some(sig) = signal {
-                format!("Plugin \"{}\" LSP server \"{}\" crashed with signal {}", plugin, server_name, sig)
+                format!(
+                    "Plugin \"{}\" LSP server \"{}\" crashed with signal {}",
+                    plugin, server_name, sig
+                )
             } else {
-                format!("Plugin \"{}\" LSP server \"{}\" crashed with exit code {}", plugin, server_name, exit_code.map(|c| c.to_string()).unwrap_or_else(|| "unknown".to_string()))
+                format!(
+                    "Plugin \"{}\" LSP server \"{}\" crashed with exit code {}",
+                    plugin,
+                    server_name,
+                    exit_code
+                        .map(|c| c.to_string())
+                        .unwrap_or_else(|| "unknown".to_string())
+                )
             }
         }
-        PluginError::LspRequestTimeout { plugin, server_name, method, timeout_ms, .. } => {
-            format!("Plugin \"{}\" LSP server \"{}\" timed out on {} request after {}ms", plugin, server_name, method, timeout_ms)
+        PluginError::LspRequestTimeout {
+            plugin,
+            server_name,
+            method,
+            timeout_ms,
+            ..
+        } => {
+            format!(
+                "Plugin \"{}\" LSP server \"{}\" timed out on {} request after {}ms",
+                plugin, server_name, method, timeout_ms
+            )
         }
-        PluginError::LspRequestFailed { plugin, server_name, method, error, .. } => {
-            format!("Plugin \"{}\" LSP server \"{}\" {} request failed: {}", plugin, server_name, method, error)
+        PluginError::LspRequestFailed {
+            plugin,
+            server_name,
+            method,
+            error,
+            ..
+        } => {
+            format!(
+                "Plugin \"{}\" LSP server \"{}\" {} request failed: {}",
+                plugin, server_name, method, error
+            )
         }
-        PluginError::MarketplaceBlockedByPolicy { marketplace, blocked_by_blocklist, .. } => {
+        PluginError::MarketplaceBlockedByPolicy {
+            marketplace,
+            blocked_by_blocklist,
+            ..
+        } => {
             if blocked_by_blocklist == &Some(true) {
-                format!("Marketplace '{}' is blocked by enterprise policy", marketplace)
+                format!(
+                    "Marketplace '{}' is blocked by enterprise policy",
+                    marketplace
+                )
             } else {
-                format!("Marketplace '{}' is not in the allowed marketplace list", marketplace)
+                format!(
+                    "Marketplace '{}' is not in the allowed marketplace list",
+                    marketplace
+                )
             }
         }
-        PluginError::DependencyUnsatisfied { dependency, reason, .. } => {
+        PluginError::DependencyUnsatisfied {
+            dependency, reason, ..
+        } => {
             let hint = match reason {
                 DependencyReason::NotEnabled => "disabled — enable it or remove the dependency",
                 DependencyReason::NotFound => "not found in any configured marketplace",
             };
             format!("Dependency \"{}\" is {}", dependency, hint)
         }
-        PluginError::PluginCacheMiss { plugin, install_path, .. } => {
-            format!("Plugin \"{}\" not cached at {} — run /plugins to refresh", plugin, install_path)
+        PluginError::PluginCacheMiss {
+            plugin,
+            install_path,
+            ..
+        } => {
+            format!(
+                "Plugin \"{}\" not cached at {} — run /plugins to refresh",
+                plugin, install_path
+            )
         }
     }
 }

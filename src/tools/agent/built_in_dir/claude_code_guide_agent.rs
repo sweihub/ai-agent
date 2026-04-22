@@ -34,10 +34,7 @@ fn is_using_3p_services() -> bool {
 
 pub fn get_claude_code_guide_base_prompt() -> String {
     let local_search_hint = if has_embedded_search_tools() {
-        format!(
-            "{}, `find`, and `grep`",
-            FILE_READ_TOOL_NAME
-        )
+        format!("{}, `find`, and `grep`", FILE_READ_TOOL_NAME)
     } else {
         format!(
             "{}, {}, and {}",
@@ -156,7 +153,10 @@ fn build_context_sections(
             .map(|(name, desc)| format!("- /{}: {}", name, desc))
             .collect::<Vec<_>>()
             .join("\n");
-        sections.push(format!("**Available custom skills in this project:**\n{}", command_list));
+        sections.push(format!(
+            "**Available custom skills in this project:**\n{}",
+            command_list
+        ));
     }
 
     // 2. Custom agents
@@ -166,7 +166,10 @@ fn build_context_sections(
             .map(|(name, desc)| format!("- {}: {}", name, desc))
             .collect::<Vec<_>>()
             .join("\n");
-        sections.push(format!("**Available custom agents configured:**\n{}", agent_list));
+        sections.push(format!(
+            "**Available custom agents configured:**\n{}",
+            agent_list
+        ));
     }
 
     // 3. MCP servers

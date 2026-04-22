@@ -44,7 +44,9 @@ fn extract_lsp_info_from_manifest(lsp_servers: &serde_json::Value) -> Option<Lsp
                 }
             }
 
-            if let Some(ext_mapping) = config.get("extensionToLanguage").and_then(|e| e.as_object())
+            if let Some(ext_mapping) = config
+                .get("extensionToLanguage")
+                .and_then(|e| e.as_object())
             {
                 for ext in ext_mapping.keys() {
                     extensions.insert(ext.to_lowercase());
@@ -78,8 +80,7 @@ async fn get_lsp_plugins_from_marketplaces() -> HashMap<String, LspPluginInfo> {
 
                         for entry in &marketplace.plugins {
                             if let Some(ref lsp_servers) = entry.lsp_servers {
-                                if let Some(lsp_info) =
-                                    extract_lsp_info_from_manifest(lsp_servers)
+                                if let Some(lsp_info) = extract_lsp_info_from_manifest(lsp_servers)
                                 {
                                     let plugin_id = format!("{}@{}", entry.name, marketplace_name);
                                     result.insert(
@@ -126,7 +127,9 @@ struct LspPluginInfo {
 }
 
 fn is_official_marketplace(name: &str) -> bool {
-    allowed_official_marketplace_names().iter().any(|&s| s == name.to_lowercase())
+    allowed_official_marketplace_names()
+        .iter()
+        .any(|&s| s == name.to_lowercase())
 }
 
 /// Find matching LSP plugins for a file path.
@@ -168,12 +171,10 @@ pub async fn get_matching_lsp_plugins(file_path: &str) -> Vec<LspPluginRecommend
         });
     }
 
-    matching.sort_by(|a, b| {
-        match (a.is_official, b.is_official) {
-            (true, false) => std::cmp::Ordering::Less,
-            (false, true) => std::cmp::Ordering::Greater,
-            _ => std::cmp::Ordering::Equal,
-        }
+    matching.sort_by(|a, b| match (a.is_official, b.is_official) {
+        (true, false) => std::cmp::Ordering::Less,
+        (false, true) => std::cmp::Ordering::Greater,
+        _ => std::cmp::Ordering::Equal,
     });
 
     matching

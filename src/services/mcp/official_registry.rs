@@ -97,7 +97,9 @@ pub async fn prefetch_official_mcp_urls() {
 /// Undefined registry -> false (fail-closed).
 pub fn is_official_mcp_url(normalized_url: &str) -> bool {
     let guard = OFFICIAL_URLS.lock().unwrap();
-    guard.as_ref().map_or(false, |urls| urls.contains(normalized_url))
+    guard
+        .as_ref()
+        .map_or(false, |urls| urls.contains(normalized_url))
 }
 
 /// Reset official URLs for testing
@@ -123,7 +125,7 @@ mod tests {
     }
 
     #[test]
-   fn test_is_official_mcp_url_empty() {
+    fn test_is_official_mcp_url_empty() {
         // Empty registry returns false
         assert!(!is_official_mcp_url("https://example.com"));
     }

@@ -311,38 +311,41 @@ fn test_permission_mode_bubble_allows_safe_tools() {
 fn test_permission_mode_bubble_allows_write_edit_bash() {
     let ctx = PermissionContext::new().with_mode(PermissionMode::Bubble);
     // Write/Edit/Bash should be allowed without dangerous patterns
-    assert!(ctx
-        .check_tool(
+    assert!(
+        ctx.check_tool(
             "Write",
             Some(&serde_json::json!({"path": "/tmp/test", "content": "hello"}))
         )
-        .is_allowed());
-    assert!(ctx
-        .check_tool(
+        .is_allowed()
+    );
+    assert!(
+        ctx.check_tool(
             "Edit",
-            Some(
-                &serde_json::json!({"path": "/tmp/test", "old_string": "a", "new_string": "b"})
-            )
+            Some(&serde_json::json!({"path": "/tmp/test", "old_string": "a", "new_string": "b"}))
         )
-        .is_allowed());
-    assert!(ctx
-        .check_tool("Bash", Some(&serde_json::json!({"command": "ls -la"})))
-        .is_allowed());
+        .is_allowed()
+    );
+    assert!(
+        ctx.check_tool("Bash", Some(&serde_json::json!({"command": "ls -la"})))
+            .is_allowed()
+    );
 }
 
 #[test]
 fn test_permission_mode_bubble_blocks_dangerous_patterns() {
     let ctx = PermissionContext::new().with_mode(PermissionMode::Bubble);
     // Dangerous patterns should be blocked (ask)
-    assert!(ctx
-        .check_tool("Bash", Some(&serde_json::json!({"command": "rm -rf /tmp"})))
-        .is_ask());
-    assert!(ctx
-        .check_tool(
+    assert!(
+        ctx.check_tool("Bash", Some(&serde_json::json!({"command": "rm -rf /tmp"})))
+            .is_ask()
+    );
+    assert!(
+        ctx.check_tool(
             "Bash",
             Some(&serde_json::json!({"command": "dd if=/dev/zero of=/dev/sda"}))
         )
-        .is_ask());
+        .is_ask()
+    );
 }
 
 // =====================================================================

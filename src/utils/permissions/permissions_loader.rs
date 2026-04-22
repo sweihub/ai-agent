@@ -3,16 +3,15 @@
 
 //! Permissions loader — loads and persists permission rules from settings files.
 
-use std::collections::HashSet;
-use serde::{Deserialize, Serialize};
-use serde_json::Value;
-use crate::types::permissions::{
-    PermissionBehavior, PermissionRule, PermissionRuleSource,
-    PermissionRuleValue,
-};
 use super::permission_rule_parser::{
     permission_rule_value_from_string, permission_rule_value_to_string,
 };
+use crate::types::permissions::{
+    PermissionBehavior, PermissionRule, PermissionRuleSource, PermissionRuleValue,
+};
+use serde::{Deserialize, Serialize};
+use serde_json::Value;
+use std::collections::HashSet;
 
 /// Settings JSON structure for permissions.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -121,9 +120,7 @@ fn get_settings_for_source(_source: &PermissionRuleSource) -> Option<SettingsJso
 }
 
 /// Deletes a permission rule from settings.
-pub fn delete_permission_rule_from_settings(
-    rule: &PermissionRule,
-) -> bool {
+pub fn delete_permission_rule_from_settings(rule: &PermissionRule) -> bool {
     // Only editable sources
     if !matches!(
         rule.source,
@@ -159,7 +156,10 @@ pub fn delete_permission_rule_from_settings(
         permission_rule_value_to_string(&permission_rule_value_from_string(raw))
     };
 
-    if !existing.iter().any(|raw| normalize_entry(raw) == rule_string) {
+    if !existing
+        .iter()
+        .any(|raw| normalize_entry(raw) == rule_string)
+    {
         return false;
     }
 
@@ -187,12 +187,13 @@ pub fn add_permission_rules_to_settings(
         .map(permission_rule_value_to_string)
         .collect();
 
-    let settings = get_settings_for_source(source).unwrap_or(SettingsJson {
-        permissions: None,
-    });
+    let settings = get_settings_for_source(source).unwrap_or(SettingsJson { permissions: None });
 
     let mut permissions = settings.permissions.unwrap_or(SettingsPermissions {
-        allow: None, deny: None, ask: None, additional_directories: None,
+        allow: None,
+        deny: None,
+        ask: None,
+        additional_directories: None,
     });
 
     let existing_rules = match rule_behavior {
@@ -213,9 +214,11 @@ pub fn add_permission_rules_to_settings(
 
     let new_rules: Vec<String> = rule_strings
         .iter()
-        .filter(|rule| !existing_set.contains(&permission_rule_value_to_string(
-            &permission_rule_value_from_string(rule),
-        )))
+        .filter(|rule| {
+            !existing_set.contains(&permission_rule_value_to_string(
+                &permission_rule_value_from_string(rule),
+            ))
+        })
         .cloned()
         .collect();
 

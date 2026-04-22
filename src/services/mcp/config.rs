@@ -8,10 +8,7 @@ use crate::services::mcp::normalization::normalize_name_for_mcp;
 use crate::services::mcp::types::*;
 
 /// CCR proxy URL path markers for remote sessions
-const CCR_PROXY_PATH_MARKERS: &[&str] = &[
-    "/v2/session_ingress/shttp/mcp/",
-    "/v2/ccr-sessions/",
-];
+const CCR_PROXY_PATH_MARKERS: &[&str] = &["/v2/session_ingress/shttp/mcp/", "/v2/ccr-sessions/"];
 
 /// Extract command array from server config (stdio servers only)
 /// Returns None for non-stdio servers
@@ -207,13 +204,12 @@ fn url_matches_pattern(url: &str, pattern: &str) -> bool {
 }
 
 /// Check if an MCP server is disabled
-pub fn is_mcp_server_disabled(
-    server_name: &str,
-    disabled_servers: Option<&[String]>,
-) -> bool {
+pub fn is_mcp_server_disabled(server_name: &str, disabled_servers: Option<&[String]>) -> bool {
     if let Some(disabled) = disabled_servers {
         let normalized = normalize_name_for_mcp(server_name);
-        disabled.iter().any(|name| normalize_name_for_mcp(name) == normalized)
+        disabled
+            .iter()
+            .any(|name| normalize_name_for_mcp(name) == normalized)
     } else {
         false
     }
@@ -284,8 +280,12 @@ pub fn is_mcp_server_allowed_by_policy(
     }
 
     // Check if allowlist contains command-based or URL-based entries
-    let has_command_entries = allowed.iter().any(|e| matches!(e, McpServerAllowanceEntry::Command(_)));
-    let has_url_entries = allowed.iter().any(|e| matches!(e, McpServerAllowanceEntry::Url(_)));
+    let has_command_entries = allowed
+        .iter()
+        .any(|e| matches!(e, McpServerAllowanceEntry::Command(_)));
+    let has_url_entries = allowed
+        .iter()
+        .any(|e| matches!(e, McpServerAllowanceEntry::Url(_)));
 
     if let Some(cfg) = config {
         if let Some(server_cmd) = get_server_command_array(cfg) {
@@ -452,9 +452,18 @@ mod tests {
 
     #[test]
     fn test_url_matches_pattern() {
-        assert!(url_matches_pattern("https://example.com/api/v1", "https://example.com/*"));
-        assert!(url_matches_pattern("https://api.example.com/path", "https://*.example.com/*"));
-        assert!(!url_matches_pattern("https://other.com/path", "https://example.com/*"));
+        assert!(url_matches_pattern(
+            "https://example.com/api/v1",
+            "https://example.com/*"
+        ));
+        assert!(url_matches_pattern(
+            "https://api.example.com/path",
+            "https://*.example.com/*"
+        ));
+        assert!(!url_matches_pattern(
+            "https://other.com/path",
+            "https://example.com/*"
+        ));
     }
 
     #[test]

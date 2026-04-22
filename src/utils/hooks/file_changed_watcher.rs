@@ -70,9 +70,7 @@ lazy_static::lazy_static! {
 }
 
 /// Set environment hook notifier callback
-pub fn set_env_hook_notifier(
-    cb: Option<Box<dyn Fn(String, bool) + Send + Sync>>,
-) {
+pub fn set_env_hook_notifier(cb: Option<Box<dyn Fn(String, bool) + Send + Sync>>) {
     let mut state = FILE_WATCHER_STATE.lock().unwrap();
     state.notify_callback = cb;
 }
@@ -171,7 +169,10 @@ fn resolve_watch_paths() -> Vec<String> {
 
 /// Start watching the given paths (polling-based since notify crate not available)
 fn start_watching(paths: &[String]) {
-    log_for_debugging(&format!("FileChanged: watching {} paths (polling mode)", paths.len()));
+    log_for_debugging(&format!(
+        "FileChanged: watching {} paths (polling mode)",
+        paths.len()
+    ));
 
     // Store the paths for polling
     {

@@ -102,7 +102,8 @@ pub fn extract_discovered_tool_names(messages: &[serde_json::Value]) -> HashSet<
                 if let Some(block_array) = block.get("content").and_then(|v| v.as_array()) {
                     for item in block_array {
                         if item.get("type").and_then(|v| v.as_str()) == Some("tool_reference") {
-                            if let Some(tool_name) = item.get("tool_name").and_then(|v| v.as_str()) {
+                            if let Some(tool_name) = item.get("tool_name").and_then(|v| v.as_str())
+                            {
                                 discovered.insert(tool_name.to_string());
                             }
                         }
@@ -119,24 +120,34 @@ pub fn extract_discovered_tool_names(messages: &[serde_json::Value]) -> HashSet<
 pub fn get_tool_search_mode() -> &'static str {
     // Check kill switch
     if env_utils::is_env_truthy(
-        std::env::var("CLAUDE_CODE_DISABLE_EXPERIMENTAL_BETAS").ok().as_deref()
+        std::env::var("CLAUDE_CODE_DISABLE_EXPERIMENTAL_BETAS")
+            .ok()
+            .as_deref(),
     ) {
         return "standard";
     }
 
     let value = std::env::var("ENABLE_TOOL_SEARCH").ok();
-    
+
     // Handle auto:N syntax
     if let Some(ref v) = value {
         if let Some(percent) = parse_auto_percentage(v) {
-            if percent == 0 { return "tst"; }
-            if percent == 100 { return "standard"; }
+            if percent == 0 {
+                return "tst";
+            }
+            if percent == 100 {
+                return "standard";
+            }
             return "tst-auto";
         }
     }
 
-    if env_utils::is_env_truthy(value.as_deref()) { return "tst"; }
-    if env_utils::is_env_defined_falsy(value.as_deref()) { return "standard"; }
+    if env_utils::is_env_truthy(value.as_deref()) {
+        return "tst";
+    }
+    if env_utils::is_env_defined_falsy(value.as_deref()) {
+        return "standard";
+    }
     // Default: always defer MCP and shouldDefer tools
     "tst"
 }
@@ -188,7 +199,7 @@ pub fn parse_tool_search_query(query: &str) -> ToolSearchQuery {
     let terms: Vec<&str> = query.split_whitespace().collect();
     let mut required = Vec::new();
     let mut optional = Vec::new();
-    
+
     for term in &terms {
         if term.starts_with('+') && term.len() > 1 {
             required.push(term[1..].to_string());
@@ -202,10 +213,7 @@ pub fn parse_tool_search_query(query: &str) -> ToolSearchQuery {
     } else if required.is_empty() {
         ToolSearchQuery::Keyword(query.to_string())
     } else {
-        ToolSearchQuery::KeywordWithRequired {
-            required,
-            optional,
-        }
+        ToolSearchQuery::KeywordWithRequired { required, optional }
     }
 }
 
@@ -216,7 +224,10 @@ pub enum ToolSearchQuery {
     /// Simple keyword search
     Keyword(String),
     /// Keyword search with required terms
-    KeywordWithRequired { required: Vec<String>, optional: Vec<String> },
+    KeywordWithRequired {
+        required: Vec<String>,
+        optional: Vec<String>,
+    },
 }
 
 /// Parse tool name into searchable parts (handles CamelCase and mcp__server__tool)
@@ -232,23 +243,24 @@ pub fn parse_tool_name(name: &str) -> ToolNameParts {
             .collect();
         return ToolNameParts {
             parts,
-            full: without_prefix.replace("__", " ").replace('_', " ").to_lowercase(),
+            full: without_prefix
+                .replace("__", " ")
+                .replace('_', " ")
+                .to_lowercase(),
             is_mcp: true,
         };
     }
 
     // Regular tool - split by CamelCase
-    let spaced = name
-        .replace("([a-z])([A-Z])", "$1 $2")
-        .replace('_', " ");
-    
+    let spaced = name.replace("([a-z])([A-Z])", "$1 $2").replace('_', " ");
+
     let parts: Vec<String> = spaced
         .split_whitespace()
         .map(|s| s.to_lowercase())
         .collect();
-    
+
     let full = parts.join(" ");
-    
+
     ToolNameParts {
         parts,
         full,
@@ -272,7 +284,10 @@ pub fn search_tools_with_keywords(
     let query_lower = query.to_lowercase().trim().to_string();
 
     // Fast path: exact match on tool name
-    if let Some(exact) = deferred_tools.iter().find(|t| t.name.to_lowercase() == query_lower) {
+    if let Some(exact) = deferred_tools
+        .iter()
+        .find(|t| t.name.to_lowercase() == query_lower)
+    {
         return vec![exact.name.clone()];
     }
 
@@ -289,14 +304,15 @@ pub fn search_tools_with_keywords(
         }
     }
 
-    let query_terms: Vec<&str> = query_lower.split_whitespace()
+    let query_terms: Vec<&str> = query_lower
+        .split_whitespace()
         .filter(|t| !t.is_empty())
         .collect();
 
     // Partition into required (+prefixed) and optional terms
     let mut required_terms = Vec::new();
     let mut optional_terms = Vec::new();
-    
+
     for term in &query_terms {
         if term.starts_with('+') && term.len() > 1 {
             required_terms.push(&term[1..]);
@@ -319,7 +335,11 @@ pub fn search_tools_with_keywords(
         .filter_map(|tool| {
             let parsed = parse_tool_name(&tool.name);
             let desc_lower = tool.description.to_lowercase();
-            let hint_lower = tool.search_hint.as_ref().map(|h| h.to_lowercase()).unwrap_or_default();
+            let hint_lower = tool
+                .search_hint
+                .as_ref()
+                .map(|h| h.to_lowercase())
+                .unwrap_or_default();
 
             // Pre-filter: if required terms, must match at least one
             if !required_terms.is_empty() {
@@ -378,7 +398,12 @@ pub fn search_tools_with_keywords(
 mod tests {
     use super::*;
 
-    fn make_tool(name: &str, should_defer: Option<bool>, is_mcp: Option<bool>, always_load: Option<bool>) -> ToolDefinition {
+    fn make_tool(
+        name: &str,
+        should_defer: Option<bool>,
+        is_mcp: Option<bool>,
+        always_load: Option<bool>,
+    ) -> ToolDefinition {
         let mut t = ToolDefinition::new(name, "", crate::types::ToolInputSchema::default());
         t.should_defer = should_defer;
         t.is_mcp = is_mcp;

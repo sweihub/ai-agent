@@ -8,10 +8,10 @@
 //! Translated from TypeScript autoCompact.ts
 
 use crate::compact::{
+    CompactionResult, TokenWarningState,
     calculate_token_warning_state as core_calculate_token_warning_state,
     get_auto_compact_threshold as core_get_auto_compact_threshold,
     get_effective_context_window_size as core_get_effective_context_window_size,
-    CompactionResult, TokenWarningState,
 };
 use crate::types::Message;
 use crate::utils::env_utils::is_env_truthy;

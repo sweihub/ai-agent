@@ -122,9 +122,18 @@ mod tests {
 
     #[test]
     fn test_auto_mode_enabled_state_from_str() {
-        assert_eq!(AutoModeEnabledState::from_str("enabled"), Some(AutoModeEnabledState::Enabled));
-        assert_eq!(AutoModeEnabledState::from_str("disabled"), Some(AutoModeEnabledState::Disabled));
-        assert_eq!(AutoModeEnabledState::from_str("opt-in"), Some(AutoModeEnabledState::OptIn));
+        assert_eq!(
+            AutoModeEnabledState::from_str("enabled"),
+            Some(AutoModeEnabledState::Enabled)
+        );
+        assert_eq!(
+            AutoModeEnabledState::from_str("disabled"),
+            Some(AutoModeEnabledState::Disabled)
+        );
+        assert_eq!(
+            AutoModeEnabledState::from_str("opt-in"),
+            Some(AutoModeEnabledState::OptIn)
+        );
         assert_eq!(AutoModeEnabledState::from_str("unknown"), None);
     }
 }

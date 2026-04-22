@@ -8,19 +8,19 @@ use crate::compact::{
     self, get_auto_compact_threshold, get_compact_prompt, get_effective_context_window_size,
 };
 use crate::error::AgentError;
-use crate::utils::http::get_user_agent;
 use crate::hooks::{HookInput, HookRegistry};
 use crate::services::compact::microcompact::truncate_tool_result_content;
 use crate::services::streaming::{
+    STALL_THRESHOLD_MS, StallStats, StreamWatchdog, StreamingResult, StreamingToolExecutor,
     calculate_streaming_cost, cleanup_stream, get_nonstreaming_fallback_timeout_ms,
     is_404_stream_creation_error, is_api_timeout_error, is_nonstreaming_fallback_disabled,
-    is_user_abort_error, release_stream_resources, validate_stream_completion, StallStats,
-    StreamingResult, StreamingToolExecutor, StreamWatchdog, STALL_THRESHOLD_MS,
+    is_user_abort_error, release_stream_resources, validate_stream_completion,
 };
 use crate::tool::Tool as ToolTrait;
 use crate::tool::{ProgressMessage, ToolResultRenderOptions};
 use crate::tools::orchestration::{self, ToolMessageUpdate};
 use crate::types::*;
+use crate::utils::http::get_user_agent;
 use std::collections::{HashMap, HashSet};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
@@ -115,8 +115,13 @@ pub struct ToolRenderMetadata {
 /// Render function closures stored alongside a tool for display hooks
 type UserFacingNameFn = Arc<dyn Fn(Option<&serde_json::Value>) -> String + Send + Sync>;
 type GetToolUseSummaryFn = Arc<dyn Fn(Option<&serde_json::Value>) -> Option<String> + Send + Sync>;
-type GetActivityDescriptionFn = Arc<dyn Fn(Option<&serde_json::Value>) -> Option<String> + Send + Sync>;
-type RenderToolResultFn = Arc<dyn Fn(&serde_json::Value, &[ProgressMessage], &ToolResultRenderOptions) -> Option<String> + Send + Sync>;
+type GetActivityDescriptionFn =
+    Arc<dyn Fn(Option<&serde_json::Value>) -> Option<String> + Send + Sync>;
+type RenderToolResultFn = Arc<
+    dyn Fn(&serde_json::Value, &[ProgressMessage], &ToolResultRenderOptions) -> Option<String>
+        + Send
+        + Sync,
+>;
 
 #[derive(Clone)]
 pub struct ToolRenderFns {
@@ -216,7 +221,8 @@ pub struct QueryEngineConfig {
     pub system_context: HashMap<String, String>,
     /// Permission check function - called BEFORE tool execution
     /// Returns true if tool can be used, false if denied
-    pub can_use_tool: Option<fn(ToolDefinition, serde_json::Value) -> bool>,
+    pub can_use_tool:
+        Option<std::sync::Arc<dyn Fn(ToolDefinition, serde_json::Value) -> bool + Send + Sync>>,
     /// Callback for agent events (tool start/complete/error, thinking, done)
     pub on_event: Option<std::sync::Arc<dyn Fn(AgentEvent) + Send + Sync>>,
     /// Thinking configuration for the API
@@ -339,7 +345,7 @@ impl QueryEngine {
     /// Returns (upfront_tools, deferred_tools).
     /// This matches the TypeScript's isDeferredTool() logic.
     pub(crate) fn separate_tools_for_request(&self) -> (Vec<ToolDefinition>, Vec<ToolDefinition>) {
-        use crate::tools::deferred_tools::{is_deferred_tool, extract_discovered_tool_names};
+        use crate::tools::deferred_tools::{extract_discovered_tool_names, is_deferred_tool};
 
         let mut upfront = Vec::new();
         let mut deferred = Vec::new();
@@ -360,18 +366,22 @@ impl QueryEngine {
 
         // Check for already-discovered deferred tools from message history
         // Build API message format from our internal messages
-        let api_messages: Vec<serde_json::Value> = self.messages.iter().map(|msg| {
-            let role = match msg.role {
-                api_types::MessageRole::User => "user",
-                api_types::MessageRole::Assistant => "assistant",
-                api_types::MessageRole::System => "system",
-                api_types::MessageRole::Tool => "tool",
-            };
-            serde_json::json!({
-                "role": role,
-                "content": msg.content
+        let api_messages: Vec<serde_json::Value> = self
+            .messages
+            .iter()
+            .map(|msg| {
+                let role = match msg.role {
+                    api_types::MessageRole::User => "user",
+                    api_types::MessageRole::Assistant => "assistant",
+                    api_types::MessageRole::System => "system",
+                    api_types::MessageRole::Tool => "tool",
+                };
+                serde_json::json!({
+                    "role": role,
+                    "content": msg.content
+                })
             })
-        }).collect();
+            .collect();
 
         let discovered = extract_discovered_tool_names(&api_messages);
 
@@ -390,9 +400,12 @@ impl QueryEngine {
 
     /// Inject <available-deferred-tools> block into messages if tool search is enabled.
     /// This tells the model about deferred tool names so it can discover them via ToolSearch.
-    pub(crate) fn maybe_inject_deferred_tools_block(&self, api_messages: &mut Vec<serde_json::Value>) {
+    pub(crate) fn maybe_inject_deferred_tools_block(
+        &self,
+        api_messages: &mut Vec<serde_json::Value>,
+    ) {
         use crate::tools::deferred_tools::{
-            is_deferred_tool, get_deferred_tool_names, extract_discovered_tool_names,
+            extract_discovered_tool_names, get_deferred_tool_names, is_deferred_tool,
             is_tool_search_enabled_optimistic,
         };
 
@@ -467,8 +480,14 @@ impl QueryEngine {
                 executors.get(name).cloned(),
                 render_fns.get(name).map(|fns| ToolRenderMetadata {
                     user_facing_name: (Arc::clone(&fns.user_facing_name))(Some(&input)),
-                    tool_use_summary: fns.get_tool_use_summary.as_ref().and_then(|f| f(Some(&input))),
-                    activity_description: fns.get_activity_description.as_ref().and_then(|f| f(Some(&input))),
+                    tool_use_summary: fns
+                        .get_tool_use_summary
+                        .as_ref()
+                        .and_then(|f| f(Some(&input))),
+                    activity_description: fns
+                        .get_activity_description
+                        .as_ref()
+                        .and_then(|f| f(Some(&input))),
                 }),
             )
         };
@@ -768,6 +787,24 @@ impl QueryEngine {
         self.messages.clone()
     }
 
+    /// Reset conversation state — clear messages, usage, and turn count.
+    /// Preserves config, tool executors, and abort controller.
+    pub fn reset(&mut self) {
+        self.messages.clear();
+        self.turn_count = 0;
+        self.total_usage = TokenUsage::default();
+        self.total_cost = 0.0;
+        self.permission_denials.clear();
+        self.last_stop_reason = None;
+        self.max_output_tokens_recovery_count = 0;
+        self.has_attempted_reactive_compact = false;
+        self.empty_response_retries = 0;
+        self.max_output_tokens_override = None;
+        self.stop_hook_active = false;
+        self.transition = None;
+        self.pending_tool_use_summary = None;
+    }
+
     /// Attempt to auto-compact the conversation when token count exceeds threshold
     /// Translated from: compactConversation in compact.ts
     /// Returns Ok(true) if compaction happened, Ok(false) if not needed, Err on failure
@@ -777,9 +814,8 @@ impl QueryEngine {
             strip_images_from_messages, strip_reinjected_attachments,
         };
         use crate::services::compact::{
-            get_compact_prompt as get_compact_prompt_service,
-            format_compact_summary, get_compact_user_summary_message,
-            PartialCompactDirection,
+            PartialCompactDirection, format_compact_summary,
+            get_compact_prompt as get_compact_prompt_service, get_compact_user_summary_message,
         };
         use crate::tools::deferred_tools::{
             get_deferred_tool_names, is_tool_search_enabled_optimistic,
@@ -808,24 +844,31 @@ impl QueryEngine {
             &self.messages,
             None,
             Some(threshold as usize),
-        ).await {
+        )
+        .await
+        {
             if sm_result.compacted {
                 log::info!("[compact] Session memory compaction succeeded");
-                self.apply_compaction_result(sm_result.messages_to_keep, sm_result.post_compact_token_count as u32);
+                self.apply_compaction_result(
+                    sm_result.messages_to_keep,
+                    sm_result.post_compact_token_count as u32,
+                );
                 return Ok(true);
             }
         }
 
         // Phase 3: Strip images and reinjected attachments before compact API call
-        let stripped_messages = strip_reinjected_attachments(
-            &strip_images_from_messages(&self.messages)
-        );
+        let stripped_messages =
+            strip_reinjected_attachments(&strip_images_from_messages(&self.messages));
 
         // Phase 4: Build compact prompt
         let compact_prompt = get_compact_prompt();
 
         // Phase 5: Generate summary using LLM with PTL retry logic
-        let summary = match self.generate_summary_with_ptl_retry(&stripped_messages, &compact_prompt).await {
+        let summary = match self
+            .generate_summary_with_ptl_retry(&stripped_messages, &compact_prompt)
+            .await
+        {
             Ok(s) => s,
             Err(e) => {
                 log::warn!("[compact] Summary generation failed: {}", e);
@@ -906,12 +949,11 @@ impl QueryEngine {
         for attempt in 0..MAX_PTL_RETRIES {
             // Estimate tokens and check if truncation needed
             let max_summary_tokens = 2048u32;
-            let (truncated_messages, estimated_tokens) =
-                compact::truncate_messages_for_summary(
-                    &summary_messages,
-                    &self.config.model,
-                    max_summary_tokens,
-                );
+            let (truncated_messages, estimated_tokens) = compact::truncate_messages_for_summary(
+                &summary_messages,
+                &self.config.model,
+                max_summary_tokens,
+            );
 
             // Verify it's safe before proceeding
             if estimated_tokens > 150000 {
@@ -923,7 +965,8 @@ impl QueryEngine {
                         MAX_PTL_RETRIES,
                         estimated_tokens
                     );
-                    summary_messages = self.truncate_head_for_ptl_retry(&summary_messages, estimated_tokens);
+                    summary_messages =
+                        self.truncate_head_for_ptl_retry(&summary_messages, estimated_tokens);
                     continue;
                 }
                 return Err(AgentError::Api(format!(
@@ -933,12 +976,21 @@ impl QueryEngine {
             }
 
             // Attempt summary generation
-            match self.generate_summary_from_messages(&truncated_messages).await {
+            match self
+                .generate_summary_from_messages(&truncated_messages)
+                .await
+            {
                 Ok(summary) => return Ok(summary),
                 Err(e) => {
                     if attempt < MAX_PTL_RETRIES - 1 {
-                        log::warn!("[compact] Summary attempt {}/{} failed: {}, retrying", attempt + 1, MAX_PTL_RETRIES, e);
-                        summary_messages = self.truncate_head_for_ptl_retry(&summary_messages, estimated_tokens);
+                        log::warn!(
+                            "[compact] Summary attempt {}/{} failed: {}, retrying",
+                            attempt + 1,
+                            MAX_PTL_RETRIES,
+                            e
+                        );
+                        summary_messages =
+                            self.truncate_head_for_ptl_retry(&summary_messages, estimated_tokens);
                     } else {
                         return Err(e);
                     }
@@ -946,14 +998,20 @@ impl QueryEngine {
             }
         }
 
-        Err(AgentError::Api("Summary generation failed after max retries".to_string()))
+        Err(AgentError::Api(
+            "Summary generation failed after max retries".to_string(),
+        ))
     }
 
     /// Truncate the head of messages for PTL retry.
     /// Groups messages by API round and drops oldest groups until gap covered.
     /// If unparseable token gap: drops 20% of groups.
     /// Keeps at least one group to ensure there's something to summarize.
-    fn truncate_head_for_ptl_retry(&self, messages: &[Message], estimated_tokens: u32) -> Vec<Message> {
+    fn truncate_head_for_ptl_retry(
+        &self,
+        messages: &[Message],
+        estimated_tokens: u32,
+    ) -> Vec<Message> {
         use crate::services::compact::grouping::group_messages_by_api_round;
 
         let groups = group_messages_by_api_round(messages);
@@ -972,10 +1030,7 @@ impl QueryEngine {
         );
 
         // Flatten remaining groups
-        groups.into_iter()
-            .skip(groups_to_drop)
-            .flatten()
-            .collect()
+        groups.into_iter().skip(groups_to_drop).flatten().collect()
     }
 
     /// Build messages for summary generation request
@@ -1179,7 +1234,11 @@ impl QueryEngine {
     }
 
     /// Apply compaction result: replace messages with boundary + kept messages
-    fn apply_compaction_result(&mut self, messages_to_keep: Vec<Message>, _post_compact_tokens: u32) {
+    fn apply_compaction_result(
+        &mut self,
+        messages_to_keep: Vec<Message>,
+        _post_compact_tokens: u32,
+    ) {
         let boundary_msg = Message {
             role: MessageRole::System,
             content: "[Previous conversation summarized]".to_string(),
@@ -1323,7 +1382,9 @@ impl QueryEngine {
             // Add system prompt to request body (Anthropic uses separate field)
             // Include system_context if configured (matching TypeScript appendSystemContext)
             let system_prompt_to_use = if !self.config.system_context.is_empty() {
-                let context_parts: Vec<String> = self.config.system_context
+                let context_parts: Vec<String> = self
+                    .config
+                    .system_context
                     .iter()
                     .map(|(key, value)| format!("{}: {}", key, value))
                     .collect();
@@ -1412,10 +1473,13 @@ impl QueryEngine {
                 request_body["tools"] = serde_json::json!(tools);
 
                 // Store deferred tools info for <available-deferred-tools> injection
-                if !deferred_tools.is_empty() && crate::tools::deferred_tools::is_tool_search_enabled_optimistic() {
+                if !deferred_tools.is_empty()
+                    && crate::tools::deferred_tools::is_tool_search_enabled_optimistic()
+                {
                     // The <available-deferred-tools> block is injected as a synthetic user message
                     // This is handled in build_api_messages()
-                    let _deferred_names: Vec<&str> = deferred_tools.iter().map(|t| t.name.as_str()).collect();
+                    let _deferred_names: Vec<&str> =
+                        deferred_tools.iter().map(|t| t.name.as_str()).collect();
                 }
             }
 
@@ -1436,7 +1500,11 @@ impl QueryEngine {
             loop {
                 // Use fallback model if primary failed with rate limit
                 let current_model = if use_fallback_model {
-                    self.config.fallback_model.as_ref().unwrap_or(&self.config.model).clone()
+                    self.config
+                        .fallback_model
+                        .as_ref()
+                        .unwrap_or(&self.config.model)
+                        .clone()
                 } else {
                     self.config.model.clone()
                 };
@@ -1482,7 +1550,9 @@ impl QueryEngine {
 
                         // Check for 404 stream creation error
                         if is_404_stream_creation_error(&e) {
-                            eprintln!("Streaming endpoint returned 404, falling back to non-streaming mode");
+                            eprintln!(
+                                "Streaming endpoint returned 404, falling back to non-streaming mode"
+                            );
                         }
 
                         // Check if this is a prompt-too-long error that should trigger reactive compact
@@ -1494,7 +1564,10 @@ impl QueryEngine {
 
                         if is_prompt_too_long {
                             eprintln!("Prompt too large (413), attempting reactive compact...");
-                            match crate::services::compact::reactive_compact::run_reactive_compact(&self.messages, &self.config.model) {
+                            match crate::services::compact::reactive_compact::run_reactive_compact(
+                                &self.messages,
+                                &self.config.model,
+                            ) {
                                 Ok(reactive_result) if reactive_result.compacted => {
                                     log::info!(
                                         "[reactive-compact] reduced {} messages after 413 error",
@@ -1505,7 +1578,9 @@ impl QueryEngine {
                                     continue; // Retry with compacted context
                                 }
                                 _ => {
-                                    log::warn!("[reactive-compact] no improvement possible, falling through to non-streaming");
+                                    log::warn!(
+                                        "[reactive-compact] no improvement possible, falling through to non-streaming"
+                                    );
                                 }
                             }
                         }
@@ -1552,7 +1627,9 @@ impl QueryEngine {
 
                         // Emit Thinking event for recovery attempt
                         if let Some(ref cb) = self.config.on_event {
-                            cb(AgentEvent::Thinking { turn: self.turn_count + 1 });
+                            cb(AgentEvent::Thinking {
+                                turn: self.turn_count + 1,
+                            });
                         }
 
                         // Continue to next iteration (retry the request)
@@ -1564,7 +1641,8 @@ impl QueryEngine {
                     if let Some(ref cb) = self.config.on_event {
                         cb(AgentEvent::Done {
                             result: crate::types::QueryResult {
-                                text: "Output token limit reached and recovery exhausted".to_string(),
+                                text: "Output token limit reached and recovery exhausted"
+                                    .to_string(),
                                 usage: self.total_usage.clone(),
                                 num_turns: self.turn_count,
                                 duration_ms: 0,
@@ -1579,9 +1657,7 @@ impl QueryEngine {
                 }
 
                 // No tool calls - check for unfinished tasks before finalizing
-                if self.config.max_turns == 0
-                    || self.turn_count < self.config.max_turns
-                {
+                if self.config.max_turns == 0 || self.turn_count < self.config.max_turns {
                     if let Some(nudge) = crate::utils::inspector::check() {
                         log::debug!(
                             "[query_engine] unfinished tasks found, nudging LLM to continue (turn {})",
@@ -1612,7 +1688,8 @@ impl QueryEngine {
                 // This can happen from rate limiting, network issues, or model errors
                 // that slip past HTTP status checks (e.g., 200 OK with error body,
                 // or stream dropped mid-response). Retry a couple of times.
-                if response_text.is_empty() && streaming_result.tool_calls.is_empty()
+                if response_text.is_empty()
+                    && streaming_result.tool_calls.is_empty()
                     && self.config.max_turns > 0
                     && self.turn_count < self.config.max_turns
                 {
@@ -1624,7 +1701,10 @@ impl QueryEngine {
                             streaming_result.stop_reason,
                         );
                         // Brief backoff between retries
-                        tokio::time::sleep(std::time::Duration::from_millis(500 * self.empty_response_retries as u64)).await;
+                        tokio::time::sleep(std::time::Duration::from_millis(
+                            500 * self.empty_response_retries as u64,
+                        ))
+                        .await;
                         // Continue to rebuild and retry the API call
                         continue;
                     }
@@ -1737,7 +1817,7 @@ impl QueryEngine {
             let tool_executors = Arc::new(self.tool_executors.lock().unwrap().clone());
             let tool_render_fns = Arc::new(self.tool_render_fns.lock().unwrap().clone());
             let tools = self.config.tools.clone();
-            let can_use_tool = self.config.can_use_tool;
+            let can_use_tool = self.config.can_use_tool.clone();
             let cwd = self.config.cwd.clone();
             let on_event = self.config.on_event.clone();
             let abort_signal = self.abort_controller.signal().clone();
@@ -1746,7 +1826,7 @@ impl QueryEngine {
                 let tool_executors = tool_executors.clone();
                 let tool_render_fns = tool_render_fns.clone();
                 let tools = tools.clone();
-                let can_use_tool = can_use_tool;
+                let can_use_tool = can_use_tool.clone();
                 let cwd = cwd.clone();
                 let on_event = on_event.clone();
                 let abort_signal = abort_signal.clone();
@@ -1759,13 +1839,17 @@ impl QueryEngine {
                     // Emit ToolStart event with render metadata
                     if let Some(ref cb) = on_event {
                         let meta_input = Some(&args);
-                        let metadata = tool_render_fns
-                            .get(&name)
-                            .map(|fns| ToolRenderMetadata {
-                                user_facing_name: (Arc::clone(&fns.user_facing_name))(meta_input),
-                                tool_use_summary: fns.get_tool_use_summary.as_ref().and_then(|f| f(meta_input)),
-                                activity_description: fns.get_activity_description.as_ref().and_then(|f| f(meta_input)),
-                            });
+                        let metadata = tool_render_fns.get(&name).map(|fns| ToolRenderMetadata {
+                            user_facing_name: (Arc::clone(&fns.user_facing_name))(meta_input),
+                            tool_use_summary: fns
+                                .get_tool_use_summary
+                                .as_ref()
+                                .and_then(|f| f(meta_input)),
+                            activity_description: fns
+                                .get_activity_description
+                                .as_ref()
+                                .and_then(|f| f(meta_input)),
+                        });
                         if let Some(ref meta) = metadata {
                             cb(AgentEvent::ToolStart {
                                 tool_name: name.clone(),
@@ -1801,13 +1885,17 @@ impl QueryEngine {
                     if let Some(executor_fn) = executor_fn {
                         // Compute render metadata
                         let meta_input = Some(&args);
-                        let metadata = tool_render_fns
-                            .get(&name)
-                            .map(|fns| ToolRenderMetadata {
-                                user_facing_name: (Arc::clone(&fns.user_facing_name))(meta_input),
-                                tool_use_summary: fns.get_tool_use_summary.as_ref().and_then(|f| f(meta_input)),
-                                activity_description: fns.get_activity_description.as_ref().and_then(|f| f(meta_input)),
-                            });
+                        let metadata = tool_render_fns.get(&name).map(|fns| ToolRenderMetadata {
+                            user_facing_name: (Arc::clone(&fns.user_facing_name))(meta_input),
+                            tool_use_summary: fns
+                                .get_tool_use_summary
+                                .as_ref()
+                                .and_then(|f| f(meta_input)),
+                            activity_description: fns
+                                .get_activity_description
+                                .as_ref()
+                                .and_then(|f| f(meta_input)),
+                        });
 
                         // Pre-tool permission check
                         if let Some(can_use_fn) = can_use_tool {
@@ -1951,7 +2039,7 @@ impl QueryEngine {
                 return Ok((final_text, crate::types::ExitReason::default()));
             }
 
-               // After tool execution, increment turn count
+            // After tool execution, increment turn count
             // TypeScript increments once per full turn (user msg + assistant + tools)
             self.turn_count = next_turn_count;
 
@@ -2012,7 +2100,9 @@ impl QueryEngine {
         // Prepend user context if configured (matching TypeScript prependUserContext)
         let mut all_messages = self.messages.clone();
         if !self.config.user_context.is_empty() {
-            let context_parts: Vec<String> = self.config.user_context
+            let context_parts: Vec<String> = self
+                .config
+                .user_context
                 .iter()
                 .map(|(key, value)| format!("# {}\n{}", key, value))
                 .collect();
@@ -2473,9 +2563,7 @@ async fn make_api_request_with_429_retry(
         }
     }
 
-    Err(last_error.unwrap_or_else(|| {
-        AgentError::Api("429 retry exhausted".to_string())
-    }))
+    Err(last_error.unwrap_or_else(|| AgentError::Api("429 retry exhausted".to_string())))
 }
 
 /// Make non-streaming API request (fallback when streaming fails)
@@ -2566,7 +2654,10 @@ async fn make_nonstreaming_request(
         }
         // Check for prompt-too-long / 413 - trigger reactive compact
         let error_str = error.to_string().to_lowercase();
-        if error_str.contains("413") || error_str.contains("prompt_too_long") || error_str.contains("prompt too long") {
+        if error_str.contains("413")
+            || error_str.contains("prompt_too_long")
+            || error_str.contains("prompt too long")
+        {
             return Err(AgentError::Api("prompt_too_long: context size exceeded. The query engine will attempt reactive compact.".to_string()));
         }
         return Err(AgentError::Api(format!("API error: {}", error)));
@@ -3010,7 +3101,9 @@ async fn make_anthropic_streaming_request(
                                     delta.get("tool_calls").and_then(|t| t.as_array())
                                 {
                                     for tc in tool_calls {
-                                        let idx = tc.get("index").and_then(|i| i.as_u64()).unwrap_or(0) as u32;
+                                        let idx =
+                                            tc.get("index").and_then(|i| i.as_u64()).unwrap_or(0)
+                                                as u32;
                                         let id =
                                             tc.get("id").and_then(|i| i.as_str()).unwrap_or("");
                                         let func = tc.get("function");
@@ -3025,9 +3118,14 @@ async fn make_anthropic_streaming_request(
 
                                         // Accumulate args into openai_tool_calls map
                                         if !openai_tool_finalized.contains(&idx) {
-                                            let entry = openai_tool_calls
-                                                .entry(idx)
-                                                .or_insert_with(|| (id.to_string(), name.to_string(), String::new()));
+                                            let entry =
+                                                openai_tool_calls.entry(idx).or_insert_with(|| {
+                                                    (
+                                                        id.to_string(),
+                                                        name.to_string(),
+                                                        String::new(),
+                                                    )
+                                                });
                                             if entry.0.is_empty() && !id.is_empty() {
                                                 entry.0 = id.to_string();
                                             }
@@ -3045,7 +3143,9 @@ async fn make_anthropic_streaming_request(
                             {
                                 if !finish_reason.is_empty()
                                     && finish_reason != "null"
-                                    && (!result.content.is_empty() || !result.tool_calls.is_empty() || !openai_tool_calls.is_empty())
+                                    && (!result.content.is_empty()
+                                        || !result.tool_calls.is_empty()
+                                        || !openai_tool_calls.is_empty())
                                 {
                                     result.stop_reason = Some(finish_reason.to_string());
 
@@ -3382,8 +3482,7 @@ async fn make_anthropic_streaming_request(
                                         }
                                     }
                                     // Calculate cost from current usage
-                                    result.cost =
-                                        calculate_streaming_cost(&result.usage, &model);
+                                    result.cost = calculate_streaming_cost(&result.usage, &model);
                                 }
                                 "message_stop" => {
                                     // Message complete - no-op marker (matching TypeScript)
@@ -3406,7 +3505,8 @@ async fn make_anthropic_streaming_request(
                                                 result.message_started = true;
                                                 if let Some(ref cb) = on_event {
                                                     cb(AgentEvent::MessageStart {
-                                                        message_id: uuid::Uuid::new_v4().to_string(),
+                                                        message_id: uuid::Uuid::new_v4()
+                                                            .to_string(),
                                                     });
                                                     cb(AgentEvent::ContentBlockStart {
                                                         index: 0,
@@ -3438,7 +3538,11 @@ async fn make_anthropic_streaming_request(
                                             }
                                         }
                                         for tc in tool_calls {
-                                            let idx = tc.get("index").and_then(|i| i.as_u64()).unwrap_or(0) as u32;
+                                            let idx = tc
+                                                .get("index")
+                                                .and_then(|i| i.as_u64())
+                                                .unwrap_or(0)
+                                                as u32;
                                             let id =
                                                 tc.get("id").and_then(|i| i.as_str()).unwrap_or("");
                                             let func = tc.get("function");
@@ -3455,7 +3559,13 @@ async fn make_anthropic_streaming_request(
                                             if !openai_tool_finalized.contains(&idx) {
                                                 let entry = openai_tool_calls
                                                     .entry(idx)
-                                                    .or_insert_with(|| (id.to_string(), name.to_string(), String::new()));
+                                                    .or_insert_with(|| {
+                                                        (
+                                                            id.to_string(),
+                                                            name.to_string(),
+                                                            String::new(),
+                                                        )
+                                                    });
                                                 // Update id/name on first chunk for this index
                                                 if entry.0.is_empty() && !id.is_empty() {
                                                     entry.0 = id.to_string();
@@ -3497,7 +3607,8 @@ async fn make_anthropic_streaming_request(
                                                 }));
                                             }
                                         }
-                                        openai_tool_finalized.extend(openai_tool_calls.keys().copied());
+                                        openai_tool_finalized
+                                            .extend(openai_tool_calls.keys().copied());
 
                                         return Ok(result);
                                     }
@@ -3597,4 +3708,3 @@ async fn make_anthropic_streaming_request(
 
     Ok(result)
 }
-

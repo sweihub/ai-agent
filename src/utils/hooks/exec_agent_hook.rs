@@ -147,9 +147,10 @@ pub async fn exec_agent_hook(
                 if attachment_type == "structured_output" {
                     if let Some(data) = attachment.get("data") {
                         // Validate against hook response schema
-                        if let Ok(parsed) = serde_json::from_value::<crate::utils::hooks::hook_helpers::HookResponse>(
-                            data.clone()
-                        ) {
+                        if let Ok(parsed) = serde_json::from_value::<
+                            crate::utils::hooks::hook_helpers::HookResponse,
+                        >(data.clone())
+                        {
                             structured_output_result = Some(data.clone());
                             log_for_debugging(&format!(
                                 "Hooks: Got structured output: {}",
@@ -182,21 +183,27 @@ pub async fn exec_agent_hook(
                 "Hooks: Agent hook did not complete within {} turns",
                 MAX_AGENT_TURNS
             ));
-            log_event("tengu_agent_stop_hook_max_turns", &serde_json::json!({
-                "duration_ms": hook_start.elapsed().as_millis(),
-                "turn_count": turn_count,
-                "agent_name": agent_name.unwrap_or("unknown"),
-            }));
+            log_event(
+                "tengu_agent_stop_hook_max_turns",
+                &serde_json::json!({
+                    "duration_ms": hook_start.elapsed().as_millis(),
+                    "turn_count": turn_count,
+                    "agent_name": agent_name.unwrap_or("unknown"),
+                }),
+            );
             return HookResult::Cancelled;
         }
 
         log_for_debugging("Hooks: Agent hook did not return structured output");
-        log_event("tengu_agent_stop_hook_error", &serde_json::json!({
-            "duration_ms": hook_start.elapsed().as_millis(),
-            "turn_count": turn_count,
-            "error_type": 1, // 1 = no structured output
-            "agent_name": agent_name.unwrap_or("unknown"),
-        }));
+        log_event(
+            "tengu_agent_stop_hook_error",
+            &serde_json::json!({
+                "duration_ms": hook_start.elapsed().as_millis(),
+                "turn_count": turn_count,
+                "error_type": 1, // 1 = no structured output
+                "agent_name": agent_name.unwrap_or("unknown"),
+            }),
+        );
         return HookResult::Cancelled;
     }
 
@@ -220,11 +227,14 @@ pub async fn exec_agent_hook(
 
         // Condition was met
         log_for_debugging("Hooks: Agent hook condition was met");
-        log_event("tengu_agent_stop_hook_success", &serde_json::json!({
-            "duration_ms": hook_start.elapsed().as_millis(),
-            "turn_count": turn_count,
-            "agent_name": agent_name.unwrap_or("unknown"),
-        }));
+        log_event(
+            "tengu_agent_stop_hook_success",
+            &serde_json::json!({
+                "duration_ms": hook_start.elapsed().as_millis(),
+                "turn_count": turn_count,
+                "agent_name": agent_name.unwrap_or("unknown"),
+            }),
+        );
         return HookResult::Success {
             hook_name: hook_name.to_string(),
             hook_event: hook_event.to_string(),

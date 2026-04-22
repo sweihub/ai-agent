@@ -7,8 +7,8 @@
 use crate::error::AgentError;
 use crate::types::*;
 use std::sync::{
-    atomic::{AtomicBool, Ordering},
     OnceLock,
+    atomic::{AtomicBool, Ordering},
 };
 
 pub const ENTER_PLAN_MODE_TOOL_NAME: &str = "EnterPlanMode";

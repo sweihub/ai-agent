@@ -21,7 +21,8 @@ impl Event {
     }
 
     pub fn stop_immediate_propagation(&self) {
-        self.did_stop_immediate_propagation.store(true, Ordering::SeqCst);
+        self.did_stop_immediate_propagation
+            .store(true, Ordering::SeqCst);
     }
 }
 
@@ -35,7 +36,7 @@ impl Clone for Event {
     fn clone(&self) -> Self {
         Self {
             did_stop_immediate_propagation: AtomicBool::new(
-                self.did_stop_immediate_propagation.load(Ordering::SeqCst)
+                self.did_stop_immediate_propagation.load(Ordering::SeqCst),
             ),
         }
     }

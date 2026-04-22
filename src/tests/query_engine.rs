@@ -1,11 +1,11 @@
-use crate::query_engine::{empty_json_value, QueryEngine, QueryEngineConfig};
-use crate::tools::deferred_tools::{
-    parse_tool_name, parse_tool_search_query, search_tools_with_keywords, ToolSearchQuery,
-};
-use crate::tools::search::ToolSearchTool;
-use crate::tools::get_all_base_tools;
-use crate::types::{Message, MessageRole, ToolCall, ToolContext, ToolDefinition, ToolInputSchema};
 use crate::AgentError;
+use crate::query_engine::{QueryEngine, QueryEngineConfig, empty_json_value};
+use crate::tools::deferred_tools::{
+    ToolSearchQuery, parse_tool_name, parse_tool_search_query, search_tools_with_keywords,
+};
+use crate::tools::get_all_base_tools;
+use crate::tools::search::ToolSearchTool;
+use crate::types::{Message, MessageRole, ToolCall, ToolContext, ToolDefinition, ToolInputSchema};
 
 #[tokio::test]
 async fn test_engine_creation() {
@@ -506,7 +506,8 @@ fn test_tool_call_arguments_json() {
 #[test]
 fn test_build_api_messages_includes_tools_info() {
     // This test verifies that the system prompt structure supports tool calling
-    let system_prompt = "You are an agent. Use the tools available to you: Bash, Read, Write, Glob, Grep, Edit.";
+    let system_prompt =
+        "You are an agent. Use the tools available to you: Bash, Read, Write, Glob, Grep, Edit.";
 
     // Verify the prompt mentions tools
     assert!(system_prompt.contains("tools"));
@@ -668,10 +669,10 @@ fn test_separate_tools_upfront_vs_deferred() {
     let mut engine = QueryEngine::new(QueryEngineConfig {
         model: "test-model".to_string(),
         tools: vec![
-            make_deferred_tool("Bash", false, false),        // upfront
-            make_deferred_tool("FileRead", false, false),    // upfront
-            make_deferred_tool("WebSearch", true, false),    // deferred
-            make_deferred_tool("WebFetch", true, false),     // deferred
+            make_deferred_tool("Bash", false, false),     // upfront
+            make_deferred_tool("FileRead", false, false), // upfront
+            make_deferred_tool("WebSearch", true, false), // deferred
+            make_deferred_tool("WebFetch", true, false),  // deferred
             make_deferred_tool("mcp__slack__send", true, true), // deferred (MCP)
         ],
         cwd: "/tmp".to_string(),
@@ -725,7 +726,8 @@ fn test_discovered_deferred_tool_moves_to_upfront() {
             "content": [
                 {"type": "tool_reference", "tool_name": "WebSearch"}
             ]
-        }]).to_string(),
+        }])
+        .to_string(),
         tool_call_id: Some("call_search_123".to_string()),
         ..Default::default()
     };
@@ -773,7 +775,7 @@ fn test_full_deferred_tool_discovery_flow() {
     // ToolSearchTool returns tool_reference block
     let tool_reference_result = ToolSearchTool::build_tool_reference_result(
         &["WebSearch".to_string()],
-        "call_toolsearch_001"
+        "call_toolsearch_001",
     );
 
     // Step 4: Verify tool_reference format
@@ -801,7 +803,8 @@ fn test_full_deferred_tool_discovery_flow() {
             "content": [
                 {"type": "tool_reference", "tool_name": "WebSearch"}
             ]
-        }]).to_string(),
+        }])
+        .to_string(),
         tool_call_id: Some("call_toolsearch_001".to_string()),
         ..Default::default()
     };
@@ -840,7 +843,7 @@ fn test_discover_multiple_deferred_tools() {
     // LLM calls ToolSearch with "select:WebSearch,WebFetch"
     let multi_discovery = ToolSearchTool::build_tool_reference_result(
         &["WebSearch".to_string(), "WebFetch".to_string()],
-        "call_toolsearch_002"
+        "call_toolsearch_002",
     );
 
     // Verify both tool_references are in the result
@@ -859,7 +862,8 @@ fn test_discover_multiple_deferred_tools() {
                 {"type": "tool_reference", "tool_name": "WebSearch"},
                 {"type": "tool_reference", "tool_name": "WebFetch"}
             ]
-        }]).to_string(),
+        }])
+        .to_string(),
         tool_call_id: Some("call_toolsearch_002".to_string()),
         ..Default::default()
     };
@@ -975,9 +979,7 @@ fn test_no_injection_when_no_deferred_tools() {
         ..Default::default()
     });
 
-    let mut api_messages = vec![
-        serde_json::json!({"role": "user", "content": "Read a file"}),
-    ];
+    let mut api_messages = vec![serde_json::json!({"role": "user", "content": "Read a file"})];
 
     engine.maybe_inject_deferred_tools_block(&mut api_messages);
 
@@ -1064,7 +1066,9 @@ fn test_mcp_tools_are_deferred() {
 
     // Even if should_defer is false, MCP tools are deferred
     let mcp_tool_no_defer = make_deferred_tool("mcp__slack__send", false, true);
-    assert!(crate::tools::deferred_tools::is_deferred_tool(&mcp_tool_no_defer));
+    assert!(crate::tools::deferred_tools::is_deferred_tool(
+        &mcp_tool_no_defer
+    ));
 }
 
 /// Test that tool names are correctly parsed for keyword search

@@ -35,7 +35,11 @@ pub struct ApiQueryHookConfig<TResult> {
     /// Query source name
     pub name: String,
     /// Whether this hook should run
-    pub should_run: Box<dyn Fn(&ReplHookContext) -> std::pin::Pin<Box<dyn Future<Output = bool> + Send>> + Send + Sync>,
+    pub should_run: Box<
+        dyn Fn(&ReplHookContext) -> std::pin::Pin<Box<dyn Future<Output = bool> + Send>>
+            + Send
+            + Sync,
+    >,
     /// Build the complete message list to send to the API
     pub build_messages: Box<dyn Fn(&ReplHookContext) -> Vec<Message> + Send + Sync>,
     /// Optional: override system prompt (defaults to context.system_prompt)
@@ -70,7 +74,8 @@ pub enum ApiQueryResult<TResult> {
 /// Returns an async function that executes the hook when called.
 pub fn create_api_query_hook<TResult: 'static>(
     config: ApiQueryHookConfig<TResult>,
-) -> Box<dyn Fn(ReplHookContext) -> std::pin::Pin<Box<dyn Future<Output = ()> + Send>> + Send + Sync> {
+) -> Box<dyn Fn(ReplHookContext) -> std::pin::Pin<Box<dyn Future<Output = ()> + Send>> + Send + Sync>
+{
     let config = Arc::new(config);
     Box::new(move |context: ReplHookContext| {
         let config = config.clone();
@@ -101,13 +106,9 @@ pub fn create_api_query_hook<TResult: 'static>(
 
             // Make API call - this would use the actual query function
             // The TS version calls queryModelWithoutStreaming
-            let response_result = query_model_without_streaming_impl(
-                &messages,
-                &system_prompt,
-                &model,
-                &context,
-            )
-            .await;
+            let response_result =
+                query_model_without_streaming_impl(&messages, &system_prompt, &model, &context)
+                    .await;
 
             match response_result {
                 Ok(response) => {
@@ -133,10 +134,7 @@ pub fn create_api_query_hook<TResult: 'static>(
                         }
                         Err(err) => {
                             let error = if let Some(s) = err.downcast_ref::<String>() {
-                                Box::new(std::io::Error::new(
-                                    std::io::ErrorKind::Other,
-                                    s.clone(),
-                                ))
+                                Box::new(std::io::Error::new(std::io::ErrorKind::Other, s.clone()))
                             } else if let Some(s) = err.downcast_ref::<&str>() {
                                 Box::new(std::io::Error::new(
                                     std::io::ErrorKind::Other,

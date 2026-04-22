@@ -4,8 +4,9 @@ use std::sync::Arc;
 
 use std::collections::HashMap;
 
-use super::agent_tool_utils::{resolve_agent_tools, AgentToolResult, finalize_agent_tool,
-                               extract_partial_result};
+use super::agent_tool_utils::{
+    AgentToolResult, extract_partial_result, finalize_agent_tool, resolve_agent_tools,
+};
 use super::load_agents_dir::AgentDefinition;
 
 /// Context for tool execution passed to the agent.
@@ -84,9 +85,10 @@ pub fn filter_incomplete_tool_calls(messages: &[serde_json::Value]) -> Vec<serde
                 if let Some(arr) = content.as_array() {
                     let has_incomplete = arr.iter().any(|block| {
                         block.get("type").and_then(|t| t.as_str()) == Some("tool_use")
-                            && block.get("id").and_then(|v| v.as_str()).is_some_and(|id| {
-                                !tool_use_ids_with_results.contains(id)
-                            })
+                            && block
+                                .get("id")
+                                .and_then(|v| v.as_str())
+                                .is_some_and(|id| !tool_use_ids_with_results.contains(id))
                     });
                     return !has_incomplete;
                 }
@@ -176,7 +178,12 @@ pub async fn run_agent(params: RunAgentParams) -> Result<RunAgentResult, String>
     );
 
     // Record metadata
-    let _ = write_agent_metadata(&agent_id, &params.agent_definition, &params.worktree_path, &params.description);
+    let _ = write_agent_metadata(
+        &agent_id,
+        &params.agent_definition,
+        &params.worktree_path,
+        &params.description,
+    );
 
     // Build the result
     let result = AgentToolResult {
@@ -202,7 +209,10 @@ fn write_agent_metadata(
     worktree_path: &Option<String>,
     description: &Option<String>,
 ) -> std::io::Result<()> {
-    let metadata_dir = std::env::current_dir()?.join(".claude").join("subagents").join(agent_id);
+    let metadata_dir = std::env::current_dir()?
+        .join(".claude")
+        .join("subagents")
+        .join(agent_id);
     std::fs::create_dir_all(&metadata_dir)?;
 
     let meta = serde_json::json!({
@@ -211,7 +221,10 @@ fn write_agent_metadata(
         "description": description,
     });
 
-    std::fs::write(metadata_dir.join("metadata.json"), serde_json::to_string_pretty(&meta)?)
+    std::fs::write(
+        metadata_dir.join("metadata.json"),
+        serde_json::to_string_pretty(&meta)?,
+    )
 }
 
 /// Clean up resources after agent completion.
@@ -320,28 +333,24 @@ mod tests {
 
     #[test]
     fn test_filter_incomplete_tool_calls_removes_incomplete() {
-        let messages = vec![
-            serde_json::json!({
-                "type": "assistant",
-                "message": {
-                    "content": [{"type": "tool_use", "id": "1", "name": "Bash"}]
-                }
-            }),
-        ];
+        let messages = vec![serde_json::json!({
+            "type": "assistant",
+            "message": {
+                "content": [{"type": "tool_use", "id": "1", "name": "Bash"}]
+            }
+        })];
         let filtered = filter_incomplete_tool_calls(&messages);
         assert_eq!(filtered.len(), 0);
     }
 
     #[test]
     fn test_extract_agent_summary_from_messages() {
-        let messages = vec![
-            serde_json::json!({
-                "type": "assistant",
-                "message": {
-                    "content": [{"type": "text", "text": "Task completed successfully"}]
-                }
-            }),
-        ];
+        let messages = vec![serde_json::json!({
+            "type": "assistant",
+            "message": {
+                "content": [{"type": "text", "text": "Task completed successfully"}]
+            }
+        })];
         let summary = extract_agent_summary(&messages);
         assert_eq!(summary, "Task completed successfully");
     }

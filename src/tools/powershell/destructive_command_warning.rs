@@ -94,8 +94,11 @@ pub fn get_destructive_command_warning(command: &str) -> Option<&'static str> {
     let lower = command.to_lowercase();
     if lower.contains("git") && lower.contains("clean") {
         // Check for -f without -n or --dry-run
-        let has_f = lower.contains(" -f ") || lower.contains(" -f\n") || lower.contains(" -f\t") ||
-                    lower.contains(" --force") || lower.contains(" -fd");
+        let has_f = lower.contains(" -f ")
+            || lower.contains(" -f\n")
+            || lower.contains(" -f\t")
+            || lower.contains(" --force")
+            || lower.contains(" -fd");
         let has_dry_run = lower.contains(" -n ") || lower.contains(" --dry-run");
         if has_f && !has_dry_run {
             return Some("Note: may permanently delete untracked files");

@@ -92,15 +92,15 @@ pub async fn fetch_and_store_claude_code_first_token_date() -> Result<(), String
         }
     };
 
-    let first_token_date = data.get("first_token_date").and_then(|v| v.as_str()).map(String::from);
+    let first_token_date = data
+        .get("first_token_date")
+        .and_then(|v| v.as_str())
+        .map(String::from);
 
     // Validate the date if it's not null
     if let Some(ref date_str) = first_token_date {
         if chrono::DateTime::parse_from_rfc3339(date_str).is_err() {
-            log::error!(
-                "Received invalid first_token_date from API: {}",
-                date_str
-            );
+            log::error!("Received invalid first_token_date from API: {}", date_str);
             // Don't save invalid dates
             return Ok(());
         }

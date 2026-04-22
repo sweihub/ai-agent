@@ -24,8 +24,7 @@ pub struct TLSConfig {
 
 /// Check if mTLS is enabled
 pub fn is_mtls_enabled() -> bool {
-    std::env::var(ai_code::CLIENT_CERT).is_ok()
-        || std::env::var(ai_code::CLIENT_KEY).is_ok()
+    std::env::var(ai_code::CLIENT_CERT).is_ok() || std::env::var(ai_code::CLIENT_KEY).is_ok()
 }
 
 /// Get mTLS configuration from environment variables

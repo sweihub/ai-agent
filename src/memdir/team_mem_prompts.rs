@@ -4,12 +4,11 @@
 //! Provides the combined memory prompt when both auto memory and team memory are enabled.
 
 use crate::memdir::memdir::{
-    build_searching_past_context_section, DIR_EXISTS_GUIDANCE, ENTRYPOINT_NAME, MAX_ENTRYPOINT_LINES,
-    MEMORY_FRONTMATTER_EXAMPLE,
+    DIR_EXISTS_GUIDANCE, ENTRYPOINT_NAME, MAX_ENTRYPOINT_LINES, MEMORY_FRONTMATTER_EXAMPLE,
+    build_searching_past_context_section,
 };
 use crate::memdir::memory_types::{
-    MEMORY_DRIFT_CAVEAT, TRUSTING_RECALL_SECTION,
-    TYPES_SECTION_COMBINED, WHAT_NOT_TO_SAVE_SECTION,
+    MEMORY_DRIFT_CAVEAT, TRUSTING_RECALL_SECTION, TYPES_SECTION_COMBINED, WHAT_NOT_TO_SAVE_SECTION,
 };
 use crate::memdir::paths::get_auto_mem_path;
 use crate::memdir::team_mem_paths::get_team_mem_path;
@@ -115,7 +114,10 @@ pub fn build_combined_memory_prompt(
     // When to access
     lines.push("## When to access memories".to_string());
     lines.push("- When memories (personal or team) seem relevant, or the user references prior work with them or others in their organization.".to_string());
-    lines.push("- You MUST access memory when the user explicitly asks you to check, recall, or remember.".to_string());
+    lines.push(
+        "- You MUST access memory when the user explicitly asks you to check, recall, or remember."
+            .to_string(),
+    );
     lines.push("- If the user says to *ignore* or *not use* memory: proceed as if MEMORY.md were empty. Do not apply remembered facts, cite, compare against, or mention memory content.".to_string());
     lines.push(MEMORY_DRIFT_CAVEAT.to_string());
     lines.push(String::new());

@@ -5,9 +5,9 @@
 //! the API's native context editing feature.
 
 use crate::tools::config_tools::{
-    FILE_EDIT_TOOL_NAME, FILE_READ_TOOL_NAME, FILE_WRITE_TOOL_NAME, GLOB_TOOL_NAME, GREP_TOOL_NAME,
-    NOTEBOOK_EDIT_TOOL_NAME, POWERSHELL_TOOL_NAME, WEB_FETCH_TOOL_NAME, WEB_SEARCH_TOOL_NAME,
-    BASH_TOOL_NAME,
+    BASH_TOOL_NAME, FILE_EDIT_TOOL_NAME, FILE_READ_TOOL_NAME, FILE_WRITE_TOOL_NAME, GLOB_TOOL_NAME,
+    GREP_TOOL_NAME, NOTEBOOK_EDIT_TOOL_NAME, POWERSHELL_TOOL_NAME, WEB_FETCH_TOOL_NAME,
+    WEB_SEARCH_TOOL_NAME,
 };
 use crate::utils::env_utils;
 
@@ -139,12 +139,10 @@ pub fn get_api_context_management(
 
     // Tool clearing strategies - only for ant builds
     // For external builds, skip tool clearing
-    let use_clear_tool_results = env_utils::is_env_truthy(
-        std::env::var("USE_API_CLEAR_TOOL_RESULTS").ok().as_deref(),
-    );
-    let use_clear_tool_uses = env_utils::is_env_truthy(
-        std::env::var("USE_API_CLEAR_TOOL_USES").ok().as_deref(),
-    );
+    let use_clear_tool_results =
+        env_utils::is_env_truthy(std::env::var("USE_API_CLEAR_TOOL_RESULTS").ok().as_deref());
+    let use_clear_tool_uses =
+        env_utils::is_env_truthy(std::env::var("USE_API_CLEAR_TOOL_USES").ok().as_deref());
 
     // If no tool clearing strategy is enabled, return early
     if !use_clear_tool_results && !use_clear_tool_uses {
@@ -261,14 +259,12 @@ mod tests {
         let config = result.unwrap();
         // Should have thinking clear with value: 1
         match &config.edits[0] {
-            ContextEditStrategy::ClearThinking20251015 { keep } => {
-                match keep {
-                    ThinkingKeepConfig::KeepTurns { value, .. } => {
-                        assert_eq!(*value, 1);
-                    }
-                    _ => panic!("Expected KeepTurns"),
+            ContextEditStrategy::ClearThinking20251015 { keep } => match keep {
+                ThinkingKeepConfig::KeepTurns { value, .. } => {
+                    assert_eq!(*value, 1);
                 }
-            }
+                _ => panic!("Expected KeepTurns"),
+            },
             _ => panic!("Expected ClearThinking20251015"),
         }
     }

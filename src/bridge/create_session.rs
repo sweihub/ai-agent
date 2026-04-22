@@ -5,8 +5,8 @@
 //! Functions for creating, fetching, archiving, and updating bridge sessions.
 
 use crate::constants::env::ai;
-use reqwest::header::{HeaderMap, HeaderName, HeaderValue, AUTHORIZATION, CONTENT_TYPE};
 use crate::utils::http::get_user_agent;
+use reqwest::header::{AUTHORIZATION, CONTENT_TYPE, HeaderMap, HeaderName, HeaderValue};
 use serde::{Deserialize, Serialize};
 
 /// Git source for session context
@@ -544,10 +544,7 @@ fn build_oauth_headers(access_token: &str, org_uuid: &str) -> HeaderMap {
     }
     // Add Content-Type for JSON
     headers.insert(CONTENT_TYPE, HeaderValue::from_static("application/json"));
-    headers.insert(
-        "User-Agent",
-        get_user_agent().parse().unwrap(),
-    );
+    headers.insert("User-Agent", get_user_agent().parse().unwrap());
     headers
 }
 

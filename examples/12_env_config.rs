@@ -42,12 +42,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!();
 
     // Create agent - will automatically use env config as defaults
-    let mut agent = Agent::new(
-        &std::env::var("AI_MODEL").unwrap_or_else(|_| "claude-sonnet-4-6".to_string()),
-        5,
-    );
+    let agent =
+        Agent::new(&std::env::var("AI_MODEL").unwrap_or_else(|_| "claude-sonnet-4-6".to_string()))
+            .max_turns(5);
 
-    let result = agent.query("Say hello and confirm you received the configuration.").await?;
+    let result = agent
+        .query("Say hello and confirm you received the configuration.")
+        .await?;
 
     println!("Answer: {}", result.text);
 

@@ -124,7 +124,10 @@ fn extract_base_command(command: &str) -> String {
     // Strip surrounding quotes if command was invoked as & "grep.exe"
     let unquoted = first_token.trim_matches('"').trim_matches('\'');
     // Strip path: C:\bin\grep.exe → grep.exe, .\rg.exe → rg.exe
-    let basename = unquoted.rsplit(|c| c == '\\' || c == '/').next().unwrap_or(unquoted);
+    let basename = unquoted
+        .rsplit(|c| c == '\\' || c == '/')
+        .next()
+        .unwrap_or(unquoted);
     // Strip .exe suffix (Windows is case-insensitive)
     basename.to_lowercase().trim_end_matches(".exe").to_string()
 }
@@ -150,7 +153,10 @@ mod tests {
     fn test_robocopy_success() {
         let result = interpret_command_result("robocopy src dst", 1, "", "");
         assert!(!result.is_error);
-        assert_eq!(result.message, Some("Files copied successfully".to_string()));
+        assert_eq!(
+            result.message,
+            Some("Files copied successfully".to_string())
+        );
     }
 
     #[test]

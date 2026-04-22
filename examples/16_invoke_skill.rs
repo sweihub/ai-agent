@@ -10,15 +10,15 @@
  * - AI_AUTH_TOKEN: API authentication token
  * - AI_MODEL: Model name
  */
-use ai_agent::skills::{init_bundled_skills, invoke_skill, get_bundled_skills};
+use ai_agent::skills::{get_bundled_skills, init_bundled_skills, invoke_skill};
 
 // Register the custom sing skill
 mod sing {
     pub mod register_sing_skill {
-        use ai_agent::skills::bundled_skills::{
-            register_bundled_skill, BundledSkillDefinition, ContentBlock, SkillContext,
-        };
         use ai_agent::AgentError;
+        use ai_agent::skills::bundled_skills::{
+            BundledSkillDefinition, ContentBlock, SkillContext, register_bundled_skill,
+        };
 
         fn get_prompt_for_command(
             _args: &str,

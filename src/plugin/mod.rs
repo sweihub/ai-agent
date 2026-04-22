@@ -10,14 +10,14 @@ pub mod types;
 
 // Explicit re-exports to avoid ambiguous glob re-exports
 pub use commands::{
-    substitute_arguments, CommandFrontmatter, CommandHandler, CommandRegistry,
-    ExecutablePluginCommand, PluginCommand,
+    CommandFrontmatter, CommandHandler, CommandRegistry, ExecutablePluginCommand, PluginCommand,
+    substitute_arguments,
 };
 pub use loader::*;
 pub use mcp::*;
 pub use skills::*;
 pub use types::{
-    get_plugin_error_message, CommandAvailability, CommandMetadata, CommandResult,
-    CommandResultDisplay, CommandSource, LoadedPlugin, PluginAuthor, PluginComponent, PluginConfig,
-    PluginError, PluginLoadResult, PluginManifest, PluginRepository,
+    CommandAvailability, CommandMetadata, CommandResult, CommandResultDisplay, CommandSource,
+    LoadedPlugin, PluginAuthor, PluginComponent, PluginConfig, PluginError, PluginLoadResult,
+    PluginManifest, PluginRepository, get_plugin_error_message,
 };

@@ -130,12 +130,10 @@ fn get_user_agent() -> String {
 }
 
 /// Grove settings cache
-static GROVE_SETTINGS_CACHE: Lazy<Mutex<Option<AccountSettings>>> =
-    Lazy::new(|| Mutex::new(None));
+static GROVE_SETTINGS_CACHE: Lazy<Mutex<Option<AccountSettings>>> = Lazy::new(|| Mutex::new(None));
 
 /// Grove notice config cache
-static GROVE_NOTICE_CONFIG_CACHE: Lazy<Mutex<Option<GroveConfig>>> =
-    Lazy::new(|| Mutex::new(None));
+static GROVE_NOTICE_CONFIG_CACHE: Lazy<Mutex<Option<GroveConfig>>> = Lazy::new(|| Mutex::new(None));
 
 /// Clear grove settings cache
 pub fn clear_grove_settings_cache() {
@@ -159,7 +157,9 @@ pub async fn get_grove_settings() -> ApiResult<AccountSettings> {
     {
         let cache = GROVE_SETTINGS_CACHE.lock().unwrap();
         if let Some(ref settings) = *cache {
-            return ApiResult::Success { data: settings.clone() };
+            return ApiResult::Success {
+                data: settings.clone(),
+            };
         }
     }
 
@@ -196,16 +196,14 @@ async fn fetch_grove_settings() -> ApiResult<AccountSettings> {
         .send()
         .await
     {
-        Ok(response) => {
-            match response.json::<AccountSettings>().await {
-                Ok(data) => ApiResult::Success { data },
-                Err(e) => {
-                    log::error!("Failed to parse grove settings: {}", e);
-                    clear_grove_settings_cache();
-                    ApiResult::Failure
-                }
+        Ok(response) => match response.json::<AccountSettings>().await {
+            Ok(data) => ApiResult::Success { data },
+            Err(e) => {
+                log::error!("Failed to parse grove settings: {}", e);
+                clear_grove_settings_cache();
+                ApiResult::Failure
             }
-        }
+        },
         Err(e) => {
             log::error!("Failed to fetch grove settings: {}", e);
             clear_grove_settings_cache();
@@ -217,7 +215,10 @@ async fn fetch_grove_settings() -> ApiResult<AccountSettings> {
 /// Mark that the Grove notice has been viewed by the user
 pub async fn mark_grove_notice_viewed() -> Result<(), ()> {
     let config = get_oauth_config();
-    let url = format!("{}/api/oauth/account/grove_notice_viewed", config.base_api_url);
+    let url = format!(
+        "{}/api/oauth/account/grove_notice_viewed",
+        config.base_api_url
+    );
 
     let auth_headers = match get_auth_headers() {
         Ok(h) => h,
@@ -304,9 +305,7 @@ pub async fn is_qualified_for_grove() -> bool {
 
     // No cache - trigger background fetch and return false (non-blocking)
     if let None = cached_entry {
-        log::debug!(
-            "Grove: No cache, fetching config in background (dialog skipped this session)"
-        );
+        log::debug!("Grove: No cache, fetching config in background (dialog skipped this session)");
         let account_id_clone = account_id.clone();
         tokio::spawn(async move {
             let _ = fetch_and_store_grove_config(&account_id_clone).await;
@@ -318,9 +317,7 @@ pub async fn is_qualified_for_grove() -> bool {
 
     // Cache exists but is stale - return cached value and refresh in background
     if now - entry.timestamp > GROVE_CACHE_EXPIRATION_MS {
-        log::debug!(
-            "Grove: Cache stale, returning cached data and refreshing in background"
-        );
+        log::debug!("Grove: Cache stale, returning cached data and refreshing in background");
         let account_id_clone = account_id.clone();
         tokio::spawn(async move {
             let _ = fetch_and_store_grove_config(&account_id_clone).await;
@@ -380,7 +377,9 @@ pub async fn get_grove_notice_config() -> ApiResult<GroveConfig> {
     {
         let cache = GROVE_NOTICE_CONFIG_CACHE.lock().unwrap();
         if let Some(ref config) = *cache {
-            return ApiResult::Success { data: config.clone() };
+            return ApiResult::Success {
+                data: config.clone(),
+            };
         }
     }
 
@@ -424,15 +423,13 @@ async fn fetch_grove_notice_config() -> ApiResult<GroveConfig> {
         .send()
         .await
     {
-        Ok(response) => {
-            match response.json::<GroveConfig>().await {
-                Ok(data) => ApiResult::Success { data },
-                Err(e) => {
-                    log::debug!("Failed to parse grove notice config: {}", e);
-                    ApiResult::Failure
-                }
+        Ok(response) => match response.json::<GroveConfig>().await {
+            Ok(data) => ApiResult::Success { data },
+            Err(e) => {
+                log::debug!("Failed to parse grove notice config: {}", e);
+                ApiResult::Failure
             }
-        }
+        },
         Err(e) => {
             log::debug!("Failed to fetch grove notice config: {}", e);
             ApiResult::Failure
@@ -489,11 +486,7 @@ pub async fn check_grove_for_non_interactive() {
     let settings_result = get_grove_settings().await;
     let config_result = get_grove_notice_config().await;
 
-    let should_show_grove = calculate_should_show_grove(
-        &settings_result,
-        &config_result,
-        false,
-    );
+    let should_show_grove = calculate_should_show_grove(&settings_result, &config_result, false);
 
     if should_show_grove {
         let config = config_result.data();

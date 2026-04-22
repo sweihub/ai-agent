@@ -1,13 +1,13 @@
 //! Utility modules
 
 pub mod abort_controller;
-pub mod diff;
 pub mod circular_buffer;
 pub mod combined_abort_signal;
 pub mod commit_attribution;
 pub mod concurrent;
 pub mod config;
 pub mod cwd;
+pub mod diff;
 pub mod env_utils;
 pub mod errors;
 pub mod file_state_cache;
@@ -30,8 +30,8 @@ pub mod tempfile;
 pub mod terminal_focus;
 pub mod theme;
 pub mod thinking;
-pub mod ultraplan;
 pub mod tool_errors;
+pub mod ultraplan;
 pub mod user;
 pub mod user_agent;
 pub mod uuid;
@@ -42,15 +42,15 @@ pub mod yaml;
 pub mod zod_to_json_schema;
 
 pub use abort_controller::{
-    create_abort_controller, create_abort_controller_default, create_child_abort_controller,
-    AbortController, AbortSignal,
+    AbortController, AbortSignal, create_abort_controller, create_abort_controller_default,
+    create_child_abort_controller,
 };
 pub use config::{
+    AccountInfo, AutoUpdaterDisabledReason, DiffTool, EditorMode, GlobalConfig, InstallMethod,
+    McpServerConfig, NotificationChannel, ProjectConfig, ReleaseChannel, ThemeSetting,
     check_has_trust_dialog_accepted, get_current_project_config, get_global_config,
     get_global_config_path, get_or_create_user_id, is_auto_updater_disabled,
-    save_current_project_config, save_global_config, AccountInfo, AutoUpdaterDisabledReason,
-    DiffTool, EditorMode, GlobalConfig, InstallMethod, McpServerConfig, NotificationChannel,
-    ProjectConfig, ReleaseChannel, ThemeSetting,
+    save_current_project_config, save_global_config,
 };
 pub use cwd::{get_cwd, get_original_cwd, pwd, run_with_cwd_override, set_cwd};
 pub use env_utils::{
@@ -61,24 +61,23 @@ pub use env_utils::{
 };
 pub use errors::error_message;
 pub use messages::{
-    extract_tag, get_last_assistant_message, get_progress_messages_from_lookup,
-    get_sibling_tool_use_ids_from_lookup, get_tool_result_ids, is_classifier_denial,
-    is_not_empty_message, is_tool_use_request_message, is_tool_use_result_message,
-    reorder_attachments_for_api, Message, MessageContent, NormalizedMessage,
+    Message, MessageContent, NormalizedMessage, extract_tag, get_last_assistant_message,
+    get_progress_messages_from_lookup, get_sibling_tool_use_ids_from_lookup, get_tool_result_ids,
+    is_classifier_denial, is_not_empty_message, is_tool_use_request_message,
+    is_tool_use_result_message, reorder_attachments_for_api,
 };
 pub use thinking::{
-    find_thinking_trigger_positions, has_ultrathink_keyword, is_ultrathink_enabled,
+    ThinkingConfig, find_thinking_trigger_positions, has_ultrathink_keyword, is_ultrathink_enabled,
     model_supports_adaptive_thinking, model_supports_thinking, should_enable_thinking_by_default,
-    ThinkingConfig,
 };
 pub use uuid::{create_agent_id, generate_uuid, validate_uuid};
 pub use words::{generate_short_word_slug, generate_word_slug};
 
 // Re-export shell utilities
 pub use shell::{
-    shell_provider::{ShellError, ShellExecCommand},
-    shell_tool_utils::{ShellType, SHELL_TYPES},
     BashShellProvider, PowerShellProvider,
+    shell_provider::{ShellError, ShellExecCommand},
+    shell_tool_utils::{SHELL_TYPES, ShellType},
 };
 
 // Re-export tempfile utilities
@@ -93,96 +92,97 @@ pub use yaml::parse_yaml;
 
 // Re-export commit attribution
 pub use commit_attribution::{
-    attribution_restore_state_from_log, build_surface_key, calculate_commit_attribution,
-    compute_content_hash, create_empty_attribution_state, expand_file_path,
-    get_attribution_repo_root, get_client_surface, get_file_mtime, get_repo_class_cached,
-    get_staged_files, increment_prompt_count, is_internal_model_repo,
+    AttributionData, AttributionSnapshotMessage, AttributionState, AttributionSummary,
+    FileAttribution, FileAttributionState, FileChange, FileChangeType, SessionBaseline,
+    SurfaceBreakdown, attribution_restore_state_from_log, build_surface_key,
+    calculate_commit_attribution, compute_content_hash, create_empty_attribution_state,
+    expand_file_path, get_attribution_repo_root, get_client_surface, get_file_mtime,
+    get_repo_class_cached, get_staged_files, increment_prompt_count, is_internal_model_repo,
     is_internal_model_repo_cached, normalize_file_path, restore_attribution_state_from_snapshots,
     sanitize_model_name, sanitize_surface_key, state_to_snapshot_message, track_bulk_file_changes,
-    track_file_creation, track_file_deletion, track_file_modification, AttributionData,
-    AttributionSnapshotMessage, AttributionState, AttributionSummary, FileAttribution,
-    FileAttributionState, FileChange, FileChangeType, SessionBaseline, SurfaceBreakdown,
+    track_file_creation, track_file_deletion, track_file_modification,
 };
 
 // Re-export plugin utilities
 pub use plugins::{
-    get_known_marketplace_names, get_marketplace_cache_only, get_plugin_by_id_cache_only,
-    parse_plugin_identifier, KnownMarketplace, KnownMarketplacesFile, PluginId, PluginMarketplace,
-    PluginMarketplaceEntry, PluginMarketplaceMetadata, PluginMarketplaceOwner, PluginSource,
+    KnownMarketplace, KnownMarketplacesFile, PluginId, PluginMarketplace, PluginMarketplaceEntry,
+    PluginMarketplaceMetadata, PluginMarketplaceOwner, PluginSource, get_known_marketplace_names,
+    get_marketplace_cache_only, get_plugin_by_id_cache_only, parse_plugin_identifier,
 };
 
 // Re-export file state cache utilities
 pub use file_state_cache::{
+    DEFAULT_MAX_CACHE_SIZE_BYTES, FileState, FileStateCache, READ_FILE_STATE_CACHE_SIZE,
     cache_keys, cache_to_object, clone_file_state_cache, create_file_state_cache_with_size_limit,
-    merge_file_state_caches, FileState, FileStateCache, DEFAULT_MAX_CACHE_SIZE_BYTES,
-    READ_FILE_STATE_CACHE_SIZE,
+    merge_file_state_caches,
 };
 
 // Re-export process_user_input utilities
 pub use process_user_input::{
-    process_user_input, AgentDefinitions, ContentBlockParam, CursorPosition, EffortValue,
-    IdeSelection, ImageDimensions, ImageSource, PastedContent, ProcessUserInput,
-    ProcessUserInputBaseResult, ProcessUserInputContext, ProcessUserInputContextOptions,
-    ProcessUserInputOptions, PromptInputMode, QuerySource, QueryTracking,
+    AgentDefinitions, ContentBlockParam, CursorPosition, EffortValue, IdeSelection,
+    ImageDimensions, ImageSource, PastedContent, ProcessUserInput, ProcessUserInputBaseResult,
+    ProcessUserInputContext, ProcessUserInputContextOptions, ProcessUserInputOptions,
+    PromptInputMode, QuerySource, QueryTracking, process_user_input,
 };
 
 // Re-export model utilities
 pub use model::{
-    check_opus_1m_access, check_sonnet_1m_access, first_party_name_to_canonical, get_best_model,
-    get_canonical_name, get_claude_ai_user_default_model_description, get_default_haiku_model,
+    ModelName, ModelSetting, ModelShortName, ModelValidationResult, check_opus_1m_access,
+    check_sonnet_1m_access, first_party_name_to_canonical, get_best_model, get_canonical_name,
+    get_claude_ai_user_default_model_description, get_default_haiku_model,
     get_default_main_loop_model, get_default_opus_model, get_default_sonnet_model,
     get_main_loop_model, get_public_model_display_name, get_public_model_name,
     get_small_fast_model, get_user_specified_model_setting, is_legacy_model_remap_enabled,
     is_opus_1m_merge_enabled, model_display_string, normalize_model_string_for_api,
     parse_user_specified_model, render_default_model_setting, render_model_name,
-    render_model_setting, resolve_skill_model_override, validate_model, ModelName, ModelSetting,
-    ModelShortName, ModelValidationResult,
+    render_model_setting, resolve_skill_model_override, validate_model,
 };
 
 // Re-export swarm utilities
 pub use swarm::{
-    get_swarm_socket_name, is_pane_backend, AgentColorName, BackendType, CreatePaneResult,
-    PaneBackendType, PaneId, SystemPromptMode, TeammateIdentity, TeammateMessage,
-    TeammateSpawnConfig, TeammateSpawnResult, HIDDEN_SESSION_NAME, PLAN_MODE_REQUIRED_ENV_VAR,
-    SWARM_SESSION_NAME, SWARM_VIEW_WINDOW_NAME, TEAMMATE_COLOR_ENV_VAR, TEAMMATE_COMMAND_ENV_VAR,
-    TEAM_LEAD_NAME, TMUX_COMMAND,
+    AgentColorName, BackendType, CreatePaneResult, HIDDEN_SESSION_NAME, PLAN_MODE_REQUIRED_ENV_VAR,
+    PaneBackendType, PaneId, SWARM_SESSION_NAME, SWARM_VIEW_WINDOW_NAME, SystemPromptMode,
+    TEAM_LEAD_NAME, TEAMMATE_COLOR_ENV_VAR, TEAMMATE_COMMAND_ENV_VAR, TMUX_COMMAND,
+    TeammateIdentity, TeammateMessage, TeammateSpawnConfig, TeammateSpawnResult,
+    get_swarm_socket_name, is_pane_backend,
 };
 
 // Re-export theme utilities
 pub use system_theme::{
-    get_system_theme_name, resolve_theme_setting, set_cached_system_theme, theme_from_osc_color,
-    SystemTheme,
+    SystemTheme, get_system_theme_name, resolve_theme_setting, set_cached_system_theme,
+    theme_from_osc_color,
 };
 
 // Re-export theme (colors)
 pub use theme::{
-    get_theme, theme_color_to_ansi, AnsiColor, Theme, ThemeColor, DARK_ANSI_THEME,
-    DARK_DALTONIZED_THEME, DARK_THEME, LIGHT_ANSI_THEME, LIGHT_DALTONIZED_THEME, LIGHT_THEME,
-    THEME_NAMES,
+    AnsiColor, DARK_ANSI_THEME, DARK_DALTONIZED_THEME, DARK_THEME, LIGHT_ANSI_THEME,
+    LIGHT_DALTONIZED_THEME, LIGHT_THEME, THEME_NAMES, Theme, ThemeColor, get_theme,
+    theme_color_to_ansi,
 };
 
 // Re-export user utilities
 pub use user::{
-    get_core_user_data, get_git_email, get_user_for_analytics, reset_user_cache, set_cached_email,
-    CoreUserData, GitHubActionsMetadata, Platform,
+    CoreUserData, GitHubActionsMetadata, Platform, get_core_user_data, get_git_email,
+    get_user_for_analytics, reset_user_cache, set_cached_email,
 };
 
 // Re-export task utilities
 pub use task::{
-    append_task_output, apply_task_offsets_and_evictions, cleanup_task_output, evict_task_output,
-    evict_terminal_task, flush_task_output, format_task_notification, generate_task_attachments,
-    get_running_tasks, get_task_output, get_task_output_delta, get_task_output_path,
-    get_task_output_size, init_task_output, init_task_output_as_symlink, is_terminal_task_status,
-    poll_tasks, register_task, AppState, CircularBuffer, SetAppState, TaskAttachment, TaskOutput,
-    TaskStateBase, TaskStatus, TaskType, MAX_TASK_OUTPUT_BYTES, MAX_TASK_OUTPUT_BYTES_DISPLAY,
+    AppState, CircularBuffer, MAX_TASK_OUTPUT_BYTES, MAX_TASK_OUTPUT_BYTES_DISPLAY,
     OUTPUT_FILE_TAG, PANEL_GRACE_MS, POLL_INTERVAL_MS, STATUS_TAG, STOPPED_DISPLAY_MS, SUMMARY_TAG,
-    TASK_ID_TAG, TASK_NOTIFICATION_TAG, TASK_TYPE_TAG, TOOL_USE_ID_TAG,
+    SetAppState, TASK_ID_TAG, TASK_NOTIFICATION_TAG, TASK_TYPE_TAG, TOOL_USE_ID_TAG,
+    TaskAttachment, TaskOutput, TaskStateBase, TaskStatus, TaskType, append_task_output,
+    apply_task_offsets_and_evictions, cleanup_task_output, evict_task_output, evict_terminal_task,
+    flush_task_output, format_task_notification, generate_task_attachments, get_running_tasks,
+    get_task_output, get_task_output_delta, get_task_output_path, get_task_output_size,
+    init_task_output, init_task_output_as_symlink, is_terminal_task_status, poll_tasks,
+    register_task,
 };
 
 // Re-export ultraplan utilities
 pub use ultraplan::{
-    find_ultraplan_trigger_positions, find_ultrareview_trigger_positions, has_ultraplan_keyword,
-    has_ultrareview_keyword, replace_ultraplan_keyword, TriggerPosition,
+    TriggerPosition, find_ultraplan_trigger_positions, find_ultrareview_trigger_positions,
+    has_ultraplan_keyword, has_ultrareview_keyword, replace_ultraplan_keyword,
 };
 
 // New module exports
@@ -196,21 +196,20 @@ pub mod debug_filter;
 pub use billing::{
     has_claude_ai_billing_access, has_console_billing_access, set_mock_billing_access_override,
 };
-pub use completion_cache::{detect_shell, get_completion_cache_dir, ShellInfo};
+pub use completion_cache::{ShellInfo, detect_shell, get_completion_cache_dir};
 pub use content_array::insert_block_after_tool_results;
 pub use cursor::{
-    can_yank_pop, clear_kill_ring, get_kill_ring_item, get_kill_ring_size, get_last_kill,
-    is_vim_punctuation, is_vim_whitespace, is_vim_word_char, push_to_kill_ring, record_yank,
-    reset_kill_accumulation, reset_yank_state, update_yank_length, yank_pop, YankPopResult,
+    YankPopResult, can_yank_pop, clear_kill_ring, get_kill_ring_item, get_kill_ring_size,
+    get_last_kill, is_vim_punctuation, is_vim_whitespace, is_vim_word_char, push_to_kill_ring,
+    record_yank, reset_kill_accumulation, reset_yank_state, update_yank_length, yank_pop,
 };
 pub use debug::{
-    enable_debug_logging, get_debug_file_path, get_debug_filter, get_debug_log_path,
+    DebugLogLevel, enable_debug_logging, get_debug_file_path, get_debug_filter, get_debug_log_path,
     get_min_debug_log_level, is_debug_mode, is_debug_to_stderr, log_ant_error, log_for_debugging,
-    DebugLogLevel,
 };
 pub use debug_filter::{
-    extract_debug_categories, parse_debug_filter, should_show_debug_categories,
-    should_show_debug_message, DebugFilter,
+    DebugFilter, extract_debug_categories, parse_debug_filter, should_show_debug_categories,
+    should_show_debug_message,
 };
 pub mod gh_pr_status;
 pub mod heatmap;
@@ -226,6 +225,7 @@ pub mod immediate_command;
 // ui_event renamed to interact
 
 // New modules from TypeScript translation
+pub mod inspector;
 pub mod managed_env_constants;
 pub mod memoize;
 pub mod memory_file_detection;
@@ -270,7 +270,6 @@ pub mod session_storage;
 pub mod session_storage_portable;
 pub mod session_title;
 pub mod session_url;
-pub mod inspector;
 
 pub use mtls::{
     clear_mtls_cache, configure_mtls, get_ca_cert, get_client_cert, get_client_key, is_mtls_enabled,
@@ -286,7 +285,7 @@ pub use session_env_vars::{
 };
 
 pub use managed_env_constants::{
-    is_provider_managed_env_var, is_safe_env_var, DANGEROUS_SHELL_SETTINGS, SAFE_ENV_VARS,
+    DANGEROUS_SHELL_SETTINGS, SAFE_ENV_VARS, is_provider_managed_env_var, is_safe_env_var,
 };
 pub use memoize::{memoize_with_lru, memoize_with_ttl, memoize_with_ttl_async};
 pub use memory_file_detection::{
@@ -298,7 +297,7 @@ pub use powershell::{escape_powershell_string, is_powershell_available};
 
 pub use modifiers::{Modifier, Shortcut};
 pub use native_installer::{install_package, is_native_installer_available};
-pub use notebook::{extract_code_cells, is_notebook_file, parse_notebook, Notebook};
+pub use notebook::{Notebook, extract_code_cells, is_notebook_file, parse_notebook};
 pub use paste_store::{PasteItem, PasteStore};
 pub use plan_mode_v2::{
     get_plan_mode_v2_agent_count, get_plan_mode_v2_explore_agent_count,
@@ -321,15 +320,15 @@ pub use sanitization::escape_shell_arg;
 pub use sanitization::{escape_html, sanitize_filename, sanitize_path, truncate};
 pub use screenshot_clipboard::{copy_screenshot_to_clipboard, take_screenshot};
 pub use sdk_event_queue::{
+    DrainedSdkEvent, SdkEvent, SdkEventQueue, SdkEventType, SdkEventUsage, TaskProgressParams,
     drain_sdk_events, emit_session_state_changed, emit_task_progress, emit_task_started,
-    emit_task_terminated_sdk, enqueue_sdk_event, DrainedSdkEvent, SdkEvent, SdkEventQueue,
-    SdkEventUsage, SdkEventType, TaskProgressParams,
+    emit_task_terminated_sdk, enqueue_sdk_event,
 };
 pub use secure_storage::SecureStorage;
-pub use semver::{parse_semver, Semver};
+pub use semver::{Semver, parse_semver};
 pub use session_activity::{ActivityType, SessionActivity, SessionActivityTracker};
 pub use session_restore::{can_restore_session, restore_session};
-pub use session_start::{create_session, SessionStartConfig};
+pub use session_start::{SessionStartConfig, create_session};
 pub use session_state::SessionState;
 pub use session_title::{clean_title_for_filename, generate_session_title};
 pub use session_url::{build_session_url, extract_session_id, is_valid_session_url};
@@ -341,8 +340,8 @@ pub mod set;
 pub mod subprocess_env;
 
 pub use exec_file_no_throw::{
-    exec_file_no_throw, exec_file_no_throw_sync, exec_file_no_throw_with_cwd, ExecResult,
+    ExecResult, exec_file_no_throw, exec_file_no_throw_sync, exec_file_no_throw_with_cwd,
 };
-pub use platform::{detect_platform, get_platform, SUPPORTED_PLATFORMS};
+pub use platform::{SUPPORTED_PLATFORMS, detect_platform, get_platform};
 pub use set::{difference, every, intersects, union};
-pub use subprocess_env::{register_upstream_proxy_env_fn, subprocess_env, GHA_SUBPROCESS_SCRUB};
+pub use subprocess_env::{GHA_SUBPROCESS_SCRUB, register_upstream_proxy_env_fn, subprocess_env};

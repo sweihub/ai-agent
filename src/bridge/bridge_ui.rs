@@ -6,8 +6,8 @@
 //! see the ai-code project which uses ratatui.
 
 use crate::bridge::bridge_status_util::{
-    build_bridge_connect_url, build_bridge_session_url, format_duration, timestamp,
-    truncate_to_width, StatusState, TOOL_DISPLAY_EXPIRY_MS,
+    StatusState, TOOL_DISPLAY_EXPIRY_MS, build_bridge_connect_url, build_bridge_session_url,
+    format_duration, timestamp, truncate_to_width,
 };
 use crate::bridge::bridge_types::{BridgeConfig, SessionActivity, SessionActivityType, SpawnMode};
 

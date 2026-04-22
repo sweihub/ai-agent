@@ -14,8 +14,7 @@ pub struct MessageOrigin {
 }
 
 /// Base message type with common fields.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[derive(Default)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct MessageBase {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub uuid: Option<String>,

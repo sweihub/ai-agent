@@ -54,7 +54,12 @@ impl ChannelPermissionCallbacks {
 
     /// Resolve a pending request from a structured channel event
     /// Returns true if the ID was pending
-    pub fn resolve(&self, request_id: &str, behavior: PermissionBehavior, from_server: &str) -> bool {
+    pub fn resolve(
+        &self,
+        request_id: &str,
+        behavior: PermissionBehavior,
+        from_server: &str,
+    ) -> bool {
         let mut pending = self.pending.lock().unwrap();
 
         if let Some((stored_behavior, stored_server)) = pending.remove(request_id) {

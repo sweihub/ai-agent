@@ -6,10 +6,10 @@
 //! creation -> poll loop -> ingress WS -> teardown. It reads nothing from
 //! bootstrap/state or sessionStorage — all context comes from params.
 
+use crate::bridge::SDKMessage;
 use crate::bridge::poll_config_defaults::PollIntervalConfig;
 use crate::bridge::repl_bridge_handle::{BridgeControlRequest, BridgeControlResponse, BridgeState};
 use crate::bridge::repl_bridge_transport::ReplBridgeTransport;
-use crate::bridge::SDKMessage;
 use crate::error::AgentError;
 use std::sync::Arc;
 use std::time::Duration;

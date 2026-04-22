@@ -117,7 +117,11 @@ pub type LocalCommandModule = serde_json::Value;
 pub struct LocalCommand {
     pub command_type: String, // "local"
     pub supports_non_interactive: bool,
-    pub load: Box<dyn Fn() -> std::pin::Pin<Box<dyn std::future::Future<Output = LocalCommandModule> + Send>> + Send + Sync>,
+    pub load: Box<
+        dyn Fn() -> std::pin::Pin<Box<dyn std::future::Future<Output = LocalCommandModule> + Send>>
+            + Send
+            + Sync,
+    >,
 }
 
 /// Resume entry point.
@@ -163,7 +167,8 @@ pub struct CommandCompleteOptions {
 }
 
 /// Callback when a command completes.
-pub type LocalJsxCommandOnDone = Box<dyn Fn(Option<String>, Option<CommandCompleteOptions>) + Send + Sync>;
+pub type LocalJsxCommandOnDone =
+    Box<dyn Fn(Option<String>, Option<CommandCompleteOptions>) + Send + Sync>;
 
 /// Local JSX command module shape.
 pub type LocalJsxCommandModule = serde_json::Value;
@@ -171,7 +176,12 @@ pub type LocalJsxCommandModule = serde_json::Value;
 /// Local JSX command definition.
 pub struct LocalJsxCommand {
     pub command_type: String, // "local-jsx"
-    pub load: Box<dyn Fn() -> std::pin::Pin<Box<dyn std::future::Future<Output = LocalJsxCommandModule> + Send>> + Send + Sync>,
+    pub load: Box<
+        dyn Fn()
+                -> std::pin::Pin<Box<dyn std::future::Future<Output = LocalJsxCommandModule> + Send>>
+            + Send
+            + Sync,
+    >,
 }
 
 /// Callback when a command declares who can use it (auth/provider requirement, static).

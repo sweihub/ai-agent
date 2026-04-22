@@ -13,8 +13,8 @@ pub mod loader;
 pub mod types;
 
 pub use loader::{
-    get_ai_md_files, load_ai_md, process_ai_md_file, AI_MD_FILENAME, AI_MD_LOCAL_FILENAME,
-    CLAUDE_LOCAL_MD_FILENAME, CLAUDE_MD_FILENAME, PROJECT_RULES_DIR,
+    AI_MD_FILENAME, AI_MD_LOCAL_FILENAME, CLAUDE_LOCAL_MD_FILENAME, CLAUDE_MD_FILENAME,
+    PROJECT_RULES_DIR, get_ai_md_files, load_ai_md, process_ai_md_file,
 };
 pub use types::{AiMdContent, AiMdFile, AiMdType};
 

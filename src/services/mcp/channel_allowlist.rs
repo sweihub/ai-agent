@@ -49,7 +49,9 @@ pub fn is_channel_allowlisted(plugin_source: Option<&str>) -> bool {
 
     let (marketplace, name) = (parts[0], parts[1]);
 
-    get_channel_allowlist().iter().any(|e| e.plugin == name && e.marketplace == marketplace)
+    get_channel_allowlist()
+        .iter()
+        .any(|e| e.plugin == name && e.marketplace == marketplace)
 }
 
 #[cfg(test)]

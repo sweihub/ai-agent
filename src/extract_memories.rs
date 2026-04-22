@@ -3,9 +3,9 @@
 //! Extracts durable memories from the current session transcript
 //! and writes them to the auto-memory directory.
 
+use crate::AgentError;
 use crate::constants::env::ai;
 use crate::types::*;
-use crate::AgentError;
 
 /// Memory extraction configuration
 #[derive(Debug, Clone)]
@@ -902,9 +902,11 @@ mod tests {
 
         let key_points = entries.iter().find(|e| e.key.contains("key_points"));
         assert!(key_points.is_some());
-        assert!(key_points
-            .unwrap()
-            .content
-            .contains("First important point"));
+        assert!(
+            key_points
+                .unwrap()
+                .content
+                .contains("First important point")
+        );
     }
 }

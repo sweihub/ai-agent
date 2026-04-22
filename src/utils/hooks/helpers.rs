@@ -139,11 +139,24 @@ pub fn substitute_arguments(
         while let Some(dollar_pos) = content[search_start..].find(&needle) {
             let actual_pos = search_start + dollar_pos;
             let after_name_pos = actual_pos + needle.len();
-            let after = content.get(after_name_pos..after_name_pos + 1).unwrap_or("");
+            let after = content
+                .get(after_name_pos..after_name_pos + 1)
+                .unwrap_or("");
             // Only replace if followed by non-word/non-bracket char or end
-            if after.is_empty() || (!after.chars().next().map(|c| c.is_alphanumeric() || c == '_' || c == '[').unwrap_or(true)) {
+            if after.is_empty()
+                || (!after
+                    .chars()
+                    .next()
+                    .map(|c| c.is_alphanumeric() || c == '_' || c == '[')
+                    .unwrap_or(true))
+            {
                 let replacement = parsed_args.get(i).map(|s| s.as_str()).unwrap_or("");
-                content = format!("{}{}{}", &content[..actual_pos], replacement, &content[after_name_pos..]);
+                content = format!(
+                    "{}{}{}",
+                    &content[..actual_pos],
+                    replacement,
+                    &content[after_name_pos..]
+                );
                 search_start = actual_pos + replacement.len();
             } else {
                 search_start = after_name_pos;
@@ -177,10 +190,21 @@ pub fn substitute_arguments(
                     let after_num_pos = actual_pos + 1 + num_chars.len();
                     // Check what follows: must be end of string or non-word/non-digit
                     let after = result.get(after_num_pos..after_num_pos + 1).unwrap_or("");
-                    if after.is_empty() || (!after.chars().next().map(|c| c.is_alphanumeric()).unwrap_or(true)) {
+                    if after.is_empty()
+                        || (!after
+                            .chars()
+                            .next()
+                            .map(|c| c.is_alphanumeric())
+                            .unwrap_or(true))
+                    {
                         // Replace just the $digits, preserving the delimiter
                         let replacement = parsed_args.get(index).map(|s| s.as_str()).unwrap_or("");
-                        result = format!("{}{}{}", &result[..actual_pos], replacement, &result[after_num_pos..]);
+                        result = format!(
+                            "{}{}{}",
+                            &result[..actual_pos],
+                            replacement,
+                            &result[after_num_pos..]
+                        );
                         search_start = actual_pos + replacement.len();
                         continue;
                     }

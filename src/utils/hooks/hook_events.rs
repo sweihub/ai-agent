@@ -3,7 +3,7 @@
 
 use std::sync::{Arc, Mutex};
 
-use tokio::time::{interval, Duration};
+use tokio::time::{Duration, interval};
 
 /// Hook events that are always emitted regardless of the includeHookEvents option
 const ALWAYS_EMITTED_HOOK_EVENTS: [&str; 2] = ["SessionStart", "Setup"];
@@ -243,20 +243,18 @@ pub struct EmitHookResponseParams {
 /// Emit hook response event
 pub fn emit_hook_response(data: EmitHookResponseParams) {
     // Always log full hook output to debug log for verbose mode debugging
-    let output_to_log = if !data.stdout.is_empty()
-        || !data.stderr.is_empty()
-        || !data.output.is_empty()
-    {
-        if !data.stdout.is_empty() {
-            Some(&data.stdout)
-        } else if !data.stderr.is_empty() {
-            Some(&data.stderr)
+    let output_to_log =
+        if !data.stdout.is_empty() || !data.stderr.is_empty() || !data.output.is_empty() {
+            if !data.stdout.is_empty() {
+                Some(&data.stdout)
+            } else if !data.stderr.is_empty() {
+                Some(&data.stderr)
+            } else {
+                Some(&data.output)
+            }
         } else {
-            Some(&data.output)
-        }
-    } else {
-        None
-    };
+            None
+        };
 
     if let Some(output) = output_to_log {
         log_for_debugging(&format!(

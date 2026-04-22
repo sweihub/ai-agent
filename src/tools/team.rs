@@ -113,9 +113,19 @@ impl TeamCreateTool {
                 arr.iter()
                     .filter_map(|v| {
                         let name = v.get("name")?.as_str()?.to_string();
-                        let description = v.get("description").and_then(|v| v.as_str()).map(|s| s.to_string());
-                        let model = v.get("model").and_then(|v| v.as_str()).map(|s| s.to_string());
-                        Some(AgentInfo { name, description, model })
+                        let description = v
+                            .get("description")
+                            .and_then(|v| v.as_str())
+                            .map(|s| s.to_string());
+                        let model = v
+                            .get("model")
+                            .and_then(|v| v.as_str())
+                            .map(|s| s.to_string());
+                        Some(AgentInfo {
+                            name,
+                            description,
+                            model,
+                        })
                     })
                     .collect()
             })
@@ -161,9 +171,7 @@ impl TeamCreateTool {
                 Agents: {}\n\n\
                 The team is ready for coordination. \
                 Team members can communicate using the SendMessage tool.",
-                name,
-                description,
-                agent_count
+                name, description, agent_count
             ),
             is_error: Some(false),
             was_persisted: None,

@@ -139,19 +139,18 @@ impl NotebookEditTool {
             .map_err(|e| AgentError::Tool(format!("Failed to read notebook: {}", e)))?;
 
         // Parse JSON
-        let mut notebook: serde_json::Value =
-            match serde_json::from_str(&content) {
-                Ok(v) => v,
-                Err(_) => {
-                    return Ok(ToolResult {
-                        result_type: "text".to_string(),
-                        tool_use_id: "".to_string(),
-                        content: "Error: Notebook is not valid JSON.".to_string(),
-                        is_error: Some(true),
-                was_persisted: None,
-                    });
-                }
-            };
+        let mut notebook: serde_json::Value = match serde_json::from_str(&content) {
+            Ok(v) => v,
+            Err(_) => {
+                return Ok(ToolResult {
+                    result_type: "text".to_string(),
+                    tool_use_id: "".to_string(),
+                    content: "Error: Notebook is not valid JSON.".to_string(),
+                    is_error: Some(true),
+                    was_persisted: None,
+                });
+            }
+        };
 
         // Get notebook metadata BEFORE getting mutable cells reference
         let language = notebook["metadata"]["language_info"]["name"]
@@ -174,16 +173,19 @@ impl NotebookEditTool {
                 return Ok(ToolResult {
                     result_type: "text".to_string(),
                     tool_use_id: "".to_string(),
-                    content: "Error: Cell ID must be specified when not inserting a new cell.".to_string(),
+                    content: "Error: Cell ID must be specified when not inserting a new cell."
+                        .to_string(),
                     is_error: Some(true),
-                was_persisted: None,
+                    was_persisted: None,
                 });
             }
             0 // Default to inserting at the beginning
         } else {
             let cid = cell_id.unwrap();
             // First try to find by actual ID
-            let idx = cells.iter().position(|c| c.get("id").and_then(|v| v.as_str()) == Some(cid));
+            let idx = cells
+                .iter()
+                .position(|c| c.get("id").and_then(|v| v.as_str()) == Some(cid));
             if let Some(i) = idx {
                 i
             } else {
@@ -193,9 +195,12 @@ impl NotebookEditTool {
                         return Ok(ToolResult {
                             result_type: "text".to_string(),
                             tool_use_id: "".to_string(),
-                            content: format!("Error: Cell with index {} does not exist in notebook.", parsed),
+                            content: format!(
+                                "Error: Cell with index {} does not exist in notebook.",
+                                parsed
+                            ),
                             is_error: Some(true),
-                was_persisted: None,
+                            was_persisted: None,
                         });
                     }
                     parsed
@@ -205,7 +210,7 @@ impl NotebookEditTool {
                         tool_use_id: "".to_string(),
                         content: format!("Error: Cell with ID \"{}\" not found in notebook.", cid),
                         is_error: Some(true),
-                was_persisted: None,
+                        was_persisted: None,
                     });
                 }
             }
@@ -239,8 +244,7 @@ impl NotebookEditTool {
                 new_cell_id = Some(
                     (0..13)
                         .map(|_| {
-                            let c = "abcdefghijklmnopqrstuvwxyz0123456789"
-                                .as_bytes()
+                            let c = "abcdefghijklmnopqrstuvwxyz0123456789".as_bytes()
                                 [rand::random::<u8>() as usize % 36];
                             c as char
                         })
@@ -259,7 +263,7 @@ impl NotebookEditTool {
                         tool_use_id: "".to_string(),
                         content: format!("Error: Cell index {} out of bounds", actual_cell_index),
                         is_error: Some(true),
-                was_persisted: None,
+                        was_persisted: None,
                     });
                 }
                 cells.remove(actual_cell_index);
@@ -289,7 +293,7 @@ impl NotebookEditTool {
                         tool_use_id: "".to_string(),
                         content: format!("Error: Cell index {} out of bounds", actual_cell_index),
                         is_error: Some(true),
-                was_persisted: None,
+                        was_persisted: None,
                     });
                 }
                 let target_cell = &mut cells[actual_cell_index];
@@ -323,16 +327,14 @@ impl NotebookEditTool {
                     tool_use_id: "".to_string(),
                     content: format!("Error: Unknown edit mode: {}", actual_edit_mode),
                     is_error: Some(true),
-                was_persisted: None,
+                    was_persisted: None,
                 });
             }
         }
 
         // Write back to file with indent=1 (matching TS: IPYNB_INDENT = 1)
-        let updated_content =
-            serde_json::to_string_pretty(&notebook).map_err(|e| {
-                AgentError::Tool(format!("Failed to serialize notebook: {}", e))
-            })?;
+        let updated_content = serde_json::to_string_pretty(&notebook)
+            .map_err(|e| AgentError::Tool(format!("Failed to serialize notebook: {}", e)))?;
 
         fs::write(&path_buf, &updated_content)
             .map_err(|e| AgentError::Tool(format!("Failed to write notebook: {}", e)))?;
@@ -467,10 +469,7 @@ mod tests {
         // Should now have 3 cells
         assert_eq!(nb["cells"].as_array().unwrap().len(), 3);
         // New cell inserted after index 0
-        assert_eq!(
-            nb["cells"][1]["source"].as_str().unwrap(),
-            "x = 1"
-        );
+        assert_eq!(nb["cells"][1]["source"].as_str().unwrap(), "x = 1");
 
         std::fs::remove_file(temp_file).ok();
     }
@@ -523,9 +522,11 @@ mod tests {
 
         let content = std::fs::read_to_string(&temp_file).unwrap();
         let nb: serde_json::Value = serde_json::from_str(&content).unwrap();
-        assert!(nb["cells"][1]["source"].as_array().unwrap()[0]
-            .to_string()
-            .contains("Updated markdown"));
+        assert!(
+            nb["cells"][1]["source"].as_array().unwrap()[0]
+                .to_string()
+                .contains("Updated markdown")
+        );
 
         std::fs::remove_file(temp_file).ok();
     }

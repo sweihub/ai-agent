@@ -119,7 +119,9 @@ pub async fn exec_http_hook(
         }
     }
 
-    let timeout_ms = hook.timeout.map_or(DEFAULT_HTTP_HOOK_TIMEOUT_MS, |t| t * 1000);
+    let timeout_ms = hook
+        .timeout
+        .map_or(DEFAULT_HTTP_HOOK_TIMEOUT_MS, |t| t * 1000);
 
     // Build headers with env var interpolation in values
     let mut headers = reqwest::header::HeaderMap::new();
@@ -127,10 +129,7 @@ pub async fn exec_http_hook(
         reqwest::header::CONTENT_TYPE,
         "application/json".parse().unwrap(),
     );
-    headers.insert(
-        "User-Agent",
-        get_user_agent().parse().unwrap(),
-    );
+    headers.insert("User-Agent", get_user_agent().parse().unwrap());
 
     if let Some(ref hook_headers) = hook.headers {
         // Intersect hook's allowed_env_vars with policy allowlist when policy is set

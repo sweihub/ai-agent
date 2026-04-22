@@ -38,7 +38,10 @@ impl std::error::Error for McpAuthError {}
 
 impl McpAuthError {
     pub fn new(server_name: String, message: String) -> Self {
-        Self { server_name, message }
+        Self {
+            server_name,
+            message,
+        }
     }
 }
 
@@ -66,8 +69,16 @@ impl std::fmt::Display for McpToolCallError {
 impl std::error::Error for McpToolCallError {}
 
 impl McpToolCallError {
-    pub fn new(message: String, telemetry_message: String, mcp_meta: Option<McpToolCallMeta>) -> Self {
-        Self { message, telemetry_message, mcp_meta }
+    pub fn new(
+        message: String,
+        telemetry_message: String,
+        mcp_meta: Option<McpToolCallMeta>,
+    ) -> Self {
+        Self {
+            message,
+            telemetry_message,
+            mcp_meta,
+        }
     }
 }
 
@@ -216,7 +227,21 @@ const MCP_REQUEST_TIMEOUT_MS: u64 = 60000;
 /// long-lived SSE streams meant to stay open indefinitely.
 ///
 /// Note: This is a simplified stub. Full implementation would use the actual fetch type.
-pub fn wrap_fetch_with_timeout(_base_fetch: impl Fn(String) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<reqwest::Response, reqwest::Error>> + Send>> + Send + Sync + 'static) -> impl Fn(String) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<reqwest::Response, reqwest::Error>> + Send>> + Send + Sync + 'static {
+pub fn wrap_fetch_with_timeout(
+    _base_fetch: impl Fn(
+        String,
+    ) -> std::pin::Pin<
+        Box<dyn std::future::Future<Output = Result<reqwest::Response, reqwest::Error>> + Send>,
+    > + Send
+    + Sync
+    + 'static,
+) -> impl Fn(
+    String,
+) -> std::pin::Pin<
+    Box<dyn std::future::Future<Output = Result<reqwest::Response, reqwest::Error>> + Send>,
+> + Send
++ Sync
++ 'static {
     move |url: String| {
         let client = match reqwest::Client::builder()
             .timeout(std::time::Duration::from_millis(MCP_REQUEST_TIMEOUT_MS))
@@ -225,7 +250,14 @@ pub fn wrap_fetch_with_timeout(_base_fetch: impl Fn(String) -> std::pin::Pin<Box
         {
             Ok(c) => c,
             Err(e) => {
-                return Box::pin(async { Err(e) }) as Pin<Box<dyn std::future::Future<Output = Result<reqwest::Response, reqwest::Error>> + Send>>
+                return Box::pin(async { Err(e) })
+                    as Pin<
+                        Box<
+                            dyn std::future::Future<
+                                    Output = Result<reqwest::Response, reqwest::Error>,
+                                > + Send,
+                        >,
+                    >;
             }
         };
 
@@ -233,7 +265,13 @@ pub fn wrap_fetch_with_timeout(_base_fetch: impl Fn(String) -> std::pin::Pin<Box
             let mut request = client.get(&url);
             request = request.header("Accept", MCP_STREAMABLE_HTTP_ACCEPT);
             request.send().await
-        }) as Pin<Box<dyn std::future::Future<Output = Result<reqwest::Response, reqwest::Error>> + Send>>
+        })
+            as Pin<
+                Box<
+                    dyn std::future::Future<Output = Result<reqwest::Response, reqwest::Error>>
+                        + Send,
+                >,
+            >
     }
 }
 
@@ -304,7 +342,13 @@ pub fn mcp_tool_input_to_auto_classifier_input(
         if !obj.is_empty() {
             return obj
                 .keys()
-                .map(|k| format!("{}={}", k, obj.get(k).and_then(|v| v.as_str()).unwrap_or("")))
+                .map(|k| {
+                    format!(
+                        "{}={}",
+                        k,
+                        obj.get(k).and_then(|v| v.as_str()).unwrap_or("")
+                    )
+                })
                 .collect::<Vec<_>>()
                 .join(" ");
         }
@@ -394,7 +438,9 @@ pub async fn fetch_resources_for_client(client: &McpServerConnection) -> Vec<Ser
 
 /// Fetch commands (prompts) from a connected MCP server
 /// NOTE: This is a stub. Full implementation requires rust-mcp-sdk integration.
-pub async fn fetch_commands_for_client(client: &McpServerConnection) -> Vec<crate::commands::Command> {
+pub async fn fetch_commands_for_client(
+    client: &McpServerConnection,
+) -> Vec<crate::commands::Command> {
     if !matches!(client, McpServerConnection::Connected(_)) {
         return vec![];
     }
@@ -412,7 +458,9 @@ pub async fn clear_server_cache(name: &str, config: &ScopedMcpServerConfig) -> R
 
 /// Ensure a client is connected
 /// NOTE: This is a stub. Full implementation requires rust-mcp-sdk integration.
-pub async fn ensure_connected_client(client: McpServerConnection) -> Result<McpServerConnection, String> {
+pub async fn ensure_connected_client(
+    client: McpServerConnection,
+) -> Result<McpServerConnection, String> {
     if matches!(client, McpServerConnection::Connected(_)) {
         Ok(client)
     } else {
@@ -469,7 +517,13 @@ pub fn infer_compact_schema(value: &serde_json::Value, depth: usize) -> String {
                 let entries: Vec<String> = obj
                     .iter()
                     .take(MAX_ENTRIES)
-                    .map(|(k, v)| format!("{}: {}", k, infer_compact_schema(v, depth.saturating_sub(1))))
+                    .map(|(k, v)| {
+                        format!(
+                            "{}: {}",
+                            k,
+                            infer_compact_schema(v, depth.saturating_sub(1))
+                        )
+                    })
                     .collect();
                 format!("{{{}}}", entries.join(", "))
             }

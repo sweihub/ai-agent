@@ -74,9 +74,7 @@ impl SessionActivity {
     /// Get the age of this activity
     pub fn age(&self) -> Duration {
         let now = Utc::now();
-        (now - self.timestamp)
-            .to_std()
-            .unwrap_or(Duration::ZERO)
+        (now - self.timestamp).to_std().unwrap_or(Duration::ZERO)
     }
 }
 
@@ -162,7 +160,10 @@ impl SessionActivityTracker {
     }
 
     /// Get the last activity of a specific type
-    pub fn get_last_activity_of_type(&self, activity_type: ActivityType) -> Option<&SessionActivity> {
+    pub fn get_last_activity_of_type(
+        &self,
+        activity_type: ActivityType,
+    ) -> Option<&SessionActivity> {
         self.activities
             .iter()
             .rev()
@@ -175,19 +176,19 @@ impl SessionActivityTracker {
     }
 
     /// Get the time since the last activity of a specific type
-    pub fn time_since_last_activity_of_type(&self, activity_type: ActivityType) -> Option<Duration> {
-        self.get_last_activity_of_type(activity_type).map(|a| a.age())
+    pub fn time_since_last_activity_of_type(
+        &self,
+        activity_type: ActivityType,
+    ) -> Option<Duration> {
+        self.get_last_activity_of_type(activity_type)
+            .map(|a| a.age())
     }
 
     /// Get activity rate (activities per second) over a duration
     pub fn get_activity_rate(&self, duration: Duration) -> f64 {
         let count = self.get_recent_count(duration);
         let secs = duration.as_secs_f64();
-        if secs > 0.0 {
-            count as f64 / secs
-        } else {
-            0.0
-        }
+        if secs > 0.0 { count as f64 / secs } else { 0.0 }
     }
 
     /// Check if there has been any activity within a duration
@@ -266,10 +267,7 @@ mod tests {
     #[test]
     fn test_record_with_details() {
         let mut tracker = SessionActivityTracker::new();
-        tracker.record_type_with_details(
-            ActivityType::ToolUse,
-            "ReadFile".to_string(),
-        );
+        tracker.record_type_with_details(ActivityType::ToolUse, "ReadFile".to_string());
         assert_eq!(tracker.count_by_type(ActivityType::ToolUse), 1);
     }
 

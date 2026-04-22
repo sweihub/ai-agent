@@ -8,10 +8,12 @@
 
 use std::sync::Arc;
 
-use tokio::sync::{mpsc, Mutex, Notify};
+use tokio::sync::{Mutex, Notify, mpsc};
 
-use crate::types::{Message, MessageRole, ToolAnnotations, ToolCall, ToolDefinition, ToolInputSchema, ToolResult};
 pub use crate::tools::orchestration::ToolMessageUpdate;
+use crate::types::{
+    Message, MessageRole, ToolAnnotations, ToolCall, ToolDefinition, ToolInputSchema, ToolResult,
+};
 
 /// Status of a tracked tool in the execution queue.
 #[derive(Debug, Clone, PartialEq)]
@@ -35,7 +37,20 @@ struct TrackedTool {
 }
 
 /// A boxed executor function that takes tool name, args, and call ID.
-type ToolExecutorFn = Arc<dyn Fn(String, serde_json::Value, String) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<ToolResult, crate::AgentError>> + Send + Sync>> + Send + Sync>;
+type ToolExecutorFn = Arc<
+    dyn Fn(
+            String,
+            serde_json::Value,
+            String,
+        ) -> std::pin::Pin<
+            Box<
+                dyn std::future::Future<Output = Result<ToolResult, crate::AgentError>>
+                    + Send
+                    + Sync,
+            >,
+        > + Send
+        + Sync,
+>;
 
 /// Shared state for the streaming executor.
 struct SharedState {
@@ -111,7 +126,11 @@ impl StreamingToolExecutor {
             if !known {
                 let update = create_synthetic_error(&id, "streaming_fallback", &name);
                 let mut guard = state.lock().await;
-                guard.tools.push(TrackedTool { status: ToolStatus::Completed, results: Vec::new(), ..tool });
+                guard.tools.push(TrackedTool {
+                    status: ToolStatus::Completed,
+                    results: Vec::new(),
+                    ..tool
+                });
                 drop(guard);
                 result_tx.send(update).ok();
                 notify.notify_one();
@@ -142,7 +161,9 @@ impl StreamingToolExecutor {
     /// Get a tool's concurrency safety flag.
     pub async fn get_is_concurrency_safe(&self, tool_use_id: &str) -> bool {
         let guard = self.state.lock().await;
-        guard.tools.iter()
+        guard
+            .tools
+            .iter()
             .find(|t| t.id == tool_use_id)
             .map(|t| t.is_concurrency_safe)
             .unwrap_or(false)
@@ -151,13 +172,19 @@ impl StreamingToolExecutor {
     /// Check if there are unfinished tools.
     pub async fn has_unfinished_tools(&self) -> bool {
         let guard = self.state.lock().await;
-        guard.tools.iter().any(|t| t.status != ToolStatus::Completed && t.status != ToolStatus::Yielded)
+        guard
+            .tools
+            .iter()
+            .any(|t| t.status != ToolStatus::Completed && t.status != ToolStatus::Yielded)
     }
 
     /// Check if any tools are currently executing.
     pub async fn has_executing_tools(&self) -> bool {
         let guard = self.state.lock().await;
-        guard.tools.iter().any(|t| t.status == ToolStatus::Executing)
+        guard
+            .tools
+            .iter()
+            .any(|t| t.status == ToolStatus::Executing)
     }
 
     /// Discard all pending and in-progress tools.
@@ -165,7 +192,9 @@ impl StreamingToolExecutor {
         let to_cancel: Vec<(String, String)> = {
             let mut guard = self.state.lock().await;
             guard.discarded = true;
-            guard.tools.iter()
+            guard
+                .tools
+                .iter()
                 .filter(|t| t.status == ToolStatus::Queued || t.status == ToolStatus::Executing)
                 .map(|t| (t.id.clone(), t.name.clone()))
                 .collect()
@@ -176,7 +205,9 @@ impl StreamingToolExecutor {
                 tool.status = ToolStatus::Completed;
             }
             drop(guard);
-            self.result_tx.send(create_synthetic_error(&id, "streaming_fallback", &name)).ok();
+            self.result_tx
+                .send(create_synthetic_error(&id, "streaming_fallback", &name))
+                .ok();
         }
         self.notify.notify_one();
     }
@@ -185,7 +216,9 @@ impl StreamingToolExecutor {
     pub async fn trigger_sibling_abort(&self) {
         let mut guard = self.state.lock().await;
         guard.has_errored = true;
-        let ids: Vec<(String, String)> = guard.tools.iter()
+        let ids: Vec<(String, String)> = guard
+            .tools
+            .iter()
             .filter(|t| t.status == ToolStatus::Executing)
             .map(|t| (t.id.clone(), t.name.clone()))
             .collect();
@@ -200,7 +233,11 @@ impl StreamingToolExecutor {
     }
 
     /// Set tool result from external execution.
-    pub async fn set_tool_result(&self, tool_call_id: String, result: Result<ToolResult, crate::AgentError>) {
+    pub async fn set_tool_result(
+        &self,
+        tool_call_id: String,
+        result: Result<ToolResult, crate::AgentError>,
+    ) {
         let message = match result {
             Ok(tool_result) => {
                 let msg = Message {
@@ -256,7 +293,10 @@ impl StreamingToolExecutor {
     pub async fn get_completed_results(&self) -> Vec<ToolMessageUpdate> {
         let mut guard = self.state.lock().await;
         // Phase 1: collect indices of tools to yield (read-only)
-        let to_yield: Vec<(usize, String)> = guard.tools.iter().enumerate()
+        let to_yield: Vec<(usize, String)> = guard
+            .tools
+            .iter()
+            .enumerate()
             .filter_map(|(i, tool)| {
                 if tool.status == ToolStatus::Yielded {
                     return None;
@@ -284,7 +324,10 @@ impl StreamingToolExecutor {
     }
 
     /// Wait for remaining tools and collect their results.
-    pub async fn get_remaining_results(&self, result_rx: &mut mpsc::UnboundedReceiver<ToolMessageUpdate>) -> Vec<ToolMessageUpdate> {
+    pub async fn get_remaining_results(
+        &self,
+        result_rx: &mut mpsc::UnboundedReceiver<ToolMessageUpdate>,
+    ) -> Vec<ToolMessageUpdate> {
         let mut all_results = Vec::new();
 
         // Collect any results already available
@@ -329,7 +372,9 @@ impl StreamingToolExecutor {
     pub async fn discard_sync(&self) {
         let mut guard = self.state.lock().await;
         guard.discarded = true;
-        let to_cancel: Vec<(String, String)> = guard.tools.iter()
+        let to_cancel: Vec<(String, String)> = guard
+            .tools
+            .iter()
             .filter(|t| t.status == ToolStatus::Queued || t.status == ToolStatus::Executing)
             .map(|t| (t.id.clone(), t.name.clone()))
             .collect();
@@ -341,7 +386,9 @@ impl StreamingToolExecutor {
                 tool.status = ToolStatus::Completed;
             }
             drop(guard);
-            self.result_tx.send(create_synthetic_error(&id, "streaming_fallback", &name)).ok();
+            self.result_tx
+                .send(create_synthetic_error(&id, "streaming_fallback", &name))
+                .ok();
         }
         self.notify.notify_one();
     }
@@ -359,11 +406,20 @@ async fn process_queue(
     // Snapshot state
     let snapshot: Vec<(String, String, serde_json::Value, bool, bool, bool)> = {
         let guard = state.lock().await;
-        guard.tools.iter()
+        guard
+            .tools
+            .iter()
             .map(|t| {
                 let is_queued = t.status == ToolStatus::Queued;
                 let is_executing = t.status == ToolStatus::Executing;
-                (t.id.clone(), t.name.clone(), t.args.clone(), t.is_concurrency_safe, is_queued, is_executing)
+                (
+                    t.id.clone(),
+                    t.name.clone(),
+                    t.args.clone(),
+                    t.is_concurrency_safe,
+                    is_queued,
+                    is_executing,
+                )
             })
             .collect()
     };
@@ -374,9 +430,9 @@ async fn process_queue(
         if !is_queued {
             continue;
         }
-        let blocked = snapshot.iter().any(|(_, _, _, other_safe, _, other_exec)| {
-            *other_exec && !*other_safe
-        });
+        let blocked = snapshot
+            .iter()
+            .any(|(_, _, _, other_safe, _, other_exec)| *other_exec && !*other_safe);
         if blocked && !*is_safe {
             // Non-safe blocked by another executing — skip (will be picked by the executing one)
             continue;
@@ -385,7 +441,18 @@ async fn process_queue(
     }
 
     for (id, name, args, is_safe) in can_run {
-        execute_tool(state.clone(), id.clone(), name.clone(), args, is_safe, executor.clone(), sibling_abort.clone(), result_tx.clone(), notify.clone()).await;
+        execute_tool(
+            state.clone(),
+            id.clone(),
+            name.clone(),
+            args,
+            is_safe,
+            executor.clone(),
+            sibling_abort.clone(),
+            result_tx.clone(),
+            notify.clone(),
+        )
+        .await;
         if !is_safe {
             break;
         }
@@ -410,12 +477,16 @@ async fn execute_tool(
     let guard = state.lock().await;
     if guard.discarded {
         drop(guard);
-        result_tx.send(create_synthetic_error(&id, "streaming_fallback", &name)).ok();
+        result_tx
+            .send(create_synthetic_error(&id, "streaming_fallback", &name))
+            .ok();
         return;
     }
     if guard.has_errored {
         drop(guard);
-        result_tx.send(create_synthetic_error(&id, "sibling_error", &name)).ok();
+        result_tx
+            .send(create_synthetic_error(&id, "sibling_error", &name))
+            .ok();
         return;
     }
     drop(guard);
@@ -447,14 +518,18 @@ async fn execute_tool(
         if let Ok(tool_result) = &result {
             if tool_result.is_error == Some(true) && name == "Bash" {
                 guard.has_errored = true;
-                let siblings: Vec<(String, String)> = guard.tools.iter()
+                let siblings: Vec<(String, String)> = guard
+                    .tools
+                    .iter()
                     .filter(|t| t.status == ToolStatus::Executing)
                     .map(|t| (t.id.clone(), t.name.clone()))
                     .collect();
                 drop(guard);
                 sibling_abort.notify_waiters();
                 for (sid, sname) in siblings {
-                    result_tx.send(create_synthetic_error(&sid, "sibling_error", &sname)).ok();
+                    result_tx
+                        .send(create_synthetic_error(&sid, "sibling_error", &sname))
+                        .ok();
                 }
                 notify.notify_one();
                 return;
@@ -504,7 +579,10 @@ fn create_synthetic_error(reason: &str, tool_call_id: &str, tool_name: &str) -> 
     let message = match reason {
         "streaming_fallback" => Message {
             role: MessageRole::User,
-            content: format!("Streaming fallback - tool '{}' execution discarded", tool_name),
+            content: format!(
+                "Streaming fallback - tool '{}' execution discarded",
+                tool_name
+            ),
             ..Default::default()
         },
         "sibling_error" => Message {
@@ -544,7 +622,12 @@ pub fn get_tool_concurrency_info(
                 .find(|t| t.name == tc.name)
                 .map(|t| t.is_concurrency_safe(&tc.arguments))
                 .unwrap_or(false);
-            (tc.id.clone(), tc.name.clone(), is_safe, tc.arguments.clone())
+            (
+                tc.id.clone(),
+                tc.name.clone(),
+                is_safe,
+                tc.arguments.clone(),
+            )
         })
         .collect()
 }
@@ -552,7 +635,7 @@ pub fn get_tool_concurrency_info(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use tokio::time::{sleep, Duration};
+    use tokio::time::{Duration, sleep};
 
     #[tokio::test]
     async fn test_create_executor() {
@@ -563,12 +646,16 @@ mod tests {
                     tool_use_id: "1".to_string(),
                     content: "ok".to_string(),
                     is_error: Some(false),
-                was_persisted: None,
+                    was_persisted: None,
                 })
             })
         });
         let exe = StreamingToolExecutor::new(executor, vec![]);
-        exe.0.add_tool("Bash".to_string(), "tool1".to_string(), serde_json::json!({}));
+        exe.0.add_tool(
+            "Bash".to_string(),
+            "tool1".to_string(),
+            serde_json::json!({}),
+        );
         // Give spawned task a moment to complete
         sleep(Duration::from_millis(50)).await;
         assert_eq!(exe.0.state.lock().await.tools.len(), 1);
@@ -577,10 +664,22 @@ mod tests {
     #[tokio::test]
     async fn test_mark_complete() {
         let executor: ToolExecutorFn = Arc::new(|_name, _args, _id| {
-            Box::pin(async { Ok(ToolResult { result_type: "t".into(), tool_use_id: "1".into(), content: "ok".into(), is_error: Some(false), was_persisted: None }) })
+            Box::pin(async {
+                Ok(ToolResult {
+                    result_type: "t".into(),
+                    tool_use_id: "1".into(),
+                    content: "ok".into(),
+                    is_error: Some(false),
+                    was_persisted: None,
+                })
+            })
         });
         let exe = StreamingToolExecutor::new(executor, vec![]);
-        exe.0.add_tool("Bash".to_string(), "tool1".to_string(), serde_json::json!({}));
+        exe.0.add_tool(
+            "Bash".to_string(),
+            "tool1".to_string(),
+            serde_json::json!({}),
+        );
         exe.0.mark_complete("tool1").await;
         sleep(Duration::from_millis(50)).await;
         let guard = exe.0.state.lock().await;
@@ -590,12 +689,28 @@ mod tests {
     #[tokio::test]
     async fn test_discard() {
         let executor: ToolExecutorFn = Arc::new(|_name, _args, _id| {
-            Box::pin(async { Ok(ToolResult { result_type: "t".into(), tool_use_id: "1".into(), content: "ok".into(), is_error: Some(false), was_persisted: None }) })
+            Box::pin(async {
+                Ok(ToolResult {
+                    result_type: "t".into(),
+                    tool_use_id: "1".into(),
+                    content: "ok".into(),
+                    is_error: Some(false),
+                    was_persisted: None,
+                })
+            })
         });
         let (exe, mut rx) = StreamingToolExecutor::new(executor, vec![]);
         // Add 2 tools
-        exe.add_tool("Bash".to_string(), "tool1".to_string(), serde_json::json!({}));
-        exe.add_tool("Glob".to_string(), "tool2".to_string(), serde_json::json!({}));
+        exe.add_tool(
+            "Bash".to_string(),
+            "tool1".to_string(),
+            serde_json::json!({}),
+        );
+        exe.add_tool(
+            "Glob".to_string(),
+            "tool2".to_string(),
+            serde_json::json!({}),
+        );
         // Small delay for spawned tasks
         sleep(Duration::from_millis(50)).await;
 
@@ -611,11 +726,27 @@ mod tests {
     #[tokio::test]
     async fn test_trigger_sibling_abort() {
         let executor: ToolExecutorFn = Arc::new(|_name, _args, _id| {
-            Box::pin(async { Ok(ToolResult { result_type: "t".into(), tool_use_id: "1".into(), content: "ok".into(), is_error: Some(false), was_persisted: None }) })
+            Box::pin(async {
+                Ok(ToolResult {
+                    result_type: "t".into(),
+                    tool_use_id: "1".into(),
+                    content: "ok".into(),
+                    is_error: Some(false),
+                    was_persisted: None,
+                })
+            })
         });
         let (exe, mut rx) = StreamingToolExecutor::new(executor, vec![]);
-        exe.add_tool("Bash".to_string(), "tool1".to_string(), serde_json::json!({}));
-        exe.add_tool("Glob".to_string(), "tool2".to_string(), serde_json::json!({}));
+        exe.add_tool(
+            "Bash".to_string(),
+            "tool1".to_string(),
+            serde_json::json!({}),
+        );
+        exe.add_tool(
+            "Glob".to_string(),
+            "tool2".to_string(),
+            serde_json::json!({}),
+        );
         sleep(Duration::from_millis(50)).await;
 
         // Manually set executing status
@@ -650,20 +781,28 @@ mod tests {
                     tool_use_id: "1".to_string(),
                     content: "command output".to_string(),
                     is_error: Some(false),
-                was_persisted: None,
+                    was_persisted: None,
                 })
             })
         });
         let (exe, mut rx) = StreamingToolExecutor::new(executor, vec![]);
-        exe.add_tool("Bash".to_string(), "tool1".to_string(), serde_json::json!({}));
+        exe.add_tool(
+            "Bash".to_string(),
+            "tool1".to_string(),
+            serde_json::json!({}),
+        );
 
-        exe.set_tool_result("tool1".to_string(), Ok(ToolResult {
-            result_type: "tool_result".to_string(),
-            tool_use_id: "tool1".to_string(),
-            content: "command output".to_string(),
-            is_error: Some(false),
+        exe.set_tool_result(
+            "tool1".to_string(),
+            Ok(ToolResult {
+                result_type: "tool_result".to_string(),
+                tool_use_id: "tool1".to_string(),
+                content: "command output".to_string(),
+                is_error: Some(false),
                 was_persisted: None,
-        })).await;
+            }),
+        )
+        .await;
 
         let update = rx.recv().await;
         assert!(update.is_some());
@@ -673,17 +812,25 @@ mod tests {
 
     #[test]
     fn test_get_tool_concurrency_info() {
-        let tools = vec![
-            ToolDefinition {
-                name: "Bash".to_string(),
-                description: "Execute commands".to_string(),
-                input_schema: ToolInputSchema { schema_type: "object".to_string(), properties: serde_json::json!({}), required: None },
-                annotations: Some(ToolAnnotations { concurrency_safe: Some(true), ..Default::default() }),
-                should_defer: None, always_load: None, is_mcp: None, search_hint: None,
-            aliases: None,
-        user_facing_name: None,
+        let tools = vec![ToolDefinition {
+            name: "Bash".to_string(),
+            description: "Execute commands".to_string(),
+            input_schema: ToolInputSchema {
+                schema_type: "object".to_string(),
+                properties: serde_json::json!({}),
+                required: None,
             },
-        ];
+            annotations: Some(ToolAnnotations {
+                concurrency_safe: Some(true),
+                ..Default::default()
+            }),
+            should_defer: None,
+            always_load: None,
+            is_mcp: None,
+            search_hint: None,
+            aliases: None,
+            user_facing_name: None,
+        }];
         let calls = vec![ToolCall {
             id: "1".to_string(),
             r#type: "function".to_string(),

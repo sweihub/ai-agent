@@ -125,7 +125,10 @@ struct FileReadInput {
 impl FileReadInput {
     fn from_value(v: &serde_json::Value) -> Option<Self> {
         Some(FileReadInput {
-            file_path: v.get("file_path").and_then(|v| v.as_str()).map(String::from),
+            file_path: v
+                .get("file_path")
+                .and_then(|v| v.as_str())
+                .map(String::from),
             offset: v.get("offset").and_then(|v| v.as_u64()),
             limit: v.get("limit").and_then(|v| v.as_u64()),
         })
@@ -142,7 +145,10 @@ struct FileWriteInput {
 impl FileWriteInput {
     fn from_value(v: &serde_json::Value) -> Option<Self> {
         Some(FileWriteInput {
-            file_path: v.get("file_path").and_then(|v| v.as_str()).map(String::from),
+            file_path: v
+                .get("file_path")
+                .and_then(|v| v.as_str())
+                .map(String::from),
             content: v.get("content").and_then(|v| v.as_str()).map(String::from),
         })
     }
@@ -157,7 +163,10 @@ struct FileEditInput {
 impl FileEditInput {
     fn from_value(v: &serde_json::Value) -> Option<Self> {
         Some(FileEditInput {
-            file_path: v.get("file_path").and_then(|v| v.as_str()).map(String::from),
+            file_path: v
+                .get("file_path")
+                .and_then(|v| v.as_str())
+                .map(String::from),
         })
     }
 }
@@ -246,8 +255,10 @@ pub fn extract_read_files_from_messages(
                                                             && read_input.limit.is_none()
                                                         {
                                                             let abs_path = expand_path(&fp, cwd);
-                                                            file_read_tool_use_ids
-                                                                .insert(tool_id.to_string(), abs_path);
+                                                            file_read_tool_use_ids.insert(
+                                                                tool_id.to_string(),
+                                                                abs_path,
+                                                            );
                                                         }
                                                     }
                                                 }
@@ -260,8 +271,10 @@ pub fn extract_read_files_from_messages(
                                                         (write_input.file_path, write_input.content)
                                                     {
                                                         let abs_path = expand_path(&fp, cwd);
-                                                        file_write_tool_use_ids
-                                                            .insert(tool_id.to_string(), (abs_path, content));
+                                                        file_write_tool_use_ids.insert(
+                                                            tool_id.to_string(),
+                                                            (abs_path, content),
+                                                        );
                                                     }
                                                 }
                                             }
@@ -316,7 +329,8 @@ pub fn extract_read_files_from_messages(
                                                         r"<system-reminder>[\s\S]*?</system-reminder>",
                                                     ).ok();
                                                     let processed = if let Some(ref re) = re {
-                                                        re.replace_all(result_content, "").to_string()
+                                                        re.replace_all(result_content, "")
+                                                            .to_string()
                                                     } else {
                                                         result_content.to_string()
                                                     };
@@ -337,7 +351,9 @@ pub fn extract_read_files_from_messages(
                                                         .and_then(|ts| {
                                                             chrono::DateTime::parse_from_rfc3339(ts)
                                                                 .ok()
-                                                                .map(|dt| dt.timestamp_millis() as u64)
+                                                                .map(|dt| {
+                                                                    dt.timestamp_millis() as u64
+                                                                })
                                                         })
                                                         .unwrap_or(0);
 
@@ -398,11 +414,9 @@ pub fn extract_read_files_from_messages(
                                                         .ok()
                                                         .and_then(|m| m.modified().ok())
                                                         .and_then(|t| {
-                                                            t.duration_since(
-                                                                std::time::UNIX_EPOCH,
-                                                            )
-                                                            .ok()
-                                                            .map(|d| d.as_millis() as u64)
+                                                            t.duration_since(std::time::UNIX_EPOCH)
+                                                                .ok()
+                                                                .map(|d| d.as_millis() as u64)
                                                         })
                                                         .unwrap_or(0);
 
@@ -485,7 +499,13 @@ fn extract_cli_name(command: &str) -> Option<String> {
     let tokens: Vec<&str> = command.trim().split_whitespace().collect();
     for token in tokens {
         // Skip env var assignments
-        if token.contains('=') && token.chars().next().map(|c| c.is_ascii_alphabetic() || c == '_').unwrap_or(false) {
+        if token.contains('=')
+            && token
+                .chars()
+                .next()
+                .map(|c| c.is_ascii_alphabetic() || c == '_')
+                .unwrap_or(false)
+        {
             continue;
         }
         // Skip stripped commands
@@ -516,9 +536,7 @@ pub fn is_result_successful(
             if let Some(content) = msg.get("message").and_then(|v| v.get("content")) {
                 if let Some(blocks) = content.as_array() {
                     if let Some(last_block) = blocks.last() {
-                        if let Some(block_type) =
-                            last_block.get("type").and_then(|v| v.as_str())
-                        {
+                        if let Some(block_type) = last_block.get("type").and_then(|v| v.as_str()) {
                             return matches!(block_type, "text" | "thinking" | "redacted_thinking");
                         }
                     }
@@ -584,17 +602,17 @@ mod tests {
 
     #[test]
     fn test_extract_cli_name_sudo() {
-        assert_eq!(
-            extract_cli_name("sudo rm -rf /tmp"),
-            Some("rm".to_string())
-        );
+        assert_eq!(extract_cli_name("sudo rm -rf /tmp"), Some("rm".to_string()));
     }
 
     #[test]
     fn test_strip_line_number_prefix() {
         assert_eq!(strip_line_number_prefix("123:hello world"), "hello world");
         assert_eq!(strip_line_number_prefix("hello"), "hello");
-        assert_eq!(strip_line_number_prefix("abc:not a number prefix"), "abc:not a number prefix");
+        assert_eq!(
+            strip_line_number_prefix("abc:not a number prefix"),
+            "abc:not a number prefix"
+        );
     }
 
     #[test]

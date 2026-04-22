@@ -1,7 +1,7 @@
 use once_cell::sync::Lazy;
 use std::process::Command;
-use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Mutex;
+use std::sync::atomic::{AtomicUsize, Ordering};
 
 const CAFFEINATE_TIMEOUT_SECONDS: u64 = 300;
 const RESTART_INTERVAL_MS: u64 = 4 * 60 * 1000;

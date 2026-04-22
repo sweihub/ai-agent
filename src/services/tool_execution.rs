@@ -3,8 +3,8 @@
 //!
 //! Translated from TypeScript toolExecution.ts
 
-use crate::types::Message;
 use crate::tools::ToolDefinition;
+use crate::types::Message;
 
 /// Minimum total hook duration (ms) to show inline timing summary
 pub const HOOK_TIMING_DISPLAY_THRESHOLD_MS: u64 = 500;
@@ -87,9 +87,7 @@ pub fn build_schema_not_sent_hint(
     }
 
     // Check if tool was previously discovered in messages
-    let discovered_in_messages = messages.iter().any(|m| {
-        m.content.contains(tool_name)
-    });
+    let discovered_in_messages = messages.iter().any(|m| m.content.contains(tool_name));
 
     if discovered_in_messages {
         return Some(format!(
@@ -153,11 +151,7 @@ impl std::fmt::Display for ToolExecutionError {
 impl std::error::Error for ToolExecutionError {}
 
 /// Create a tool result message for errors
-pub fn create_tool_error_message(
-    tool_use_id: &str,
-    error: &str,
-    is_error: bool,
-) -> Message {
+pub fn create_tool_error_message(tool_use_id: &str, error: &str, is_error: bool) -> Message {
     Message {
         role: crate::types::MessageRole::Tool,
         content: format!("<tool_use_error>{}</tool_use_error>", error),
@@ -168,26 +162,21 @@ pub fn create_tool_error_message(
 }
 
 /// Create a progress message during tool execution
-pub fn create_progress_message(
-    tool_use_id: &str,
-    data: serde_json::Value,
-) -> Message {
+pub fn create_progress_message(tool_use_id: &str, data: serde_json::Value) -> Message {
     Message {
         role: crate::types::MessageRole::User,
         content: serde_json::json!({
             "type": "progress",
             "tool_use_id": tool_use_id,
             "data": data,
-        }).to_string(),
+        })
+        .to_string(),
         ..Default::default()
     }
 }
 
 /// Format a tool input validation error
-pub fn format_input_validation_error(
-    tool_name: &str,
-    error_message: &str,
-) -> String {
+pub fn format_input_validation_error(tool_name: &str, error_message: &str) -> String {
     format!("Error parsing {} input: {}", tool_name, error_message)
 }
 
@@ -206,10 +195,22 @@ mod tests {
 
     #[test]
     fn test_classify_tool_error_from_message() {
-        assert_eq!(classify_tool_error_from_message("File not found"), "Error:ENOENT");
-        assert_eq!(classify_tool_error_from_message("Permission denied"), "Error:EACCES");
-        assert_eq!(classify_tool_error_from_message("timeout error"), "Error:ETIMEDOUT");
-        assert_eq!(classify_tool_error_from_message("Some other error"), "Error");
+        assert_eq!(
+            classify_tool_error_from_message("File not found"),
+            "Error:ENOENT"
+        );
+        assert_eq!(
+            classify_tool_error_from_message("Permission denied"),
+            "Error:EACCES"
+        );
+        assert_eq!(
+            classify_tool_error_from_message("timeout error"),
+            "Error:ETIMEDOUT"
+        );
+        assert_eq!(
+            classify_tool_error_from_message("Some other error"),
+            "Error"
+        );
     }
 
     #[test]
@@ -227,8 +228,8 @@ mod tests {
             always_load: None,
             is_mcp: None,
             search_hint: None,
-        aliases: None,
-        user_facing_name: None,
+            aliases: None,
+            user_facing_name: None,
         }];
         let messages = vec![];
 

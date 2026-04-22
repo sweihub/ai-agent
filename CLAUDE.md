@@ -32,15 +32,13 @@ Never create simplified Rust file from typescript, must completely translate.
 
 No TODO and stub to Rust code, translate it!
 
-Don't suspect `MiniMax` model issue, it must be your own fault!
-
 Avoid using of `unsafe` in Rust.
 
 Fix or suppress any build warnings, allow dead code!
 
-run all unit tests and examples with 5 threads before git commit.
+Run affected unit tests and examples with 5 threads when you think you are done!
 
-Run all unit tests and examples with 5 threads when you think you are done!
+Run all unit tests and examples with 5 threads before git commit.
 
 Always translate README.md into READCN.md (Chinese) if any changes.
 

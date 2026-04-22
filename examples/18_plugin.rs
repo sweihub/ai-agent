@@ -11,7 +11,9 @@
  * 3. Using plugin skills
  * 4. Managing MCP servers
  */
-use ai_agent::{Agent, load_plugin, load_plugins_from_dir, CommandRegistry, PluginMcpServerManager};
+use ai_agent::{
+    Agent, CommandRegistry, PluginMcpServerManager, load_plugin, load_plugins_from_dir,
+};
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -21,9 +23,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let plugin_path = std::path::Path::new("examples/plugins/hello-plugin");
     match load_plugin(plugin_path).await {
         Ok(plugin) => {
-            println!("Loaded plugin: {} v{}",
+            println!(
+                "Loaded plugin: {} v{}",
                 plugin.manifest.name,
-                plugin.manifest.version.unwrap_or_else(|| "unknown".to_string()));
+                plugin
+                    .manifest
+                    .version
+                    .unwrap_or_else(|| "unknown".to_string())
+            );
             println!("  Commands: {:?}", plugin.manifest.commands);
             println!("  Skills: {:?}", plugin.manifest.skills);
         }
@@ -39,20 +46,24 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let plugins = load_plugins_from_dir(plugins_dir).await;
     println!("Loaded {} plugin(s)", plugins.len());
     for plugin in &plugins {
-        let cmd_count = plugin.manifest.commands
+        let cmd_count = plugin
+            .manifest
+            .commands
             .as_ref()
             .and_then(|c| c.as_array())
             .map(|a| a.len())
             .unwrap_or(0);
-        let skill_count = plugin.manifest.skills
+        let skill_count = plugin
+            .manifest
+            .skills
             .as_ref()
             .and_then(|s| s.as_array())
             .map(|a| a.len())
             .unwrap_or(0);
-        println!("  - {}: {} commands, {} skills",
-            plugin.manifest.name,
-            cmd_count,
-            skill_count);
+        println!(
+            "  - {}: {} commands, {} skills",
+            plugin.manifest.name, cmd_count, skill_count
+        );
     }
 
     // Demonstrate Command Registry
@@ -76,7 +87,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Create an agent with plugin support
     println!("\n--- Creating Agent ---");
     let model = std::env::var("AI_MODEL").unwrap_or_else(|_| "MiniMaxAI/MiniMax-M2.5".to_string());
-    let mut agent = Agent::new(&model, 10);
+    let agent = Agent::new(&model).max_turns(10);
 
     // Use the agent to demonstrate plugin-related prompts
     println!("Using model: {}\n", model);
@@ -87,7 +98,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // 3. The agent can then invoke /plugin:command
 
     // For now, just verify the agent works
-    let result = agent.query("Say 'hello from plugin example' in one sentence.").await?;
+    let result = agent
+        .query("Say 'hello from plugin example' in one sentence.")
+        .await?;
 
     println!("Agent response: {}", result.text);
     println!("\n--- done ---");

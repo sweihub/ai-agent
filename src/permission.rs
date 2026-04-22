@@ -610,4 +610,3 @@ impl PermissionHandler {
         Self::new(PermissionContext::default())
     }
 }
-

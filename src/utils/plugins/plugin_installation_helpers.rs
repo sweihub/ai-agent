@@ -9,7 +9,10 @@ pub fn get_current_timestamp() -> String {
 }
 
 /// Validate that a resolved path stays within a base directory.
-pub fn _validate_path_within_base(base_path: &str, relative_path: &str) -> Result<String, Box<dyn std::error::Error + Send + Sync>> {
+pub fn _validate_path_within_base(
+    base_path: &str,
+    relative_path: &str,
+) -> Result<String, Box<dyn std::error::Error + Send + Sync>> {
     let base = std::fs::canonicalize(base_path)?;
     let resolved = std::fs::canonicalize(std::path::Path::new(base_path).join(relative_path))?;
 
@@ -20,7 +23,8 @@ pub fn _validate_path_within_base(base_path: &str, relative_path: &str) -> Resul
         return Err(format!(
             "Path traversal detected: \"{}\" would escape the base directory",
             relative_path
-        ).into());
+        )
+        .into());
     }
 
     Ok(resolved.to_string_lossy().to_string())

@@ -2,10 +2,10 @@
 //!
 //! Run a prompt or slash command on a recurring interval.
 
-use crate::skills::bundled_skills::{
-    register_bundled_skill, BundledSkillDefinition, ContentBlock, SkillContext,
-};
 use crate::AgentError;
+use crate::skills::bundled_skills::{
+    BundledSkillDefinition, ContentBlock, SkillContext, register_bundled_skill,
+};
 
 const LOOP_PROMPT: &str = r#"# Loop Skill
 

@@ -265,17 +265,12 @@ REMINDER: Do NOT call any tools. Respond with plain text only — an <analysis> 
 pub fn get_compact_prompt(custom_instructions: Option<&str>) -> String {
     let prompt = format!(
         "{}{}{}",
-        NO_TOOLS_PREAMBLE,
-        DETAILED_ANALYSIS_INSTRUCTION_BASE,
-        BASE_COMPACT_PROMPT
+        NO_TOOLS_PREAMBLE, DETAILED_ANALYSIS_INSTRUCTION_BASE, BASE_COMPACT_PROMPT
     );
 
     if let Some(instructions) = custom_instructions {
         if !instructions.trim().is_empty() {
-            format!(
-                "{}\n\n## Custom Instructions\n{}\n",
-                prompt, instructions
-            )
+            format!("{}\n\n## Custom Instructions\n{}\n", prompt, instructions)
         } else {
             prompt
         }
@@ -297,17 +292,12 @@ pub fn get_partial_compact_prompt(
 
     let prompt = format!(
         "{}{}{}",
-        NO_TOOLS_PREAMBLE,
-        analysis_instruction,
-        base_prompt
+        NO_TOOLS_PREAMBLE, analysis_instruction, base_prompt
     );
 
     if let Some(instructions) = custom_instructions {
         if !instructions.trim().is_empty() {
-            format!(
-                "{}\n\n## Custom Instructions\n{}\n",
-                prompt, instructions
-            )
+            format!("{}\n\n## Custom Instructions\n{}\n", prompt, instructions)
         } else {
             prompt
         }
@@ -411,9 +401,10 @@ pub fn get_compact_user_summary_message(
     }
 
     if let Some(path) = transcript_path {
-        message.push_str(
-            &format!("\n\nFor the complete conversation transcript, see: {}", path),
-        );
+        message.push_str(&format!(
+            "\n\nFor the complete conversation transcript, see: {}",
+            path
+        ));
     }
 
     if suppress_follow_up_questions == Some(true) {
@@ -506,12 +497,7 @@ Let me think through this...
 
     #[test]
     fn test_get_compact_user_summary_message_suppress() {
-        let msg = get_compact_user_summary_message(
-            "Test summary",
-            Some(true),
-            None,
-            None,
-        );
+        let msg = get_compact_user_summary_message("Test summary", Some(true), None, None);
         assert!(msg.contains("without asking follow-up questions"));
     }
 
@@ -528,12 +514,7 @@ Let me think through this...
 
     #[test]
     fn test_get_compact_user_summary_message_recent_preserved() {
-        let msg = get_compact_user_summary_message(
-            "Test summary",
-            None,
-            None,
-            Some(true),
-        );
+        let msg = get_compact_user_summary_message("Test summary", None, None, Some(true));
         assert!(msg.contains("Recent messages are preserved verbatim"));
     }
 }

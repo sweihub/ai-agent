@@ -16,8 +16,7 @@ static STORED_IMAGE_PATHS: once_cell::sync::Lazy<std::sync::Mutex<HashMap<u64, S
 /// Get the image store directory for the current session
 fn get_image_store_dir() -> PathBuf {
     // TODO: Get session ID properly
-    let session_id =
-        std::env::var(ai::CODE_SESSION_ID).unwrap_or_else(|_| "default".to_string());
+    let session_id = std::env::var(ai::CODE_SESSION_ID).unwrap_or_else(|_| "default".to_string());
 
     // Get config home dir
     let config_home = std::env::var(ai::CONFIG_HOME)

@@ -3,17 +3,17 @@
 //!
 //! Translated from TypeScript toolOrchestration.ts
 
+use crate::AgentError;
 use crate::constants::env::ai;
-use serde::Serialize;
 use crate::types::{
     Message, MessageRole, ToolAnnotations, ToolCall, ToolDefinition, ToolInputSchema, ToolResult,
 };
-use crate::AgentError;
 use futures_util::stream::{self, StreamExt};
+use serde::Serialize;
 
-use crate::tool_validation::validate_tool_input;
-use crate::tool_result_storage::process_tool_result;
 use crate::tool_errors::format_tool_error;
+use crate::tool_result_storage::process_tool_result;
+use crate::tool_validation::validate_tool_input;
 
 /// Maximum number of concurrent tool executions (matches TypeScript default)
 pub const MAX_TOOL_USE_CONCURRENCY: usize = 10;
@@ -127,7 +127,10 @@ where
 
         // Input validation (matches TS Zod schema validation)
         if let Err(validation_err) = validate_tool_input(&tool_name, &tool_args, &tools) {
-            let error_content = format!("<tool_use_error>InputValidationError: {}</tool_use_error>", validation_err);
+            let error_content = format!(
+                "<tool_use_error>InputValidationError: {}</tool_use_error>",
+                validation_err
+            );
             updates.push(ToolMessageUpdate {
                 message: Some(Message {
                     role: MessageRole::Tool,
@@ -174,7 +177,10 @@ where
             }
             Err(e) => {
                 // Format error using tool_errors (matches TS formatError)
-                let error_content = format!("<tool_use_error>Error: {}</tool_use_error>", format_tool_error(&e));
+                let error_content = format!(
+                    "<tool_use_error>Error: {}</tool_use_error>",
+                    format_tool_error(&e)
+                );
                 let message = Message {
                     role: MessageRole::Tool,
                     content: error_content,
@@ -230,8 +236,17 @@ where
             async move {
                 // Input validation
                 if let Err(validation_err) = validate_tool_input(&tool_name, &tool_args, &tools) {
-                    let error_content = format!("<tool_use_error>InputValidationError: {}</tool_use_error>", validation_err);
-                    return (tool_call_id, Err(AgentError::Tool(format!("InputValidationError: {}", validation_err))));
+                    let error_content = format!(
+                        "<tool_use_error>InputValidationError: {}</tool_use_error>",
+                        validation_err
+                    );
+                    return (
+                        tool_call_id,
+                        Err(AgentError::Tool(format!(
+                            "InputValidationError: {}",
+                            validation_err
+                        ))),
+                    );
                 }
                 let result = exec(tool_name.clone(), tool_args, tool_call_id.clone()).await;
                 (tool_call_id, result)
@@ -268,7 +283,10 @@ where
                 });
             }
             Err(e) => {
-                let error_content = format!("<tool_use_error>Error: {}</tool_use_error>", format_tool_error(&e));
+                let error_content = format!(
+                    "<tool_use_error>Error: {}</tool_use_error>",
+                    format_tool_error(&e)
+                );
                 let message = Message {
                     role: MessageRole::Tool,
                     content: error_content,
@@ -377,7 +395,7 @@ mod tests {
             is_mcp: None,
             search_hint: None,
             aliases: None,
-        user_facing_name: None,
+            user_facing_name: None,
         }
     }
 
@@ -504,7 +522,8 @@ mod tests {
             })
         };
 
-        let updates = run_tools_serially(tool_calls, tool_context, tools, executor, None, None).await;
+        let updates =
+            run_tools_serially(tool_calls, tool_context, tools, executor, None, None).await;
         assert_eq!(updates.len(), 1);
         assert!(updates[0].message.is_some());
     }
@@ -527,7 +546,10 @@ mod tests {
         ];
 
         let tool_context = crate::types::ToolContext::default();
-        let tools = vec![create_test_tool("test1", true), create_test_tool("test2", true)];
+        let tools = vec![
+            create_test_tool("test1", true),
+            create_test_tool("test2", true),
+        ];
 
         let executor = |_name: String, _args: serde_json::Value, _tool_call_id: String| async {
             Ok(crate::types::ToolResult {
@@ -539,7 +561,8 @@ mod tests {
             })
         };
 
-        let updates = run_tools_concurrently(tool_calls, tool_context, tools, executor, None, None).await;
+        let updates =
+            run_tools_concurrently(tool_calls, tool_context, tools, executor, None, None).await;
         assert_eq!(updates.len(), 2);
     }
 

@@ -3,21 +3,16 @@
 
 //! Zod schemas for permission updates, ported to Rust validation types.
 
-use serde::{Deserialize, Serialize};
 use crate::types::permissions::{
-    PermissionBehavior, PermissionRuleValue, ExternalPermissionMode,
-    PermissionUpdateDestination,
+    ExternalPermissionMode, PermissionBehavior, PermissionRuleValue, PermissionUpdateDestination,
 };
+use serde::{Deserialize, Serialize};
 
 /// Validates a permission update destination string.
 pub fn validate_permission_update_destination(s: &str) -> bool {
     matches!(
         s,
-        "userSettings"
-            | "projectSettings"
-            | "localSettings"
-            | "session"
-            | "cliArg"
+        "userSettings" | "projectSettings" | "localSettings" | "session" | "cliArg"
     )
 }
 

@@ -8,8 +8,8 @@
 //! encapsulates the mutable wake-controller + two-signal merger that both
 //! poll loops previously duplicated byte-for-byte.
 
-use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 
 /// Capacity signal with cleanup
 pub struct CapacitySignal {

@@ -6,9 +6,9 @@
 //!
 //! API Reference: https://docs.anthropic.com/en/api/files-content
 
+use crate::utils::http::get_user_agent;
 use std::collections::HashMap;
 use std::path::PathBuf;
-use crate::utils::http::get_user_agent;
 
 use tokio::fs;
 
@@ -85,18 +85,19 @@ pub fn build_download_path(
     relative_path: &str,
 ) -> Option<PathBuf> {
     // Check for path traversal in original path
-    let normalized_original = std::path::Path::new(relative_path)
-        .components()
-        .fold(PathBuf::new(), |mut acc, c| {
-            match c {
-                std::path::Component::Normal(p) => acc.push(p),
-                std::path::Component::ParentDir => {
-                    acc.pop();
+    let normalized_original =
+        std::path::Path::new(relative_path)
+            .components()
+            .fold(PathBuf::new(), |mut acc, c| {
+                match c {
+                    std::path::Component::Normal(p) => acc.push(p),
+                    std::path::Component::ParentDir => {
+                        acc.pop();
+                    }
+                    _ => {}
                 }
-                _ => {}
-            }
-            acc
-        });
+                acc
+            });
 
     // Check for path traversal - original path shouldn't start with ".."
     // after normalization, if we went up directories
@@ -109,9 +110,7 @@ pub fn build_download_path(
         return None;
     }
 
-    let uploads_base = PathBuf::from(base_path)
-        .join(session_id)
-        .join("uploads");
+    let uploads_base = PathBuf::from(base_path).join(session_id).join("uploads");
 
     let redundant_prefixes = vec![
         uploads_base.to_string_lossy().to_string() + std::path::MAIN_SEPARATOR_STR,
@@ -155,7 +154,10 @@ pub async fn download_and_save_file(
     };
 
     let full_path_str = full_path.to_string_lossy().to_string();
-    let base_url = config.base_url.clone().unwrap_or_else(get_default_api_base_url);
+    let base_url = config
+        .base_url
+        .clone()
+        .unwrap_or_else(get_default_api_base_url);
     let url = format!("{}/v1/files/{}/content", base_url, file_id);
 
     let client = match reqwest::Client::builder()
@@ -179,15 +181,9 @@ pub async fn download_and_save_file(
         reqwest::header::AUTHORIZATION,
         format!("Bearer {}", config.oauth_token).parse().unwrap(),
     );
-    headers.insert(
-        "anthropic-version",
-        ANTHROPIC_VERSION.parse().unwrap(),
-    );
+    headers.insert("anthropic-version", ANTHROPIC_VERSION.parse().unwrap());
     headers.insert("anthropic-beta", FILES_API_BETA_HEADER.parse().unwrap());
-    headers.insert(
-        "User-Agent",
-        get_user_agent().parse().unwrap(),
-    );
+    headers.insert("User-Agent", get_user_agent().parse().unwrap());
 
     // Download with retries
     let mut last_error = String::new();
@@ -198,9 +194,15 @@ pub async fn download_and_save_file(
             Ok(resp) => {
                 if !resp.status().is_success() {
                     last_error = match resp.status() {
-                        s if s == reqwest::StatusCode::NOT_FOUND => format!("File not found: {}", file_id),
-                        s if s == reqwest::StatusCode::UNAUTHORIZED => "Authentication failed".to_string(),
-                        s if s == reqwest::StatusCode::FORBIDDEN => format!("Access denied to file: {}", file_id),
+                        s if s == reqwest::StatusCode::NOT_FOUND => {
+                            format!("File not found: {}", file_id)
+                        }
+                        s if s == reqwest::StatusCode::UNAUTHORIZED => {
+                            "Authentication failed".to_string()
+                        }
+                        s if s == reqwest::StatusCode::FORBIDDEN => {
+                            format!("Access denied to file: {}", file_id)
+                        }
                         _ => format!("status {}", resp.status()),
                     };
                     // Non-retriable for 4xx
@@ -249,7 +251,10 @@ pub async fn download_and_save_file(
                                     };
                                 }
                                 Err(e) => {
-                                    log_debug_error(&format!("Failed to write file {}: {}", file_id, e));
+                                    log_debug_error(&format!(
+                                        "Failed to write file {}: {}",
+                                        file_id, e
+                                    ));
                                     return DownloadResult {
                                         file_id,
                                         path: full_path_str,
@@ -281,7 +286,10 @@ pub async fn download_and_save_file(
         }
     }
 
-    log_debug_error(&format!("Failed to download file {}: {}", file_id, last_error));
+    log_debug_error(&format!(
+        "Failed to download file {}: {}",
+        file_id, last_error
+    ));
     DownloadResult {
         file_id,
         path: full_path_str,
@@ -323,9 +331,7 @@ pub async fn download_session_files(
     let success_count = results.iter().filter(|r| r.success).count();
     log_debug(&format!(
         "Downloaded {}/{} file(s) in {}ms",
-        success_count,
-        file_count,
-        elapsed_ms
+        success_count, file_count, elapsed_ms
     ));
 
     results
@@ -355,10 +361,16 @@ pub async fn upload_file(
     relative_path: &str,
     config: &FilesApiConfig,
 ) -> UploadResult {
-    let base_url = config.base_url.clone().unwrap_or_else(get_default_api_base_url);
+    let base_url = config
+        .base_url
+        .clone()
+        .unwrap_or_else(get_default_api_base_url);
     let url = format!("{}/v1/files", base_url);
 
-    log_debug(&format!("Uploading file {} as {}", file_path, relative_path));
+    log_debug(&format!(
+        "Uploading file {} as {}",
+        file_path, relative_path
+    ));
 
     // Read file content first
     let content = match fs::read(file_path).await {
@@ -438,10 +450,7 @@ pub async fn upload_file(
         reqwest::header::AUTHORIZATION,
         format!("Bearer {}", config.oauth_token).parse().unwrap(),
     );
-    headers.insert(
-        "anthropic-version",
-        ANTHROPIC_VERSION.parse().unwrap(),
-    );
+    headers.insert("anthropic-version", ANTHROPIC_VERSION.parse().unwrap());
     headers.insert("anthropic-beta", FILES_API_BETA_HEADER.parse().unwrap());
     headers.insert(
         reqwest::header::CONTENT_TYPE,
@@ -453,25 +462,27 @@ pub async fn upload_file(
         reqwest::header::CONTENT_LENGTH,
         body.len().to_string().parse().unwrap(),
     );
-    headers.insert(
-        "User-Agent",
-        get_user_agent().parse().unwrap(),
-    );
+    headers.insert("User-Agent", get_user_agent().parse().unwrap());
 
     let mut last_error = String::new();
     for attempt in 1..=MAX_RETRIES {
-        let response = client.post(&url).headers(headers.clone()).body(body.clone()).send().await;
+        let response = client
+            .post(&url)
+            .headers(headers.clone())
+            .body(body.clone())
+            .send()
+            .await;
 
         match response {
             Ok(resp) => {
-                if resp.status() == reqwest::StatusCode::OK || resp.status() == reqwest::StatusCode::CREATED {
+                if resp.status() == reqwest::StatusCode::OK
+                    || resp.status() == reqwest::StatusCode::CREATED
+                {
                     // Try to get the file ID from response
                     match resp.json::<serde_json::Value>().await {
                         Ok(data) => {
-                            let file_id_opt = data
-                                .get("id")
-                                .and_then(|v| v.as_str())
-                                .map(String::from);
+                            let file_id_opt =
+                                data.get("id").and_then(|v| v.as_str()).map(String::from);
 
                             if let Some(file_id) = file_id_opt {
                                 log_debug(&format!(
@@ -567,9 +578,7 @@ pub async fn upload_session_files(
         .count();
     log_debug(&format!(
         "Uploaded {}/{} file(s) in {}ms",
-        success_count,
-        file_count,
-        elapsed_ms
+        success_count, file_count, elapsed_ms
     ));
 
     results
@@ -592,7 +601,10 @@ pub async fn list_files_created_after(
     after_created_at: &str,
     config: &FilesApiConfig,
 ) -> Result<Vec<FileMetadata>, String> {
-    let base_url = config.base_url.clone().unwrap_or_else(get_default_api_base_url);
+    let base_url = config
+        .base_url
+        .clone()
+        .unwrap_or_else(get_default_api_base_url);
     let url = format!("{}/v1/files", base_url);
 
     let mut headers = reqwest::header::HeaderMap::new();
@@ -600,15 +612,9 @@ pub async fn list_files_created_after(
         reqwest::header::AUTHORIZATION,
         format!("Bearer {}", config.oauth_token).parse().unwrap(),
     );
-    headers.insert(
-        "anthropic-version",
-        ANTHROPIC_VERSION.parse().unwrap(),
-    );
+    headers.insert("anthropic-version", ANTHROPIC_VERSION.parse().unwrap());
     headers.insert("anthropic-beta", FILES_API_BETA_HEADER.parse().unwrap());
-    headers.insert(
-        "User-Agent",
-        get_user_agent().parse().unwrap(),
-    );
+    headers.insert("User-Agent", get_user_agent().parse().unwrap());
 
     log_debug(&format!("Listing files created after {}", after_created_at));
 
@@ -651,8 +657,16 @@ pub async fn list_files_created_after(
             .map(|arr| {
                 arr.iter()
                     .map(|f| FileMetadata {
-                        filename: f.get("filename").and_then(|v| v.as_str()).unwrap_or("").to_string(),
-                        file_id: f.get("id").and_then(|v| v.as_str()).unwrap_or("").to_string(),
+                        filename: f
+                            .get("filename")
+                            .and_then(|v| v.as_str())
+                            .unwrap_or("")
+                            .to_string(),
+                        file_id: f
+                            .get("id")
+                            .and_then(|v| v.as_str())
+                            .unwrap_or("")
+                            .to_string(),
                         size: f.get("size_bytes").and_then(|v| v.as_u64()).unwrap_or(0) as usize,
                     })
                     .collect()
@@ -661,7 +675,10 @@ pub async fn list_files_created_after(
 
         all_files.extend(files);
 
-        let has_more = data.get("has_more").and_then(|v| v.as_bool()).unwrap_or(false);
+        let has_more = data
+            .get("has_more")
+            .and_then(|v| v.as_bool())
+            .unwrap_or(false);
         if !has_more {
             break;
         }
@@ -735,7 +752,10 @@ mod tests {
         let result = build_download_path("/workspace", "session123", "file.txt");
         assert!(result.is_some());
         let path = result.unwrap();
-        assert!(path.to_string_lossy().ends_with("session123/uploads/file.txt"));
+        assert!(
+            path.to_string_lossy()
+                .ends_with("session123/uploads/file.txt")
+        );
     }
 
     #[test]

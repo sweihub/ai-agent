@@ -7,7 +7,9 @@
 use once_cell::sync::Lazy;
 use std::collections::HashSet;
 
-use super::read_only_validation::{is_cwd_changing_cmdlet, is_safe_output_command, resolve_to_canonical};
+use super::read_only_validation::{
+    is_cwd_changing_cmdlet, is_safe_output_command, resolve_to_canonical,
+};
 
 /// Filesystem-modifying cmdlets that are auto-allowed in acceptEdits mode
 static ACCEPT_EDITS_ALLOWED_CMDLETS: Lazy<HashSet<&'static str>> = Lazy::new(|| {
@@ -38,8 +40,9 @@ fn is_accept_edits_allowed_cmdlet(name: &str) -> bool {
 /// abbreviation of New-Item's -ItemType or -Type param.
 fn is_item_type_param_abbrev(param: &str) -> bool {
     let lower = param.to_lowercase();
-    (lower.len() >= 3 && lower.starts_with("-it")) ||
-    (lower.len() >= 3 && (lower == "-ty" || lower.starts_with("-typ") || lower.starts_with("-type")))
+    (lower.len() >= 3 && lower.starts_with("-it"))
+        || (lower.len() >= 3
+            && (lower == "-ty" || lower.starts_with("-typ") || lower.starts_with("-type")))
 }
 
 /// Detects New-Item creating a filesystem link
@@ -58,7 +61,12 @@ pub fn is_symlink_creating_command(name: &str, args: &[String]) -> bool {
         }
 
         // Normalize dash prefixes
-        let normalized = if raw.starts_with('-') || raw.starts_with('–') || raw.starts_with('—') || raw.starts_with('―') || raw.starts_with('/') {
+        let normalized = if raw.starts_with('-')
+            || raw.starts_with('–')
+            || raw.starts_with('—')
+            || raw.starts_with('―')
+            || raw.starts_with('/')
+        {
             format!("-{}", &raw[1..])
         } else {
             raw.clone()
@@ -86,11 +94,17 @@ pub fn is_symlink_creating_command(name: &str, args: &[String]) -> bool {
         let raw_val = if colon_idx > 0 {
             lower.get(colon_idx + 1..).unwrap_or("").to_string()
         } else {
-            args.get(i + 1).map(|s| s.to_lowercase()).unwrap_or_default()
+            args.get(i + 1)
+                .map(|s| s.to_lowercase())
+                .unwrap_or_default()
         };
 
         // Strip backtick and quotes
-        let val = raw_val.replace('`', "").trim_matches('"').trim_matches('\'').to_string();
+        let val = raw_val
+            .replace('`', "")
+            .trim_matches('"')
+            .trim_matches('\'')
+            .to_string();
 
         if LINK_ITEM_TYPES.contains(val.as_str()) {
             return true;
@@ -149,10 +163,7 @@ impl PermissionModeResult {
 }
 
 /// Checks if commands should be handled differently based on the current permission mode
-pub fn check_permission_mode(
-    command: &str,
-    mode: &str,
-) -> PermissionModeResult {
+pub fn check_permission_mode(command: &str, mode: &str) -> PermissionModeResult {
     // Skip bypass and dontAsk modes
     if mode == "bypassPermissions" || mode == "dontAsk" {
         return PermissionModeResult::passthrough("Mode is handled in main permission flow");
@@ -166,7 +177,7 @@ pub fn check_permission_mode(
     use super::read_only_validation::has_sync_security_concerns;
     if has_sync_security_concerns(command) {
         return PermissionModeResult::passthrough(
-            "Command contains subexpressions, script blocks, or member invocations that require approval"
+            "Command contains subexpressions, script blocks, or member invocations that require approval",
         );
     }
 
@@ -186,7 +197,12 @@ pub fn check_permission_mode(
                 has_write = true;
             }
             // Check for symlink creation
-            let args: Vec<String> = part.trim().split_whitespace().skip(1).map(String::from).collect();
+            let args: Vec<String> = part
+                .trim()
+                .split_whitespace()
+                .skip(1)
+                .map(String::from)
+                .collect();
             if is_symlink_creating_command(first_word, &args) {
                 has_symlink = true;
             }
@@ -194,14 +210,12 @@ pub fn check_permission_mode(
 
         if has_cd && has_write {
             return PermissionModeResult::passthrough(
-                "Compound command contains a directory-changing command with a write operation"
+                "Compound command contains a directory-changing command with a write operation",
             );
         }
 
         if has_symlink {
-            return PermissionModeResult::passthrough(
-                "Compound command creates a filesystem link"
-            );
+            return PermissionModeResult::passthrough("Compound command creates a filesystem link");
         }
     }
 
@@ -218,7 +232,9 @@ pub fn check_permission_mode(
                 continue;
             }
             if arg_leaks_value(arg) {
-                return PermissionModeResult::passthrough("Command contains potentially unsafe arguments");
+                return PermissionModeResult::passthrough(
+                    "Command contains potentially unsafe arguments",
+                );
             }
         }
 
@@ -241,9 +257,18 @@ mod tests {
 
     #[test]
     fn test_is_symlink_creating_command() {
-        assert!(is_symlink_creating_command("new-item", &["-ItemType".to_string(), "SymbolicLink".to_string()]));
-        assert!(is_symlink_creating_command("ni", &["-ItemType".to_string(), "Junction".to_string()]));
-        assert!(!is_symlink_creating_command("new-item", &["-ItemType".to_string(), "File".to_string()]));
+        assert!(is_symlink_creating_command(
+            "new-item",
+            &["-ItemType".to_string(), "SymbolicLink".to_string()]
+        ));
+        assert!(is_symlink_creating_command(
+            "ni",
+            &["-ItemType".to_string(), "Junction".to_string()]
+        ));
+        assert!(!is_symlink_creating_command(
+            "new-item",
+            &["-ItemType".to_string(), "File".to_string()]
+        ));
         assert!(!is_symlink_creating_command("get-content", &[]));
     }
 

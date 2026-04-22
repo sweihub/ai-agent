@@ -8,12 +8,17 @@ use std::sync::Mutex;
 use once_cell::sync::Lazy;
 
 use super::loader::load_all_plugins_cache_only;
-use super::plugin_options_storage::{load_plugin_options, substitute_plugin_variables, substitute_user_config_in_content};
+use super::plugin_options_storage::{
+    load_plugin_options, substitute_plugin_variables, substitute_user_config_in_content,
+};
+use super::walk_plugin_markdown::{WalkPluginMarkdownOpts, walk_plugin_markdown};
 use crate::plugin::types::PluginManifest;
-use super::walk_plugin_markdown::{walk_plugin_markdown, WalkPluginMarkdownOpts};
 
 /// Stub for frontmatter parsing - requires frontmatter_parser module.
-fn parse_frontmatter_stub<'a>(content: &'a str, _path: &str) -> (serde_json::Map<String, serde_json::Value>, &'a str) {
+fn parse_frontmatter_stub<'a>(
+    content: &'a str,
+    _path: &str,
+) -> (serde_json::Map<String, serde_json::Value>, &'a str) {
     // Simple stub: returns empty frontmatter and full content as markdown
     (serde_json::Map::new(), content)
 }
@@ -43,7 +48,8 @@ pub struct AgentDefinition {
 }
 
 /// Load plugin agents from all enabled plugins.
-pub async fn load_plugin_agents() -> Result<Vec<AgentDefinition>, Box<dyn std::error::Error + Send + Sync>> {
+pub async fn load_plugin_agents()
+-> Result<Vec<AgentDefinition>, Box<dyn std::error::Error + Send + Sync>> {
     // Return cached result if available
     {
         let cache = PLUGIN_AGENT_CACHE.lock().unwrap();
@@ -61,8 +67,15 @@ pub async fn load_plugin_agents() -> Result<Vec<AgentDefinition>, Box<dyn std::e
 
         // Load agents from default agents directory
         if let Some(ref agents_path) = plugin.agents_path {
-            if let Ok(agents) =
-                load_agents_from_directory(Path::new(agents_path), &plugin.name, &plugin.source, &plugin.path, &plugin.manifest, &mut loaded_paths).await
+            if let Ok(agents) = load_agents_from_directory(
+                Path::new(agents_path),
+                &plugin.name,
+                &plugin.source,
+                &plugin.path,
+                &plugin.manifest,
+                &mut loaded_paths,
+            )
+            .await
             {
                 log::debug!(
                     "Loaded {} agents from plugin {} default directory",
@@ -187,14 +200,12 @@ async fn load_agent_from_file(
     }
     loaded_paths.insert(file_path.to_string());
 
-    let content = tokio::fs::read_to_string(file_path).await
+    let content = tokio::fs::read_to_string(file_path)
+        .await
         .map_err(|e| format!("Failed to read {}: {}", file_path, e))?;
     let (frontmatter, markdown_content) = parse_frontmatter_stub(&content, file_path);
 
-    let base_agent_name = match frontmatter
-        .get("name")
-        .and_then(|v| v.as_str())
-    {
+    let base_agent_name = match frontmatter.get("name").and_then(|v| v.as_str()) {
         Some(name) => name.to_string(),
         None => std::path::Path::new(file_path)
             .file_stem()
@@ -217,7 +228,10 @@ async fn load_agent_from_file(
 
     let tools = parse_agent_tools_from_frontmatter(frontmatter.get("tools"));
     let skills = parse_slash_command_tools_from_frontmatter(frontmatter.get("skills"));
-    let color = frontmatter.get("color").and_then(|v| v.as_str()).map(|s| s.to_string());
+    let color = frontmatter
+        .get("color")
+        .and_then(|v| v.as_str())
+        .map(|s| s.to_string());
 
     let model = frontmatter.get("model").and_then(|v| v.as_str()).map(|s| {
         let trimmed = s.trim().to_lowercase();
@@ -234,7 +248,8 @@ async fn load_agent_from_file(
         .map(|s| s == "true")
         .or_else(|| frontmatter.get("background").and_then(|v| v.as_bool()));
 
-    let mut system_prompt = substitute_plugin_variables(markdown_content.trim(), plugin_path, source_name);
+    let mut system_prompt =
+        substitute_plugin_variables(markdown_content.trim(), plugin_path, source_name);
     if plugin_manifest.user_config.is_some() {
         let options = load_plugin_options(source_name);
         system_prompt = substitute_user_config_in_content(
@@ -281,7 +296,9 @@ fn parse_agent_tools_from_frontmatter(value: Option<&serde_json::Value>) -> Opti
     }
 }
 
-fn parse_slash_command_tools_from_frontmatter(value: Option<&serde_json::Value>) -> Option<Vec<String>> {
+fn parse_slash_command_tools_from_frontmatter(
+    value: Option<&serde_json::Value>,
+) -> Option<Vec<String>> {
     parse_agent_tools_from_frontmatter(value)
 }
 

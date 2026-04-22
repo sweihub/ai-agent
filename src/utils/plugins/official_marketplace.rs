@@ -5,13 +5,12 @@ use once_cell::sync::Lazy;
 
 use super::schemas::MarketplaceSource;
 
-static OFFICIAL_MARKETPLACE_SOURCE_INSTANCE: Lazy<MarketplaceSource> = Lazy::new(|| {
-    MarketplaceSource::Github {
+static OFFICIAL_MARKETPLACE_SOURCE_INSTANCE: Lazy<MarketplaceSource> =
+    Lazy::new(|| MarketplaceSource::Github {
         repo: "anthropics/ai-plugins-official".to_string(),
         ref_: None,
         path: None,
-    }
-});
+    });
 
 /// Source configuration for the official Anthropic plugins marketplace.
 pub fn official_marketplace_source() -> MarketplaceSource {

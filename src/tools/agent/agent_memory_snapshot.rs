@@ -3,7 +3,7 @@
 
 use std::path::PathBuf;
 
-use super::agent_memory::{get_agent_memory_dir, AgentMemoryScope};
+use super::agent_memory::{AgentMemoryScope, get_agent_memory_dir};
 
 const SNAPSHOT_BASE: &str = "agent-memory-snapshots";
 const SNAPSHOT_JSON: &str = "snapshot.json";
@@ -56,10 +56,7 @@ where
 }
 
 /// Check if a snapshot exists and whether it's newer than what we last synced.
-pub fn check_agent_memory_snapshot(
-    agent_type: &str,
-    scope: AgentMemoryScope,
-) -> SnapshotAction {
+pub fn check_agent_memory_snapshot(agent_type: &str, scope: AgentMemoryScope) -> SnapshotAction {
     let snapshot_path = get_snapshot_json_path(agent_type);
     let snapshot_meta: Option<SnapshotMeta> = read_json_file(&snapshot_path);
 
@@ -72,14 +69,10 @@ pub fn check_agent_memory_snapshot(
     // Check if local memory exists (has any .md files)
     let has_local_memory = std::fs::read_dir(&local_mem_dir)
         .map(|entries| {
-            entries
-                .filter_map(|e| e.ok())
-                .any(|e| {
-                    e.file_type().map(|ft| ft.is_file()).unwrap_or(false)
-                        && e.file_name()
-                            .to_string_lossy()
-                            .ends_with(".md")
-                })
+            entries.filter_map(|e| e.ok()).any(|e| {
+                e.file_type().map(|ft| ft.is_file()).unwrap_or(false)
+                    && e.file_name().to_string_lossy().ends_with(".md")
+            })
         })
         .unwrap_or(false);
 
@@ -204,8 +197,14 @@ mod tests {
 
     #[test]
     fn test_is_newer_timestamp() {
-        assert!(is_newer_timestamp("2024-01-02T00:00:00Z", "2024-01-01T00:00:00Z"));
-        assert!(!is_newer_timestamp("2024-01-01T00:00:00Z", "2024-01-02T00:00:00Z"));
+        assert!(is_newer_timestamp(
+            "2024-01-02T00:00:00Z",
+            "2024-01-01T00:00:00Z"
+        ));
+        assert!(!is_newer_timestamp(
+            "2024-01-01T00:00:00Z",
+            "2024-01-02T00:00:00Z"
+        ));
     }
 
     #[test]

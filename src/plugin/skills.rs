@@ -8,9 +8,9 @@
 //! - A direct SKILL.md file in the plugin's skills directory
 //! - Subdirectories containing SKILL.md files (skill-name/SKILL.md format)
 
+use crate::AgentError;
 use crate::plugin::types::{LoadedPlugin, PluginManifest};
 use crate::skills::loader::LoadedSkill;
-use crate::AgentError;
 use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};

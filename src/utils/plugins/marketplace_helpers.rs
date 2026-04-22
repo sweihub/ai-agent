@@ -8,10 +8,7 @@ use super::schemas::MarketplaceSource;
 use super::types::KnownMarketplace;
 
 /// Format plugin failure details for user display.
-pub fn format_failure_details(
-    failures: &[PluginFailure],
-    include_reasons: bool,
-) -> String {
+pub fn format_failure_details(failures: &[PluginFailure], include_reasons: bool) -> String {
     let max_show = 2;
     let details: Vec<String> = failures
         .iter()
@@ -156,7 +153,10 @@ pub fn format_marketplace_loading_errors(
             .collect();
         Some(MarketplaceLoadingError {
             error_type: "error".to_string(),
-            message: format!("Failed to load all marketplaces. Errors: {}", errors.join("; ")),
+            message: format!(
+                "Failed to load all marketplaces. Errors: {}",
+                errors.join("; ")
+            ),
         })
     }
 }
@@ -196,7 +196,9 @@ pub fn is_plugin_source_allowed_by_policy(_source: &super::types::PluginSource) 
 pub fn is_source_in_blocklist(source: &MarketplaceSource) -> bool {
     match get_blocked_marketplaces() {
         None => false,
-        Some(blocklist) => blocklist.iter().any(|blocked| sources_equal(source, blocked)),
+        Some(blocklist) => blocklist
+            .iter()
+            .any(|blocked| sources_equal(source, blocked)),
     }
 }
 
@@ -217,14 +219,11 @@ fn sources_equal(a: &MarketplaceSource, b: &MarketplaceSource) -> bool {
                 ref_: b_ref,
                 path: b_path,
             },
-        ) => {
-            a_repo == b_repo
-                && a_ref == b_ref
-                && a_path == b_path
-        }
-        (MarketplaceSource::Directory { path: a_path }, MarketplaceSource::Directory { path: b_path }) => {
-            a_path == b_path
-        }
+        ) => a_repo == b_repo && a_ref == b_ref && a_path == b_path,
+        (
+            MarketplaceSource::Directory { path: a_path },
+            MarketplaceSource::Directory { path: b_path },
+        ) => a_path == b_path,
         (MarketplaceSource::File { path: a_path }, MarketplaceSource::File { path: b_path }) => {
             a_path == b_path
         }
@@ -236,11 +235,9 @@ fn sources_equal(a: &MarketplaceSource, b: &MarketplaceSource) -> bool {
 pub fn extract_host_from_source(source: &MarketplaceSource) -> Option<String> {
     match source {
         MarketplaceSource::Github { .. } => Some("github.com".to_string()),
-        MarketplaceSource::Git { url, .. } | MarketplaceSource::Url { url } => {
-            url::Url::parse(url)
-                .ok()
-                .and_then(|u| u.host_str().map(|h| h.to_string()))
-        }
+        MarketplaceSource::Git { url, .. } | MarketplaceSource::Url { url } => url::Url::parse(url)
+            .ok()
+            .and_then(|u| u.host_str().map(|h| h.to_string())),
         _ => None,
     }
 }
@@ -249,16 +246,29 @@ pub fn extract_host_from_source(source: &MarketplaceSource) -> Option<String> {
 pub fn format_source_for_display(source: &MarketplaceSource) -> String {
     match source {
         MarketplaceSource::Github { repo, ref_: r, .. } => {
-            format!("github:{}{}", repo, r.as_ref().map(|r| format!("@{}", r)).unwrap_or_default())
+            format!(
+                "github:{}{}",
+                repo,
+                r.as_ref().map(|r| format!("@{}", r)).unwrap_or_default()
+            )
         }
         MarketplaceSource::Url { url } => url.clone(),
         MarketplaceSource::Git { url, ref_: r, .. } => {
-            format!("git:{}{}", url, r.as_ref().map(|r| format!("@{}", r)).unwrap_or_default())
+            format!(
+                "git:{}{}",
+                url,
+                r.as_ref().map(|r| format!("@{}", r)).unwrap_or_default()
+            )
         }
         MarketplaceSource::Directory { path } => format!("dir:{}", path),
         MarketplaceSource::File { path } => format!("file:{}", path),
         MarketplaceSource::Settings { name, plugins } => {
-            format!("settings:{} ({} plugin{})", name, plugins.len(), if plugins.len() == 1 { "" } else { "s" })
+            format!(
+                "settings:{} ({} plugin{})",
+                name,
+                plugins.len(),
+                if plugins.len() == 1 { "" } else { "s" }
+            )
         }
         MarketplaceSource::GitSubdir { url, path, .. } => {
             format!("git-subdir:{}:{}", url, path)

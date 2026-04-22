@@ -5,8 +5,8 @@ use serde::{Deserialize, Serialize};
 
 /// Re-export the existing helpers from the helpers module
 pub use crate::utils::hooks::helpers::{
-    add_arguments_to_prompt, hook_response_json_schema,
-    parse_arguments, parse_argument_names, HookResponse as HelpersHookResponse,
+    HookResponse as HelpersHookResponse, add_arguments_to_prompt, hook_response_json_schema,
+    parse_argument_names, parse_arguments,
 };
 
 /// Substitute arguments in a prompt string
@@ -183,7 +183,10 @@ mod tests {
                 "input": {"ok": true}
             }]
         })];
-        assert!(has_successful_tool_call(&messages, SYNTHETIC_OUTPUT_TOOL_NAME));
+        assert!(has_successful_tool_call(
+            &messages,
+            SYNTHETIC_OUTPUT_TOOL_NAME
+        ));
         assert!(!has_successful_tool_call(&messages, "OtherTool"));
     }
 

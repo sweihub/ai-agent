@@ -8,10 +8,12 @@ pub mod pill_label;
 pub mod stop_task;
 pub mod types;
 
-pub use guards::{is_local_shell_task, is_local_shell_task_from_value, BashTaskKind, LocalShellTaskState};
+pub use guards::{
+    BashTaskKind, LocalShellTaskState, is_local_shell_task, is_local_shell_task_from_value,
+};
 pub use kill_shell_tasks::{kill_shell_tasks_for_agent, kill_task};
-pub use local_workflow_task::{is_local_workflow_task, LocalWorkflowTaskState};
-pub use monitor_mcp_task::{is_monitor_mcp_task, MonitorMcpTaskState};
+pub use local_workflow_task::{LocalWorkflowTaskState, is_local_workflow_task};
+pub use monitor_mcp_task::{MonitorMcpTaskState, is_monitor_mcp_task};
 pub use pill_label::{get_pill_label, pill_needs_cta};
-pub use stop_task::{stop_task, StopTaskContext, StopTaskError, StopTaskResult};
-pub use types::{is_background_task, BackgroundTaskState, TaskState};
+pub use stop_task::{StopTaskContext, StopTaskError, StopTaskResult, stop_task};
+pub use types::{BackgroundTaskState, TaskState, is_background_task};

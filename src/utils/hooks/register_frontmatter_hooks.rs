@@ -3,7 +3,7 @@
 
 use std::collections::HashMap;
 
-use crate::utils::hooks::hooks_settings::{HookEvent, HookCommand};
+use crate::utils::hooks::hooks_settings::{HookCommand, HookEvent};
 use crate::utils::hooks::session_hooks::add_session_hook;
 
 /// Hooks settings structure (simplified)
@@ -169,7 +169,10 @@ fn parse_hook_command(value: &serde_json::Value) -> Result<HookCommand, String> 
     if let Some(command) = value.get("command").and_then(|v| v.as_str()) {
         return Ok(HookCommand::Command {
             command: command.to_string(),
-            shell: value.get("shell").and_then(|v| v.as_str()).map(|s| s.to_string()),
+            shell: value
+                .get("shell")
+                .and_then(|v| v.as_str())
+                .map(|s| s.to_string()),
             if_condition: value
                 .get("if")
                 .and_then(|v| v.as_str())
@@ -183,7 +186,10 @@ fn parse_hook_command(value: &serde_json::Value) -> Result<HookCommand, String> 
         if value.get("model").is_some() {
             return Ok(HookCommand::Agent {
                 prompt: prompt.to_string(),
-                model: value.get("model").and_then(|v| v.as_str()).map(|s| s.to_string()),
+                model: value
+                    .get("model")
+                    .and_then(|v| v.as_str())
+                    .map(|s| s.to_string()),
                 if_condition: value
                     .get("if")
                     .and_then(|v| v.as_str())
@@ -261,7 +267,13 @@ mod tests {
         });
         let result = parse_hook_command(&json);
         assert!(result.is_ok());
-        if let HookCommand::Command { command, shell, if_condition, timeout } = result.unwrap() {
+        if let HookCommand::Command {
+            command,
+            shell,
+            if_condition,
+            timeout,
+        } = result.unwrap()
+        {
             assert_eq!(command, "echo hello");
             assert_eq!(shell, Some("bash".to_string()));
             assert_eq!(if_condition, Some("Bash(*)".to_string()));
@@ -323,13 +335,7 @@ mod tests {
             call_count.set(call_count.get() + 1);
         };
 
-        register_frontmatter_hooks(
-            &set_app_state,
-            "test-session",
-            &hooks,
-            "test-agent",
-            false,
-        );
+        register_frontmatter_hooks(&set_app_state, "test-session", &hooks, "test-agent", false);
 
         assert_eq!(call_count.get(), 0);
     }

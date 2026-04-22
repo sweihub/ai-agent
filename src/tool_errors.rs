@@ -28,7 +28,9 @@ pub fn format_tool_error(error: &AgentError) -> String {
                 if let Some(pos) = stderr_start {
                     let after_stderr = &detail[pos..];
                     let stderr_end = after_stderr.find("stdout:").unwrap_or(after_stderr.len());
-                    let stderr_content = after_stderr[..stderr_end].trim_start_matches("stderr:").trim();
+                    let stderr_content = after_stderr[..stderr_end]
+                        .trim_start_matches("stderr:")
+                        .trim();
                     if !stderr_content.is_empty() {
                         result.push(stderr_content.to_string());
                     }
@@ -54,12 +56,14 @@ pub fn format_tool_error(error: &AgentError) -> String {
 
 /// Format input validation error for tool call.
 pub fn format_input_validation_error(tool_name: &str, details: &str) -> String {
-    let issue_word = if details.contains('\n') { "issues" } else { "issue" };
+    let issue_word = if details.contains('\n') {
+        "issues"
+    } else {
+        "issue"
+    };
     format!(
         "{} failed due to the following {}:\n{}",
-        tool_name,
-        issue_word,
-        details
+        tool_name, issue_word, details
     )
 }
 

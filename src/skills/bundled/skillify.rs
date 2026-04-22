@@ -3,10 +3,10 @@
 //!
 //! Convert a pattern or workflow into a reusable skill.
 
-use crate::skills::bundled_skills::{
-    register_bundled_skill, BundledSkillDefinition, ContentBlock, SkillContext,
-};
 use crate::AgentError;
+use crate::skills::bundled_skills::{
+    BundledSkillDefinition, ContentBlock, SkillContext, register_bundled_skill,
+};
 
 const SKILLIFY_PROMPT: &str = r#"# Skillify Skill
 

@@ -14,9 +14,8 @@
  * - AI_MODEL: Model name (defaults to claude-sonnet-4-6)
  */
 use ai_agent::{
-    Agent, AgentOptions, CommandResult, CommandSource,
-    CommandAvailability, CommandResultDisplay,
-    PluginCommand, CommandRegistry, EnvConfig,
+    Agent, CommandAvailability, CommandRegistry, CommandResult, CommandResultDisplay,
+    CommandSource, EnvConfig, PluginCommand,
 };
 
 #[tokio::main]
@@ -24,16 +23,15 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("--- Example 24: Custom Commands ---\n");
 
     let config = EnvConfig::load();
-    let model = config.model.clone().unwrap_or_else(|| "claude-sonnet-4-6".to_string());
+    let model = config
+        .model
+        .clone()
+        .unwrap_or_else(|| "claude-sonnet-4-6".to_string());
 
     println!("Using model: {}\n", model);
 
     // Create agent
-    let mut agent = Agent::create(AgentOptions {
-        model: Some(model.clone()),
-        max_turns: Some(5),
-        ..Default::default()
-    });
+    let agent = Agent::new(&model).max_turns(5);
 
     // Register a custom command
     let cmd = create_greet_command();
@@ -43,16 +41,25 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Demonstrate command execution via agent
     println!("=== Asking agent to greet ===");
-    let result = agent.query(
-        "Say hello using the /greet command with argument 'World'"
-    ).await?;
+    let result = agent
+        .query("Say hello using the /greet command with argument 'World'")
+        .await?;
     println!("{}", result.text);
     println!();
 
     // Demonstrate command types
     println!("=== Command Types ===");
-    println!("CommandAvailability: {:?} or {:?}", CommandAvailability::ClaudeAi, CommandAvailability::Console);
-    println!("CommandResultDisplay: {:?}, {:?}, {:?}", CommandResultDisplay::Skip, CommandResultDisplay::System, CommandResultDisplay::User);
+    println!(
+        "CommandAvailability: {:?} or {:?}",
+        CommandAvailability::ClaudeAi,
+        CommandAvailability::Console
+    );
+    println!(
+        "CommandResultDisplay: {:?}, {:?}, {:?}",
+        CommandResultDisplay::Skip,
+        CommandResultDisplay::System,
+        CommandResultDisplay::User
+    );
     println!("CommandSource: {:?}", CommandSource::Plugin);
     println!();
 

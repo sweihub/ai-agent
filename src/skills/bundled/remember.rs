@@ -3,10 +3,10 @@
 //!
 //! Remember information across sessions.
 
-use crate::skills::bundled_skills::{
-    register_bundled_skill, BundledSkillDefinition, ContentBlock, SkillContext,
-};
 use crate::AgentError;
+use crate::skills::bundled_skills::{
+    BundledSkillDefinition, ContentBlock, SkillContext, register_bundled_skill,
+};
 
 const REMEMBER_PROMPT: &str = r#"# Remember Skill
 

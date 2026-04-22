@@ -113,7 +113,11 @@ impl TodoWriteTool {
                     .get("ACTIVE_FORM")
                     .and_then(|v| v.as_str())
                     .map(|s| s.to_string());
-                Some(TodoItem { content, status, active_form })
+                Some(TodoItem {
+                    content,
+                    status,
+                    active_form,
+                })
             })
             .collect();
 
@@ -133,7 +137,9 @@ impl TodoWriteTool {
         // Verification nudge: 3+ items, none mention "verif"
         let verification_nudge_needed = all_done
             && new_items.len() >= 3
-            && !new_items.iter().any(|t| t.content.to_lowercase().contains("verif"));
+            && !new_items
+                .iter()
+                .any(|t| t.content.to_lowercase().contains("verif"));
 
         let base = "Todos have been modified successfully. \
             Ensure that you continue to use the todo list to track your progress. \
