@@ -1,6 +1,7 @@
 use crate::Agent;
 use crate::agent::build_agent_system_prompt;
 use crate::env::EnvConfig;
+use crate::tests::common::get_serialization_lock;
 use crate::types::ContentDelta;
 
 /// Test that Agent tool correctly extracts all parameters from input
@@ -181,6 +182,9 @@ async fn test_agent_prompt_with_real_api() {
         return;
     }
 
+    // Serialize against other tests sharing global OnceLock<Mutex<...>> state
+    let _lock = get_serialization_lock();
+
     // Create agent with all tools and real config
     use crate::get_all_tools;
     let tools = get_all_tools();
@@ -224,6 +228,9 @@ async fn test_agent_with_multiple_tools_real_config() {
 
     // Verify we have tools available
     assert!(!tools.is_empty(), "Should have tools available");
+
+    // Serialize against other tests sharing global OnceLock<Mutex<...>> state
+    let _lock = get_serialization_lock();
 
     let agent = Agent::new(config.model.as_ref().unwrap())
         .max_turns(3)
@@ -427,6 +434,9 @@ async fn test_agent_remembers_context_across_queries() {
         return;
     }
 
+    // Serialize against other tests sharing global OnceLock<Mutex<...>> state
+    let _lock = get_serialization_lock();
+
     // Retry up to 3 times because LLM under rate limiting can give unpredictable responses
     let mut last_error = String::new();
     for attempt in 1..=3 {
@@ -560,6 +570,9 @@ async fn test_agent_events_emitted_correctly() {
     // Load config from .env file
     let config = EnvConfig::load();
 
+    // Serialize against other tests sharing global OnceLock<Mutex<...>> state
+    let _lock = get_serialization_lock();
+
     // Skip if no API configured
     if config.base_url.is_none() || config.auth_token.is_none() {
         eprintln!("Skipping test: no API config found");
@@ -680,6 +693,9 @@ async fn test_agent_max_turns_reached_event() {
     use crate::get_all_tools;
     let tools = get_all_tools();
 
+    // Serialize against other tests sharing global OnceLock<Mutex<...>> state
+    let _lock = get_serialization_lock();
+
     // Track events received
     use std::sync::Mutex;
     let events_received: std::sync::Arc<Mutex<Vec<crate::types::AgentEvent>>> =
@@ -768,6 +784,9 @@ async fn test_agent_tool_error_event() {
         eprintln!("Skipping test: no API config found");
         return;
     }
+
+    // Serialize against other tests sharing global OnceLock<Mutex<...>> state
+    let _lock = get_serialization_lock();
 
     // Get all available tools
     use crate::get_all_tools;
@@ -886,6 +905,10 @@ async fn test_persisted_engine_accumulates_messages() {
 
     let agent = Agent::new("claude-sonnet-4-6").max_turns(5);
 
+    // Serialize against other tests that share global OnceLock<Mutex<...>> state
+    // (TASKS, TODOS, CRON_JOBS, CONFIG, LOADED_SKILLS, etc.) to prevent deadlocks.
+    let _lock = get_serialization_lock();
+
     // Before any query, message list should be empty
     assert!(
         agent.get_messages().is_empty(),
@@ -948,6 +971,9 @@ async fn test_reset_clears_engine_state() {
 
     let agent = Agent::new("claude-sonnet-4-6").max_turns(5);
 
+    // Serialize against other tests that share global OnceLock<Mutex<...>> state
+    let _lock = get_serialization_lock();
+
     // First query
     let _r1 = agent.query("Say 'ResetTest'.").await;
     let msgs_before = agent.get_messages();
@@ -998,6 +1024,9 @@ async fn test_persisted_engine_llm_remembers_context() {
     }
 
     let agent = Agent::new("claude-sonnet-4-6").max_turns(3);
+
+    // Serialize against other tests that share global OnceLock<Mutex<...>> state
+    let _lock = get_serialization_lock();
 
     // Turn 1: store a fact — LLM must answer without tools
     let _r1 = tokio::time::timeout(
