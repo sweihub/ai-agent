@@ -27,6 +27,23 @@ fn get_tasks_map() -> &'static Mutex<HashMap<String, Task>> {
     TASKS.get_or_init(|| Mutex::new(HashMap::new()))
 }
 
+#[cfg(test)]
+pub fn reset_task_store() {
+    let mut guard = get_tasks_map().lock().unwrap();
+    guard.clear();
+    drop(guard);
+    TASK_COUNTER.store(1, Ordering::SeqCst);
+}
+
+/// Test-only lock that serializes concurrent tests using the task store.
+/// Prevents race conditions when multiple tests run in parallel.
+#[cfg(test)]
+pub fn get_test_lock() -> &'static Mutex<()> {
+    use std::sync::Mutex as StdMutex;
+    static LOCK: OnceLock<StdMutex<()>> = OnceLock::new();
+    LOCK.get_or_init(|| StdMutex::new(()))
+}
+
 /// Get all non-completed, non-deleted tasks.
 pub fn get_unfinished_tasks() -> Vec<Task> {
     let guard = get_tasks_map().lock().unwrap();
@@ -467,8 +484,16 @@ impl Default for TaskGetTool {
 mod tests {
     use super::*;
 
+    fn test_setup() -> std::sync::MutexGuard<'static, ()> {
+        let _lock = get_test_lock().lock().unwrap();
+        reset_task_store();
+        _lock
+    }
+
     #[tokio::test]
     async fn test_task_create_and_get() {
+        let _lock = test_setup();
+
         let create = TaskCreateTool::new();
         let result = create
             .execute(
@@ -482,10 +507,21 @@ mod tests {
             .await;
         assert!(result.is_ok());
 
+        // Extract the task ID from the create result (format: "ID: task-N")
+        let content = result.unwrap().content;
+        let task_id = content
+            .lines()
+            .find(|l| l.starts_with("ID: "))
+            .unwrap()
+            .strip_prefix("ID: ")
+            .unwrap()
+            .trim()
+            .to_string();
+
         let get = TaskGetTool::new();
         let get_result = get
             .execute(
-                serde_json::json!({ "taskId": "task-1" }),
+                serde_json::json!({ "taskId": task_id }),
                 &ToolContext::default(),
             )
             .await;
@@ -496,6 +532,8 @@ mod tests {
 
     #[tokio::test]
     async fn test_task_list() {
+        let _lock = test_setup();
+
         let create = TaskCreateTool::new();
         create
             .execute(
@@ -515,6 +553,8 @@ mod tests {
 
     #[tokio::test]
     async fn test_task_update_status() {
+        let _lock = test_setup();
+
         let update = TaskUpdateTool::new();
         let result = update
             .execute(
@@ -525,12 +565,43 @@ mod tests {
                 &ToolContext::default(),
             )
             .await;
+        // task-1 doesn't exist yet after reset, so create it first
+        let create = TaskCreateTool::new();
+        let create_result = create
+            .execute(
+                serde_json::json!({
+                    "subject": "Update Me",
+                    "description": "To be updated"
+                }),
+                &ToolContext::default(),
+            )
+            .await
+            .unwrap();
+        let task_id = create_result
+            .content
+            .lines()
+            .find(|l| l.starts_with("ID: "))
+            .unwrap()
+            .strip_prefix("ID: ")
+            .unwrap()
+            .trim()
+            .to_string();
+
+        let result = update
+            .execute(
+                serde_json::json!({
+                    "taskId": task_id,
+                    "status": "in_progress"
+                }),
+                &ToolContext::default(),
+            )
+            .await;
         assert!(result.is_ok());
 
         let get = TaskGetTool::new();
         let get_result = get
             .execute(
-                serde_json::json!({ "taskId": "task-1" }),
+                serde_json::json!({ "taskId": task_id }),
                 &ToolContext::default(),
             )
             .await;

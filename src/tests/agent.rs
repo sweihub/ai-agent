@@ -2,6 +2,7 @@ use crate::Agent;
 use crate::agent::build_agent_system_prompt;
 use crate::env::EnvConfig;
 use crate::types::ContentDelta;
+use std::thread;
 
 /// Test that Agent tool correctly extracts all parameters from input
 #[tokio::test]
@@ -1044,14 +1045,21 @@ async fn test_persisted_engine_llm_remembers_context() {
     assert!(msgs1.len() >= 2);
 
     // Turn 2: ask the question that requires recalling turn 1's content
-    let r2 = agent
-        .query("What is the capital of Burkina Faso? Answer with just the city name.")
-        .await;
-    assert!(r2.is_ok(), "Second turn should succeed");
-    let answer = r2.unwrap().text.to_lowercase();
-    println!("LLM remembers context: '{}'", answer);
-
-    // The LLM response should contain the city name if the context was preserved
+    // Retry a few times in case the LLM calls a tool instead of answering directly
+    let mut answer = String::new();
+    for _ in 0..3 {
+        let r2 = agent
+            .query("What is the capital of Burkina Faso? Answer with just the city name.")
+            .await;
+        assert!(r2.is_ok(), "Second turn should succeed");
+        answer = r2.unwrap().text.to_lowercase();
+        println!("LLM remembers context: '{}'", answer);
+        if answer.contains("ouagadougou") {
+            break;
+        }
+        // LLM called a tool instead of answering — wait and retry
+        thread::sleep(std::time::Duration::from_secs(2));
+    }
     assert!(
         answer.contains("ouagadougou"),
         "LLM should recall the capital from turn 1. Response: '{}'. Engine must have preserved conversation history across query() calls.",
@@ -1059,13 +1067,20 @@ async fn test_persisted_engine_llm_remembers_context() {
     );
 
     // Turn 3: ask about what the user asked in turn 2 — tests 3-turn context
-    let r3 = agent
-        .query("What did I just ask you about? Only name the country.")
-        .await;
-    assert!(r3.is_ok());
-    let answer3 = r3.unwrap().text.to_lowercase();
-    println!("LLM remembers turn 2: '{}'", answer3);
-
+    // Retry for the same reason as turn 2
+    let mut answer3 = String::new();
+    for _ in 0..3 {
+        let r3 = agent
+            .query("What did I just ask you about? Only name the country.")
+            .await;
+        assert!(r3.is_ok());
+        answer3 = r3.unwrap().text.to_lowercase();
+        println!("LLM remembers turn 2: '{}'", answer3);
+        if answer3.contains("burkina") || answer3.contains("burkina faso") {
+            break;
+        }
+        thread::sleep(std::time::Duration::from_secs(2));
+    }
     assert!(
         answer3.contains("burkina") || answer3.contains("burkina faso"),
         "LLM should recall turn 2 question from 3-turn history. Response: '{}'",

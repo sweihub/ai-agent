@@ -16,13 +16,18 @@ AI Coding CLI: [ai-code](https://github.com/sweihub/ai-code)
 cargo add ai-agent
 export AI_AUTH_TOKEN=your-api-key
 export AI_MODEL=MiniMaxAI/MiniMax-M2.5
-# 可选：AI_BASE_URL=https://api.minimax.chat/v1
 ```
 
 ```rust
 use ai_agent::Agent;
-let mut agent = Agent::new("MiniMaxAI/MiniMax-M2.5", 10);
-agent.query("列出10个文件").await?;
+
+// 简单的一次性查询
+let answer = Agent::prompt("claude-sonnet-4-6", "列出10个文件").await?;
+
+// 完整 Agent，使用 builder 模式
+let agent = Agent::new("claude-sonnet-4-6")
+    .max_turns(10);
+let result = agent.query("列出10个文件").await?;
 ```
 
 更多示例见 [使用示例](#使用示例)。
@@ -146,7 +151,8 @@ SDK 内置 **37 个工具**，分为 10 大类别。所有工具开箱即用，�
 
 ### 多轮对话
 ```rust
-let mut agent = Agent::new("MiniMaxAI/MiniMax-M2.5", 5);
+let agent = Agent::new("claude-sonnet-4-6")
+    .max_turns(10);
 agent.query("创建 /tmp/hello.txt 内容为 'Hello'").await?;
 agent.query("读取刚才创建的文件").await?;
 println!("消息数: {}", agent.get_messages().len());
@@ -154,18 +160,27 @@ println!("消息数: {}", agent.get_messages().len());
 
 ### 自定义工具
 ```rust
-let calculator = ai_agent::Tool {
-    name: "Calculator".into(),
-    description: "计算数学表达式".into(),
-    input_schema: ToolInputSchema::Json(serde_json::json!({
-        "type": "object",
-        "properties": {"expression": {"type": "string"}},
-        "required": ["expression"]
-    })),
-    executor: Box::new(|input, _ctx| async move {
-        Ok(ToolResult { /* ... */ })
-    }),
-};
+use ai_agent::{Agent, ToolDefinition, ToolInputSchema};
+
+let agent = Agent::new("claude-sonnet-4-6")
+    .max_turns(5)
+    .tools(vec![
+        ToolDefinition {
+            name: "calculator".into(),
+            description: "计算数学表达式，返回结果".into(),
+            input_schema: ToolInputSchema {
+                schema_type: "object".into(),
+                properties: serde_json::json!({
+                    "expression": {
+                        "description": "要计算的表达式",
+                        "type": "string"
+                    }
+                }),
+                required: Some(vec!["expression".into()]),
+            },
+            ..Default::default()
+        },
+    ]);
 ```
 
 ### MCP 服务器
@@ -191,24 +206,23 @@ registry.register("PreToolUse", HookDefinition {
 注册 `on_event` 回调以在查询执行期间接收增量事件——非常适合实时聊天界面和终端 UI。
 
 ```rust
-use ai_agent::Agent;
+use ai_agent::{Agent, AgentEvent, ContentDelta};
 
-let mut agent = Agent::new("claude-sonnet-4-6", 10);
-agent.set_event_callback(|event| {
-    match &event {
-        ai_agent::AgentEvent::ContentBlockDelta {
-            delta: ai_agent::types::ContentDelta::Text { text },
+let agent = Agent::new("claude-sonnet-4-6")
+    .max_turns(10)
+    .on_event(|event| match &event {
+        AgentEvent::ContentBlockDelta {
+            delta: ContentDelta::Text { text },
             ..
         } => print!("{}", text),
-        ai_agent::AgentEvent::Thinking { turn } => {
+        AgentEvent::Thinking { turn } => {
             eprintln!("[第 {} 轮 思考中...]", turn);
         }
-        ai_agent::AgentEvent::Done { result } => {
+        AgentEvent::Done { result } => {
             println!("\n完成！轮数: {}", result.num_turns);
         }
         _ => {}
-    }
-});
+    });
 
 let result = agent.query("写一个 hello world").await?;
 ```
@@ -233,7 +247,7 @@ use std::sync::Arc;
 use std::time::Duration;
 use tokio::sync::Mutex;
 
-let agent = Arc::new(Mutex::new(Agent::new("MiniMaxAI/MiniMax-M2.5", 10)));
+let agent = Arc::new(Mutex::new(Agent::new("claude-sonnet-4-6").max_turns(10)));
 let interrupt_agent = Arc::clone(&agent);
 
 // 派生一个在 5 秒后中断的任务
@@ -305,14 +319,6 @@ let _ = tokio::time::timeout(Duration::from_secs(10), interrupt_task).await;
 │  LLM  │  │ 37+    │  │  MCP  │
 │  API  │  │Tools   │  │Server │
 └───────┘  └───────┘  └───────┘
-```
-
-## 示例
-
-```bash
-cargo run --example 01_simple_query
-cargo run --example 06_mcp_server
-cargo run --example 09_subagents
 ```
 
 ## 示例

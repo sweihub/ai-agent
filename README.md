@@ -16,13 +16,18 @@ AI Coding CLI: [ai-code](https://github.com/sweihub/ai-code)
 cargo add ai-agent
 export AI_AUTH_TOKEN=your-api-key
 export AI_MODEL=MiniMaxAI/MiniMax-M2.5
-# Optional: AI_BASE_URL=https://api.minimax.chat/v1
 ```
 
 ```rust
 use ai_agent::Agent;
-let mut agent = Agent::new("MiniMaxAI/MiniMax-M2.5", 10);
-agent.query("List 10 files").await?;
+
+// Simple one-shot query
+let answer = Agent::prompt("claude-sonnet-4-6", "List 10 files").await?;
+
+// Full agent with builder pattern
+let agent = Agent::new("claude-sonnet-4-6")
+    .max_turns(10);
+let result = agent.query("List 10 files").await?;
 ```
 
 See [Usage Examples](#usage-examples) for more.
@@ -146,7 +151,8 @@ The SDK ships with **37 built-in tools** organized into 10 categories. All tools
 
 ### Multi-turn Conversation
 ```rust
-let mut agent = Agent::new("MiniMaxAI/MiniMax-M2.5", 5);
+let agent = Agent::new("claude-sonnet-4-6")
+    .max_turns(10);
 agent.query("Create /tmp/hello.txt with 'Hello'").await?;
 agent.query("Read that file back").await?;
 println!("Messages: {}", agent.get_messages().len());
@@ -154,18 +160,27 @@ println!("Messages: {}", agent.get_messages().len());
 
 ### Custom Tools
 ```rust
-let calculator = ai_agent::Tool {
-    name: "Calculator".into(),
-    description: "Evaluate math expressions".into(),
-    input_schema: ToolInputSchema::Json(serde_json::json!({
-        "type": "object",
-        "properties": {"expression": {"type": "string"}},
-        "required": ["expression"]
-    })),
-    executor: Box::new(|input, _ctx| async move {
-        Ok(ToolResult { /* ... */ })
-    }),
-};
+use ai_agent::{Agent, ToolDefinition, ToolInputSchema};
+
+let agent = Agent::new("claude-sonnet-4-6")
+    .max_turns(5)
+    .tools(vec![
+        ToolDefinition {
+            name: "calculator".into(),
+            description: "Evaluate a math expression. Returns the result".into(),
+            input_schema: ToolInputSchema {
+                schema_type: "object".into(),
+                properties: serde_json::json!({
+                    "expression": {
+                        "description": "The expression to evaluate",
+                        "type": "string"
+                    }
+                }),
+                required: Some(vec!["expression".into()]),
+            },
+            ..Default::default()
+        },
+    ]);
 ```
 
 ### MCP Servers
@@ -191,24 +206,23 @@ registry.register("PreToolUse", HookDefinition {
 Register an `on_event` callback to receive incremental events during query execution — ideal for real-time chat UIs and TUIs.
 
 ```rust
-use ai_agent::Agent;
+use ai_agent::{Agent, AgentEvent, ContentDelta};
 
-let mut agent = Agent::new("claude-sonnet-4-6", 10);
-agent.set_event_callback(|event| {
-    match &event {
-        ai_agent::AgentEvent::ContentBlockDelta {
-            delta: ai_agent::types::ContentDelta::Text { text },
+let agent = Agent::new("claude-sonnet-4-6")
+    .max_turns(10)
+    .on_event(|event| match &event {
+        AgentEvent::ContentBlockDelta {
+            delta: ContentDelta::Text { text },
             ..
         } => print!("{}", text),
-        ai_agent::AgentEvent::Thinking { turn } => {
+        AgentEvent::Thinking { turn } => {
             eprintln!("[Turn {} thinking...]", turn);
         }
-        ai_agent::AgentEvent::Done { result } => {
+        AgentEvent::Done { result } => {
             println!("\nDone! Turns: {}", result.num_turns);
         }
         _ => {}
-    }
-});
+    });
 
 let result = agent.query("write hello world").await?;
 ```
@@ -233,7 +247,7 @@ use std::sync::Arc;
 use std::time::Duration;
 use tokio::sync::Mutex;
 
-let agent = Arc::new(Mutex::new(Agent::new("MiniMaxAI/MiniMax-M2.5", 10)));
+let agent = Arc::new(Mutex::new(Agent::new("claude-sonnet-4-6").max_turns(10)));
 let interrupt_agent = Arc::clone(&agent);
 
 // Spawn a task that interrupts after 5 seconds
