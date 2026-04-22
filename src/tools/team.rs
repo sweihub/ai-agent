@@ -132,7 +132,7 @@ impl TeamCreateTool {
             .unwrap_or_default();
 
         // Check for duplicate team name
-        let guard = get_teams_map().lock().unwrap();
+        let mut guard = get_teams_map().lock().unwrap();
         if guard.contains_key(&name) {
             return Ok(ToolResult {
                 result_type: "text".to_string(),
@@ -361,15 +361,24 @@ impl Default for SendMessageTool {
 // Fix: constant name
 const TEAMCREATE_TOOL_NAME: &str = "TeamCreate";
 
+/// Reset the global team and inbox stores for test isolation.
+pub fn reset_teams_for_testing() {
+    let mut guard = get_teams_map().lock().unwrap();
+    guard.clear();
+    drop(guard);
+    let mut inbox = get_inbox().lock().unwrap();
+    inbox.clear();
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
 
-    use crate::tests::common::get_serialization_lock;
+    use crate::tests::common::clear_all_test_state;
 
     #[tokio::test]
     async fn test_team_create_and_delete() {
-        let _lock = get_serialization_lock();
+        clear_all_test_state();
         let create = TeamCreateTool::new();
         let result = create
             .execute(
@@ -398,7 +407,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_send_message() {
-        let _lock = get_serialization_lock();
+        clear_all_test_state();
         let send = SendMessageTool::new();
         let result = send
             .execute(
@@ -415,7 +424,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_send_message_broadcast() {
-        let _lock = get_serialization_lock();
+        clear_all_test_state();
         let send = SendMessageTool::new();
         let result = send
             .execute(

@@ -303,22 +303,41 @@ impl Default for SkillTool {
     }
 }
 
+/// Reset the global skill registries for test isolation.
+pub fn reset_skills_for_testing() {
+    {
+        let guard = get_skills_map().lock().unwrap();
+        drop(guard);
+    }
+    // LOADED_SKILLS is initialized once and can't be reset without unsafe
+    // Just clear any accumulated skills by reinitializing the inner map
+    if let Ok(mut skills) = get_skills_map().lock() {
+        // Re-init from directory
+        skills.clear();
+        if let Ok(loaded) = crate::skills::loader::load_skills_from_dir(std::path::Path::new("examples/skills")) {
+            for skill in loaded {
+                skills.insert(skill.metadata.name.clone(), skill);
+            }
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
 
-    use crate::tests::common::get_serialization_lock;
+    use crate::tests::common::clear_all_test_state;
 
     #[test]
     fn test_skill_tool_name() {
-        let _lock = get_serialization_lock();
+        clear_all_test_state();
         let tool = SkillTool::new();
         assert_eq!(tool.name(), SKILL_TOOL_NAME);
     }
 
     #[test]
     fn test_skill_tool_schema() {
-        let _lock = get_serialization_lock();
+        clear_all_test_state();
         let tool = SkillTool::new();
         let schema = tool.input_schema();
         assert!(schema.properties.get("skill").is_some());
@@ -328,7 +347,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_skill_tool_unknown_skill() {
-        let _lock = get_serialization_lock();
+        clear_all_test_state();
         let tool = SkillTool::new();
         let input = serde_json::json!({
             "skill": "nonexistent_skill"
@@ -343,7 +362,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_skill_tool_prefix_matching() {
-        let _lock = get_serialization_lock();
+        clear_all_test_state();
         let tool = SkillTool::new();
         let input = serde_json::json!({
             "skill": "review:*"

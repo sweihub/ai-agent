@@ -20,7 +20,7 @@ fn get_todos_map() -> &'static Mutex<HashMap<String, Vec<TodoItem>>> {
 
 /// Get all todos for a session, filtered to non-completed items.
 pub fn get_unfinished_todos(session_key: &str) -> Vec<TodoItem> {
-    let guard = get_todos_map().lock().unwrap();
+    let mut guard = get_todos_map().lock().unwrap();
     guard
         .get(session_key)
         .cloned()
@@ -32,7 +32,7 @@ pub fn get_unfinished_todos(session_key: &str) -> Vec<TodoItem> {
 
 /// Get all todos for a session (full list).
 pub fn get_all_todos(session_key: &str) -> Vec<TodoItem> {
-    let guard = get_todos_map().lock().unwrap();
+    let mut guard = get_todos_map().lock().unwrap();
     guard.get(session_key).cloned().unwrap_or_default()
 }
 
@@ -173,22 +173,28 @@ impl Default for TodoWriteTool {
     }
 }
 
+/// Reset the global todo store for test isolation.
+pub fn reset_todos_for_testing() {
+    let mut guard = get_todos_map().lock().unwrap();
+    guard.clear();
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
 
-    use crate::tests::common::get_serialization_lock;
+    use crate::tests::common::clear_all_test_state;
 
     #[test]
     fn test_todo_write_tool_name() {
-        let _lock = get_serialization_lock();
+        clear_all_test_state();
         let tool = TodoWriteTool::new();
         assert_eq!(tool.name(), TODO_WRITE_TOOL_NAME);
     }
 
     #[test]
     fn test_todo_write_schema() {
-        let _lock = get_serialization_lock();
+        clear_all_test_state();
         let tool = TodoWriteTool::new();
         let schema = tool.input_schema();
         assert!(schema.properties.get("todos").is_some());
@@ -196,7 +202,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_todo_write_creates_items() {
-        let _lock = get_serialization_lock();
+        clear_all_test_state();
         let tool = TodoWriteTool::new();
         let input = serde_json::json!({
             "todos": [
@@ -212,7 +218,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_todo_write_clears_when_all_done() {
-        let _lock = get_serialization_lock();
+        clear_all_test_state();
         let tool = TodoWriteTool::new();
         // First, add some todos
         let input = serde_json::json!({
@@ -232,7 +238,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_todo_write_verification_nudge() {
-        let _lock = get_serialization_lock();
+        clear_all_test_state();
         let tool = TodoWriteTool::new();
         // 3+ items, none mention "verif", all completed
         let input = serde_json::json!({

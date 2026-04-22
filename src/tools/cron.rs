@@ -139,7 +139,7 @@ impl CronCreateTool {
         let parsed = parse_cron_expression(cron).map_err(|e| AgentError::Tool(e))?;
 
         // Check max jobs limit (50 matching TS)
-        let guard = get_cron_jobs_map().lock().unwrap();
+        let mut guard = get_cron_jobs_map().lock().unwrap();
         if guard.len() >= 50 {
             return Ok(ToolResult {
                 result_type: "text".to_string(),
@@ -305,7 +305,7 @@ impl CronListTool {
         _input: serde_json::Value,
         _context: &ToolContext,
     ) -> Result<ToolResult, AgentError> {
-        let guard = get_cron_jobs_map().lock().unwrap();
+        let mut guard = get_cron_jobs_map().lock().unwrap();
 
         if guard.is_empty() {
             return Ok(ToolResult {
@@ -345,15 +345,23 @@ impl Default for CronListTool {
     }
 }
 
+/// Reset the global cron job store for test isolation.
+pub fn reset_cron_jobs_for_testing() {
+    let mut guard = get_cron_jobs_map().lock().unwrap();
+    guard.clear();
+    drop(guard);
+    JOB_COUNTER.store(1, Ordering::SeqCst);
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
 
-    use crate::tests::common::get_serialization_lock;
+    use crate::tests::common::clear_all_test_state;
 
     #[tokio::test]
     async fn test_cron_create_and_list() {
-        let _lock = get_serialization_lock();
+        clear_all_test_state();
         let create = CronCreateTool::new();
         let result = create
             .execute(
@@ -379,7 +387,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_cron_delete() {
-        let _lock = get_serialization_lock();
+        clear_all_test_state();
         let create = CronCreateTool::new();
         create
             .execute(
@@ -410,7 +418,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_cron_create_invalid_expression() {
-        let _lock = get_serialization_lock();
+        clear_all_test_state();
         let create = CronCreateTool::new();
         let result = create
             .execute(
@@ -429,7 +437,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_cron_list_empty() {
-        let _lock = get_serialization_lock();
+        clear_all_test_state();
         // Clear all jobs first
         let mut guard = get_cron_jobs_map().lock().unwrap();
         guard.clear();

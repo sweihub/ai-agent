@@ -255,11 +255,11 @@ pub fn clear_metrics_enabled_cache_for_testing() {
 mod tests {
     use super::*;
 
-    use crate::tests::common::get_serialization_lock;
+    use crate::tests::common::clear_all_test_state;
 
     #[test]
     fn test_is_essential_traffic_only_default() {
-        let _lock = get_serialization_lock();
+        clear_all_test_state();
         // Without env var, should return false
         let result = is_essential_traffic_only();
         assert!(!result);
@@ -267,7 +267,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_check_metrics_enabled_not_subscriber() {
-        let _lock = get_serialization_lock();
+        clear_all_test_state();
         // Not a subscriber, should return enabled: false
         let result = check_metrics_enabled().await;
         // Due to has_profile_scope returning false for non-subscriber, this returns early

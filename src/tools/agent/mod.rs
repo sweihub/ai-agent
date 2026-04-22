@@ -27,3 +27,10 @@ static AGENT_COLOR_MAP: LazyLock<Mutex<HashMap<String, String>>> =
 pub fn get_agent_color_map() -> &'static Mutex<HashMap<String, String>> {
     &AGENT_COLOR_MAP
 }
+
+/// Reset the global agent color map for test isolation.
+pub fn reset_agent_color_map_for_testing() {
+    let map = get_agent_color_map();
+    let mut guard = map.lock().unwrap();
+    guard.clear();
+}

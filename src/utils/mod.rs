@@ -27,7 +27,6 @@ pub mod system_theme;
 pub mod task;
 pub mod task_list;
 pub mod tempfile;
-pub mod terminal_focus;
 pub mod theme;
 pub mod thinking;
 pub mod tool_errors;

@@ -2,7 +2,7 @@
 //!
 //! Translates useAwaySummary.ts from claude code.
 //! Integrates:
-//! - Terminal focus state (from `utils::terminal_focus`)
+//! - Terminal focus state tracking
 //! - Session backgrounding state (from `use_session_backgrounding`)
 //! - Away summary generation (from `services::away_summary`)
 

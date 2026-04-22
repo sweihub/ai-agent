@@ -99,7 +99,7 @@ impl ConfigTool {
                         was_persisted: None,
                     });
                 }
-                let guard = get_config_map().lock().unwrap();
+                let mut guard = get_config_map().lock().unwrap();
                 if let Some(val) = get_nested_config(&guard, key) {
                     Ok(ToolResult {
                         result_type: "text".to_string(),
@@ -154,7 +154,7 @@ impl ConfigTool {
                 })
             }
             "list" => {
-                let guard = get_config_map().lock().unwrap();
+                let mut guard = get_config_map().lock().unwrap();
                 if guard.is_empty() {
                     Ok(ToolResult {
                         result_type: "text".to_string(),
@@ -197,22 +197,28 @@ impl Default for ConfigTool {
     }
 }
 
+/// Reset the global config store for test isolation.
+pub fn reset_config_for_testing() {
+    let mut guard = get_config_map().lock().unwrap();
+    guard.clear();
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
 
-    use crate::tests::common::get_serialization_lock;
+    use crate::tests::common::clear_all_test_state;
 
     #[test]
     fn test_config_tool_name() {
-        let _lock = get_serialization_lock();
+        clear_all_test_state();
         let tool = ConfigTool::new();
         assert_eq!(tool.name(), CONFIG_TOOL_NAME);
     }
 
     #[test]
     fn test_config_tool_schema() {
-        let _lock = get_serialization_lock();
+        clear_all_test_state();
         let tool = ConfigTool::new();
         let schema = tool.input_schema();
         assert_eq!(schema.schema_type, "object");
@@ -221,7 +227,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_config_tool_list_empty() {
-        let _lock = get_serialization_lock();
+        clear_all_test_state();
         let tool = ConfigTool::new();
         let input = serde_json::json!({ "action": "list" });
         let context = ToolContext::default();
@@ -231,7 +237,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_config_tool_set_and_get() {
-        let _lock = get_serialization_lock();
+        clear_all_test_state();
         let tool = ConfigTool::new();
         let context = ToolContext::default();
 

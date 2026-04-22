@@ -194,6 +194,19 @@ impl Default for ExitPlanModeTool {
     }
 }
 
+/// Reset the global plan mode state and plan storage for test isolation.
+pub fn reset_plan_for_testing() {
+    // Reset IN_PLAN_MODE flag
+    IN_PLAN_MODE
+        .get_or_init(|| AtomicBool::new(false))
+        .store(false, Ordering::SeqCst);
+    // Clear CURRENT_PLAN to empty string
+    if let Some(plan_mutex) = CURRENT_PLAN.get() {
+        let mut plan = plan_mutex.lock().unwrap();
+        plan.clear();
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

@@ -260,6 +260,13 @@ impl Default for ExitWorktreeTool {
     }
 }
 
+/// Reset the global worktree state for test isolation.
+pub fn reset_worktree_for_testing() {
+    let state = get_worktree_state();
+    let mut guard = state.lock().unwrap();
+    *guard = None;
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
