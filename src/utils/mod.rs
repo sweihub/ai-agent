@@ -17,6 +17,7 @@ pub mod git;
 pub mod git_diff;
 pub mod git_settings;
 pub mod github_repo_path_mapping;
+pub mod settings;
 pub mod hooks;
 pub mod messages;
 pub mod model;

@@ -1,7 +1,7 @@
 # Feature Gaps: TypeScript (claude code) → Rust Port
 
 Generated: 2026-04-23
-Last updated: 2026-04-26 (v0.50.0)
+Last updated: 2026-04-24 (v0.51.0)
 
 ## Resolved Gaps (v0.34.0 - v0.50.0)
 
@@ -42,6 +42,8 @@ Last updated: 2026-04-26 (v0.50.0)
 - ✅ Nested Memory Dedup: loaded_nested_memory_paths prevents re-injection across parent/subagent engines
 - ✅ AgentTool Proper Struct: `AgentTool` with `Tool` trait, `AgentToolConfig`, `create_agent_tool_executor()` factory, 4 tests
 - ✅ Skill Shell Execution: `execute_shell_commands_in_prompt()` with block/inline pattern parsing, parallel execution, 21 tests
+- ✅ InterruptBehavior Enforcement: `block` tools ignore abort signal, `cancel` tools respect it, 6 tests
+- ✅ Settings Persistence: `settings/mod.rs` with read/write/merge, `persist_permission_update()` wired, 12 tests
 
 
 
@@ -212,7 +214,7 @@ All 10 original high-impact gaps have been resolved:
 9. ✅ **Missing tools** — BriefTool, SyntheticOutputTool, TaskOutputTool, MCPTool all implemented
 10. ✅ **MCP tool execution** — McpToolRegistry with callback dispatch
 
-## Remaining Gaps (v0.50.0)
+## Remaining Gaps (v0.51.0)
 
 Lower-impact gaps that require infrastructure not yet in place:
 
@@ -222,9 +224,11 @@ Lower-impact gaps that require infrastructure not yet in place:
 - **Skill discovery prefetch** — `startSkillDiscoveryPrefetch` per iteration (stub in TS)
 - **Skill memoization** — `lodash/memoize` cache equivalent
 - **Function hooks** — JS/TS-style inline handler hooks (requires JS runtime)
-- **Sidechain transcripts** — per-agent transcript subdirectories
 
 Already implemented (no further work needed):
 - ✅ AgentTool as proper Tool struct (v0.49.0)
 - ✅ Skill shell execution (v0.50.0)
 - ✅ Dynamic permission updates (already in codebase)
+- ✅ InterruptBehavior enforcement (v0.51.0)
+- ✅ Settings persistence (v0.51.0)
+- ✅ Sidechain transcripts (v0.50.0)

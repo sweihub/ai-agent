@@ -225,12 +225,84 @@ pub fn supports_persistence(destination: &PermissionUpdateDestination) -> bool {
     )
 }
 
-/// Persists a single permission update.
-pub fn persist_permission_update(_update: &PermissionUpdateType) {
-    if !supports_persistence(&match_destination(_update)) {
+/// Convert PermissionUpdateDestination to EditableSettingSource
+fn to_editable_source(dest: &PermissionUpdateDestination) -> Option<crate::utils::settings::EditableSettingSource> {
+    match dest {
+        PermissionUpdateDestination::LocalSettings => {
+            Some(crate::utils::settings::EditableSettingSource::LocalSettings)
+        }
+        PermissionUpdateDestination::UserSettings => {
+            Some(crate::utils::settings::EditableSettingSource::UserSettings)
+        }
+        PermissionUpdateDestination::ProjectSettings => {
+            Some(crate::utils::settings::EditableSettingSource::ProjectSettings)
+        }
+        _ => None,
+    }
+}
+
+/// Persists a single permission update to the appropriate settings file.
+pub fn persist_permission_update(update: &PermissionUpdateType) {
+    if !supports_persistence(&match_destination(update)) {
         return;
     }
-    // In a full implementation, this would write to the settings file
+
+    let dest = match_destination(update);
+    let source = match to_editable_source(&dest) {
+        Some(s) => s,
+        None => return,
+    };
+
+    log::debug!("Persisting permission update: {:?} to {:?}", update.type_name(), source);
+
+    let result = match update {
+        PermissionUpdateType::AddRules { rules, behavior, .. } => {
+            let rule_strings: Vec<String> = rules
+                .iter()
+                .map(|r| permission_rule_value_to_string(r))
+                .collect();
+            crate::utils::settings::add_permission_rules_to_settings(
+                &rule_strings,
+                behavior.as_str(),
+                &source,
+            )
+        }
+        PermissionUpdateType::RemoveRules { rules, behavior, .. } => {
+            let rule_strings: Vec<String> = rules
+                .iter()
+                .map(|r| permission_rule_value_to_string(r))
+                .collect();
+            crate::utils::settings::remove_permission_rules_from_settings(
+                &rule_strings,
+                behavior.as_str(),
+                &source,
+            )
+        }
+        PermissionUpdateType::ReplaceRules { rules, behavior, .. } => {
+            let rule_strings: Vec<String> = rules
+                .iter()
+                .map(|r| permission_rule_value_to_string(r))
+                .collect();
+            crate::utils::settings::replace_permission_rules_in_settings(
+                &rule_strings,
+                behavior.as_str(),
+                &source,
+            )
+        }
+        PermissionUpdateType::SetMode { mode, .. } => {
+            crate::utils::settings::set_permission_mode_in_settings(mode.as_str(), &source)
+        }
+        PermissionUpdateType::AddDirectories { directories, .. } => {
+            crate::utils::settings::add_directories_to_settings(directories, &source)
+        }
+        PermissionUpdateType::RemoveDirectories { directories, .. } => {
+            crate::utils::settings::remove_directories_from_settings(directories, &source)
+        }
+    };
+
+    if let Err(e) = result {
+        log::error!("Failed to persist permission update: {}", e);
+    }
 }
 
 fn match_destination(update: &PermissionUpdateType) -> PermissionUpdateDestination {

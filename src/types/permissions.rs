@@ -54,6 +54,16 @@ pub enum PermissionBehavior {
     Ask,
 }
 
+impl PermissionBehavior {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            PermissionBehavior::Allow => "allow",
+            PermissionBehavior::Deny => "deny",
+            PermissionBehavior::Ask => "ask",
+        }
+    }
+}
+
 // ============================================================================
 // Permission Rules
 // ============================================================================
@@ -159,6 +169,20 @@ pub enum PermissionUpdate {
         destination: PermissionUpdateDestination,
         directories: Vec<String>,
     },
+}
+
+impl PermissionUpdate {
+    /// Return the update type name (e.g. "addRules", "setMode")
+    pub fn type_name(&self) -> &'static str {
+        match self {
+            PermissionUpdate::AddRules { .. } => "addRules",
+            PermissionUpdate::ReplaceRules { .. } => "replaceRules",
+            PermissionUpdate::RemoveRules { .. } => "removeRules",
+            PermissionUpdate::SetMode { .. } => "setMode",
+            PermissionUpdate::AddDirectories { .. } => "addDirectories",
+            PermissionUpdate::RemoveDirectories { .. } => "removeDirectories",
+        }
+    }
 }
 
 /// Source of an additional working directory permission.
