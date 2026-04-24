@@ -1187,3 +1187,188 @@ fn test_agent_disallowed_tools_config() {
     );
     assert!(inner.allowed_tools.is_empty());
 }
+
+// ---------------------------------------------------------------------------
+// AgentTool struct tests
+// ---------------------------------------------------------------------------
+
+/// Test that AgentTool implements the Tool trait correctly.
+#[test]
+fn test_agent_tool_trait_implementation() {
+    use crate::tools::agent::{AgentTool, AgentToolConfig};
+    use crate::tools::types::Tool;
+    use crate::utils::AbortController;
+
+    let config = AgentToolConfig {
+        cwd: "/tmp".to_string(),
+        api_key: Some("test-key".to_string()),
+        base_url: Some("http://localhost:8080".to_string()),
+        model: "claude-sonnet-4-6".to_string(),
+        tool_pool: vec![],
+        abort_controller: std::sync::Arc::new(AbortController::new(50)),
+        can_use_tool: None,
+        on_event: None,
+        thinking: None,
+        parent_messages: vec![],
+        parent_user_context: std::collections::HashMap::new(),
+        parent_system_context: std::collections::HashMap::new(),
+    };
+    let tool = AgentTool::new(config);
+
+    // Verify name
+    assert_eq!(tool.name(), "Agent");
+
+    // Verify description contains key terms
+    let desc = tool.description();
+    assert!(desc.contains("agent"), "Description should mention agent");
+    assert!(
+        desc.contains("autonomously"),
+        "Description should mention autonomous operation"
+    );
+
+    // Verify input schema
+    let schema = tool.input_schema();
+    assert_eq!(schema.schema_type, "object");
+    let props = schema.properties.as_object().expect("properties should be an object");
+    assert!(props.contains_key("description"), "Schema should have 'description' property");
+    assert!(props.contains_key("prompt"), "Schema should have 'prompt' property");
+    assert!(props.contains_key("subagent_type"), "Schema should have 'subagent_type' property");
+    assert!(props.contains_key("model"), "Schema should have 'model' property");
+    assert!(props.contains_key("max_turns"), "Schema should have 'max_turns' property");
+    assert!(
+        props.contains_key("run_in_background"),
+        "Schema should have 'run_in_background' property"
+    );
+    assert!(props.contains_key("name"), "Schema should have 'name' property");
+    assert!(props.contains_key("team_name"), "Schema should have 'team_name' property");
+    assert!(props.contains_key("mode"), "Schema should have 'mode' property");
+    assert!(props.contains_key("cwd"), "Schema should have 'cwd' property");
+    assert!(props.contains_key("isolation"), "Schema should have 'isolation' property");
+
+    // Verify required fields
+    let required = schema.required.as_ref().expect("required should be set");
+    assert!(required.contains(&"description".to_string()));
+    assert!(required.contains(&"prompt".to_string()));
+
+    // Verify config accessor
+    let cfg = tool.config();
+    assert_eq!(cfg.cwd, "/tmp");
+    assert_eq!(cfg.model, "claude-sonnet-4-6");
+}
+
+/// Test that AgentToolConfig is cloneable and preserves all fields.
+#[test]
+fn test_agent_tool_config_clone() {
+    use crate::tools::agent::AgentToolConfig;
+    use crate::utils::AbortController;
+
+    let config = AgentToolConfig {
+        cwd: "/test/path".to_string(),
+        api_key: Some("my-key".to_string()),
+        base_url: Some("http://example.com".to_string()),
+        model: "test-model".to_string(),
+        tool_pool: vec![],
+        abort_controller: std::sync::Arc::new(AbortController::new(50)),
+        can_use_tool: None,
+        on_event: None,
+        thinking: None,
+        parent_messages: vec![],
+        parent_user_context: std::collections::HashMap::new(),
+        parent_system_context: std::collections::HashMap::new(),
+    };
+
+    let cloned = config.clone();
+    assert_eq!(cloned.cwd, config.cwd);
+    assert_eq!(cloned.api_key, config.api_key);
+    assert_eq!(cloned.base_url, config.base_url);
+    assert_eq!(cloned.model, config.model);
+}
+
+/// Test that create_agent_tool_executor produces a valid closure.
+#[test]
+fn test_create_agent_tool_executor() {
+    use crate::tools::agent::{AgentTool, AgentToolConfig, create_agent_tool_executor};
+    use crate::tools::types::Tool;
+    use crate::types::ToolContext;
+    use crate::utils::AbortController;
+    use std::sync::Arc;
+
+    let config = AgentToolConfig {
+        cwd: "/tmp".to_string(),
+        api_key: None,
+        base_url: None,
+        model: "test".to_string(),
+        tool_pool: vec![],
+        abort_controller: Arc::new(AbortController::new(50)),
+        can_use_tool: None,
+        on_event: None,
+        thinking: None,
+        parent_messages: vec![],
+        parent_user_context: std::collections::HashMap::new(),
+        parent_system_context: std::collections::HashMap::new(),
+    };
+    let tool = Arc::new(AgentTool::new(config));
+
+    // Verify the tool name before creating executor
+    assert_eq!(tool.name(), "Agent");
+
+    // Create the executor closure
+    let executor = create_agent_tool_executor(Arc::clone(&tool));
+
+    // Verify the executor is callable (will fail at runtime since no real API,
+    // but the closure should be constructable and type-correct)
+    let ctx = ToolContext::default();
+    let input = serde_json::json!({
+        "description": "test agent",
+        "prompt": "do something"
+    });
+
+    // Calling the executor returns a future; we can verify it compiles and produces a future.
+    // We don't actually .await it here because it would try to make a real API call.
+    let _future = executor(input, &ctx);
+}
+
+/// Test that the AgentTool schema matches the one in tools/types.rs agent_schema().
+#[test]
+fn test_agent_tool_schema_matches_definition() {
+    use crate::tools::agent::{AgentTool, AgentToolConfig};
+    use crate::tools::types::Tool;
+    use crate::utils::AbortController;
+
+    let tool = AgentTool::new(AgentToolConfig {
+        cwd: "/tmp".to_string(),
+        api_key: None,
+        base_url: None,
+        model: "test".to_string(),
+        tool_pool: vec![],
+        abort_controller: std::sync::Arc::new(AbortController::new(50)),
+        can_use_tool: None,
+        on_event: None,
+        thinking: None,
+        parent_messages: vec![],
+        parent_user_context: std::collections::HashMap::new(),
+        parent_system_context: std::collections::HashMap::new(),
+    });
+
+    let schema = tool.input_schema();
+
+    // Verify property types
+    let props = schema.properties.as_object().unwrap();
+    assert_eq!(props["description"]["type"].as_str(), Some("string"));
+    assert_eq!(props["prompt"]["type"].as_str(), Some("string"));
+    assert_eq!(props["subagent_type"]["type"].as_str(), Some("string"));
+    assert_eq!(props["model"]["type"].as_str(), Some("string"));
+    assert_eq!(props["max_turns"]["type"].as_str(), Some("number"));
+    assert_eq!(props["run_in_background"]["type"].as_str(), Some("boolean"));
+    assert_eq!(props["isolation"]["type"].as_str(), Some("string"));
+    assert!(
+        props["isolation"]["enum"]
+            .as_array()
+            .map(|a| {
+                a.contains(&serde_json::json!("worktree"))
+                    && a.contains(&serde_json::json!("remote"))
+            })
+            .unwrap_or(false),
+        "isolation enum should contain 'worktree' and 'remote'"
+    );
+}

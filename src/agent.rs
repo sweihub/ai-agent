@@ -43,7 +43,7 @@ use std::sync::Arc;
 use tokio::sync::{Mutex as TokioMutex, mpsc};
 
 /// Register all built-in tool executors
-fn register_all_tool_executors(engine: &mut QueryEngine) {
+pub(crate) fn register_all_tool_executors(engine: &mut QueryEngine) {
     type BoxFuture<T> = std::pin::Pin<Box<dyn std::future::Future<Output = T> + Send>>;
 
     // Bash tool - clone tool and ctx into async block
@@ -1200,205 +1200,28 @@ impl Agent {
         // Register all tool executors (including Bash, Read, Write, etc.)
         register_all_tool_executors(&mut engine);
 
-        // Register Agent tool executor with full parameter support
-        let subagent_abort = inner.abort_controller.clone();
-        let agent_tool_executor = move |input: serde_json::Value,
-                                        _ctx: &ToolContext|
-              -> std::pin::Pin<
-            Box<dyn std::future::Future<Output = Result<ToolResult, AgentError>> + Send>,
-        > {
-            let cwd = cwd.clone();
-            let api_key = api_key.clone();
-            let base_url = base_url.clone();
-            let model = model.clone();
-            let subagent_abort = subagent_abort.clone();
-            let parent_can_use_tool = parent_can_use_tool.clone();
-            let parent_on_event = parent_on_event.clone();
-            let parent_thinking = parent_thinking.clone();
-
-            Box::pin(async move {
-                // Extract ALL parameters from input
-                let description = input["description"].as_str().unwrap_or("subagent").to_string();
-                let subagent_prompt = input["prompt"].as_str().unwrap_or("").to_string();
-                let subagent_model = input["model"]
-                    .as_str()
-                    .map(|s| s.to_string())
-                    .unwrap_or_else(|| model.clone());
-                let max_turns = input["max_turns"]
-                    .as_u64()
-                    .or_else(|| input["maxTurns"].as_u64()) // Support camelCase too
-                    .unwrap_or(10) as u32;
-
-                // NEW: Extract subagent_type
-                let subagent_type = input["subagent_type"]
-                    .as_str()
-                    .or_else(|| input["subagentType"].as_str())
-                    .map(|s| s.to_string());
-
-                // Extract run_in_background — spawns the subagent in a tokio task
-                let run_in_background = input["run_in_background"]
-                    .as_bool()
-                    .or_else(|| input["runInBackground"].as_bool())
-                    .unwrap_or(false);
-
-                // NEW: Extract name
-                let agent_name = input["name"].as_str().map(|s| s.to_string());
-
-                // NEW: Extract team_name
-                let _team_name = input["team_name"]
-                    .as_str()
-                    .or_else(|| input["teamName"].as_str())
-                    .map(|s| s.to_string());
-
-                // NEW: Extract mode (permission mode - ignored for now)
-                let _mode = input["mode"].as_str().map(|s| s.to_string());
-
-                // NEW: Extract cwd (working directory override)
-                let subagent_cwd = input["cwd"]
-                    .as_str()
-                    .map(|s| s.to_string())
-                    .unwrap_or_else(|| cwd.clone());
-
-                // NEW: Extract isolation
-                let _isolation = input["isolation"].as_str().map(|s| s.to_string());
-
-                // Build system prompt for subagent
-                let system_prompt =
-                    build_agent_system_prompt(&description, subagent_type.as_deref());
-
-                // Create sub-agent engine with proper system prompt
-                let mut sub_engine = QueryEngine::new(QueryEngineConfig {
-                    cwd: subagent_cwd,
-                    model: subagent_model.to_string(),
-                    api_key,
-                    base_url,
-                    tools: crate::tools::get_all_base_tools(),
-                    system_prompt: Some(system_prompt),
-                    max_turns,
-                    max_budget_usd: None,
-                    max_tokens: 16384,
-                    fallback_model: None,
-                    user_context: std::collections::HashMap::new(),
-                    system_context: std::collections::HashMap::new(),
-                    can_use_tool: parent_can_use_tool,
-                    on_event: parent_on_event,
-                    thinking: parent_thinking,
-                    abort_controller: Some(subagent_abort.clone()),
-                    token_budget: None,
-                    agent_id: agent_name.clone().or_else(|| Some(description.to_string())),
-                    loaded_nested_memory_paths: std::collections::HashSet::new(),
-                });
-                register_all_tool_executors(&mut sub_engine);
-
-                // Initialize agent MCP servers — merges MCP tools into subagent engine
-                let mcp_result = {
-                    let mcp_servers =
-                        crate::services::mcp::agent_mcp::parse_agent_mcp_servers(&input);
-                    if !mcp_servers.is_empty() {
-                        let result =
-                            crate::services::mcp::agent_mcp::initialize_agent_mcp_servers(
-                                &mcp_servers, None,
-                            )
-                            .await;
-
-                        // Merge MCP tool definitions into sub_engine's tool list
-                        let mcp_tool_count = result.tools.len();
-                        let mcp_conn_count = result.connections.len();
-                        if mcp_tool_count > 0 {
-                            for mcp_tool in &result.tools {
-                                sub_engine
-                                    .config
-                                    .tools
-                                    .push(mcp_tool.clone());
-
-                                // Register MCP tool executor via registry
-                                let mcp_registry =
-                                    crate::services::mcp::tool_executor::McpToolRegistry::new();
-                                let executor = crate::services::mcp::tool_executor::
-                                    create_named_mcp_executor(
-                                    mcp_registry,
-                                    &mcp_tool.name,
-                                );
-                                sub_engine.register_tool(mcp_tool.name.clone(), executor);
-                            }
-
-                            log::info!(
-                                "[Subagent: {}] Added {} MCP tools from {} server(s)",
-                                description,
-                                mcp_tool_count,
-                                mcp_conn_count
-                            );
-                        }
-
-                        Some(result)
-                    } else {
-                        None
-                    }
-                };
-
-                // Execute subagent task
-                let result: Result<ToolResult, AgentError> = if run_in_background {
-                    // Spawn subagent in a tokio task and return immediately with a task ID
-                    let task_id = uuid::Uuid::new_v4().to_string();
-                    let task_id_clone = task_id.clone();
-                    let prompt = subagent_prompt.clone();
-                    let desc = description.clone();
-                    tokio::spawn(async move {
-                        match sub_engine.submit_message(&prompt).await {
-                            Ok((result_text, _)) => {
-                                log::info!("[BackgroundAgent:{task_id}] {desc}: {result_text}");
-                            }
-                            Err(e) => {
-                                log::error!("[BackgroundAgent:{task_id}] {desc}: {e}");
-                            }
-                        }
-                    });
-                    Ok(ToolResult {
-                        result_type: "text".to_string(),
-                        tool_use_id: "agent_tool".to_string(),
-                        content: format!(
-                            "[Background subagent '{}'] Task {} started. Use TaskOutput(task_id=\"{}\") to retrieve results.",
-                            description, task_id_clone, task_id_clone
-                        ),
-                        is_error: Some(false),
-                        was_persisted: None,
-                    })
-                } else {
-                    match sub_engine.submit_message(&subagent_prompt).await {
-                        Ok((result_text, _)) => {
-                            let mut content = format!("[Subagent: {}]", description);
-                            if let Some(ref name) = agent_name {
-                                content = format!("[Subagent: {} ({})]", description, name);
-                            }
-                            content = format!("{}\n\n{}", content, result_text);
-                            Ok(ToolResult {
-                                result_type: "text".to_string(),
-                                tool_use_id: "agent_tool".to_string(),
-                                content,
-                                is_error: Some(false),
-                                was_persisted: None,
-                            })
-                        }
-                        Err(e) => Ok(ToolResult {
-                            result_type: "text".to_string(),
-                            tool_use_id: "agent_tool".to_string(),
-                            content: format!("[Subagent: {}] Error: {}", description, e),
-                            is_error: Some(true),
-                            was_persisted: None,
-                        }),
-                    }
-                };
-
-                // Cleanup MCP connections after subagent completion
-                if let Some(mcp_result) = mcp_result {
-                    (mcp_result.cleanup)();
-                }
-
-                result
-            })
-        };
-
-        engine.register_tool("Agent".to_string(), agent_tool_executor);
+        // Register Agent tool using the AgentTool struct
+        {
+            use crate::tools::agent::{AgentTool, AgentToolConfig, create_agent_tool_executor};
+            let agent_tool = Arc::new(AgentTool::new(AgentToolConfig {
+                cwd: cwd.clone(),
+                api_key: api_key.clone(),
+                base_url: base_url.clone(),
+                model: model.clone(),
+                tool_pool: crate::tools::get_all_base_tools(),
+                abort_controller: inner.abort_controller.clone(),
+                can_use_tool: parent_can_use_tool,
+                on_event: parent_on_event,
+                thinking: parent_thinking,
+                parent_messages: Vec::new(),
+                parent_user_context: std::collections::HashMap::new(),
+                parent_system_context: std::collections::HashMap::new(),
+            }));
+            engine.register_tool(
+                "Agent".to_string(),
+                create_agent_tool_executor(agent_tool),
+            );
+        }
         let tool_call_id = uuid::Uuid::new_v4().to_string();
         engine.execute_tool(name, input, tool_call_id).await
     }
@@ -1524,169 +1347,28 @@ impl Agent {
             let engine_can_use_tool = eng.config.can_use_tool.clone();
             let engine_on_event = eng.config.on_event.clone();
 
-            let agent_tool_executor = move |input: serde_json::Value,
-                                            _ctx: &ToolContext|
-                  -> std::pin::Pin<
-                Box<dyn std::future::Future<Output = Result<ToolResult, AgentError>> + Send>,
-            > {
-                let cwd = engine_cwd.clone();
-                let api_key = engine_api_key.clone();
-                let base_url = engine_base_url.clone();
-                let model = engine_model.clone();
-                let tool_pool = engine_tools.clone();
-                let subagent_abort = subagent_abort.clone();
-                let parent_messages = engine_messages.clone();
-                let parent_user_context = engine_user_context.clone();
-                let parent_system_context = engine_system_context.clone();
-                let parent_thinking = engine_thinking.clone();
-                let parent_can_use_tool = engine_can_use_tool.clone();
-                let parent_on_event = engine_on_event.clone();
-
-                Box::pin(async move {
-                    let description = input["description"].as_str().unwrap_or("subagent").to_string();
-                    let subagent_prompt = input["prompt"].as_str().unwrap_or("").to_string();
-                    let subagent_model = input["model"]
-                        .as_str()
-                        .map(|s| s.to_string())
-                        .unwrap_or_else(|| model.clone());
-                    let max_turns = input["max_turns"]
-                        .as_u64()
-                        .or_else(|| input["maxTurns"].as_u64())
-                        .unwrap_or(10) as u32;
-
-                    let subagent_type = input["subagent_type"]
-                        .as_str()
-                        .or_else(|| input["subagentType"].as_str())
-                        .map(|s| s.to_string());
-
-                    let run_in_background = input["run_in_background"]
-                        .as_bool()
-                        .or_else(|| input["runInBackground"].as_bool())
-                        .unwrap_or(false);
-
-                    let agent_name = input["name"].as_str().map(|s| s.to_string());
-
-                    let _team_name = input["team_name"]
-                        .as_str()
-                        .or_else(|| input["teamName"].as_str())
-                        .map(|s| s.to_string());
-
-                    let _mode = input["mode"].as_str().map(|s| s.to_string());
-
-                    let subagent_cwd = input["cwd"]
-                        .as_str()
-                        .map(|s| s.to_string())
-                        .unwrap_or_else(|| cwd.clone());
-
-                    let _isolation = input["isolation"].as_str().map(|s| s.to_string());
-
-                    // Fork subagent detection: when no subagent_type is specified AND fork is enabled
-                    let is_fork = subagent_type.is_none()
-                        && crate::tools::agent::prompt::is_fork_subagent_enabled()
-                        && !parent_messages.iter().any(|m| {
-                            m.role == crate::types::MessageRole::User
-                                && m.content.contains(crate::tools::agent::constants::FORK_BOILERPLATE_TAG)
-                        });
-
-                    let system_prompt =
-                        build_agent_system_prompt(&description, subagent_type.as_deref());
-
-                    let mut sub_engine = QueryEngine::new(QueryEngineConfig {
-                        cwd: subagent_cwd,
-                        model: subagent_model.to_string(),
-                        api_key,
-                        base_url,
-                        tools: tool_pool,
-                        system_prompt: Some(system_prompt),
-                        max_turns,
-                        max_budget_usd: None,
-                        max_tokens: 16384,
-                        fallback_model: None,
-                        user_context: std::collections::HashMap::new(),
-                        system_context: std::collections::HashMap::new(),
-                        can_use_tool: parent_can_use_tool,
-                        on_event: parent_on_event,
-                        thinking: parent_thinking.clone(),
-                        abort_controller: Some(subagent_abort.clone()),
-                        token_budget: None,
-                        agent_id: agent_name.clone().or_else(|| Some(description.to_string())),
-                        loaded_nested_memory_paths: std::collections::HashSet::new(),
-                    });
-                    register_all_tool_executors(&mut sub_engine);
-
-                    // Fork subagent: configure cache-safe params and forked messages
-                    if is_fork {
-                        // Empty system prompt for prompt cache sharing with parent
-                        sub_engine.config.system_prompt = Some(String::new());
-                        // Inherit parent's context for cache sharing
-                        sub_engine.config.user_context = parent_user_context.clone();
-                        sub_engine.config.system_context = parent_system_context.clone();
-                        sub_engine.config.thinking = parent_thinking.clone();
-                        // Use fork agent definition's max_turns
-                        let fork_agent = crate::tools::agent::fork_subagent::fork_agent();
-                        sub_engine.config.max_turns = fork_agent.max_turns.unwrap_or(200) as u32;
-                        // Build forked messages for prompt cache sharing
-                        let forked_messages = crate::tools::agent::fork_subagent::build_forked_messages_from_sdk(
-                            &parent_messages,
-                            &subagent_prompt,
-                        );
-                        sub_engine.set_messages(forked_messages);
-                    }
-
-                    if run_in_background {
-                        let task_id = uuid::Uuid::new_v4().to_string();
-                        let task_id_display = task_id.clone();
-                        let prompt = subagent_prompt.clone();
-                        let desc = description.clone();
-                        tokio::spawn(async move {
-                            match sub_engine.submit_message(&prompt).await {
-                                Ok((result_text, _)) => {
-                                    log::info!("[BackgroundAgent:{task_id}] {desc}: {result_text}");
-                                }
-                                Err(e) => {
-                                    log::error!("[BackgroundAgent:{task_id}] {desc}: {e}");
-                                }
-                            }
-                        });
-                        Ok(ToolResult {
-                            result_type: "text".to_string(),
-                            tool_use_id: "agent_tool".to_string(),
-                            content: format!(
-                                "[Background subagent '{}'] Task {} started. Use TaskOutput(task_id=\"{}\") to retrieve results.",
-                                description, task_id_display, task_id_display
-                            ),
-                            is_error: Some(false),
-                            was_persisted: None,
-                        })
-                    } else {
-                        match sub_engine.submit_message(&subagent_prompt).await {
-                            Ok((result_text, _)) => {
-                                let mut content = format!("[Subagent: {}]", description);
-                                if let Some(ref name) = agent_name {
-                                    content = format!("[Subagent: {} ({})]", description, name);
-                                }
-                                content = format!("{}\n\n{}", content, result_text);
-                                Ok(ToolResult {
-                                    result_type: "text".to_string(),
-                                    tool_use_id: "agent_tool".to_string(),
-                                    content,
-                                    is_error: Some(false),
-                                    was_persisted: None,
-                                })
-                            }
-                            Err(e) => Ok(ToolResult {
-                                result_type: "text".to_string(),
-                                tool_use_id: "agent_tool".to_string(),
-                                content: format!("[Subagent: {}] Error: {}", description, e),
-                                is_error: Some(true),
-                                was_persisted: None,
-                            }),
-                        }
-                    }
-                })
-            };
-
-            eng.register_tool("Agent".to_string(), agent_tool_executor);
+            // Register Agent tool using the AgentTool struct (with fork support)
+            {
+                use crate::tools::agent::{AgentTool, AgentToolConfig, create_agent_tool_executor};
+                let agent_tool = Arc::new(AgentTool::new(AgentToolConfig {
+                    cwd: engine_cwd,
+                    api_key: engine_api_key,
+                    base_url: engine_base_url,
+                    model: engine_model,
+                    tool_pool: engine_tools,
+                    abort_controller: subagent_abort,
+                    can_use_tool: engine_can_use_tool,
+                    on_event: engine_on_event,
+                    thinking: engine_thinking,
+                    parent_messages: engine_messages,
+                    parent_user_context: engine_user_context,
+                    parent_system_context: engine_system_context,
+                }));
+                eng.register_tool(
+                    "Agent".to_string(),
+                    create_agent_tool_executor(agent_tool),
+                );
+            }
 
             // Run the query — collect results before dropping the lock
             let result = eng.submit_message(prompt).await?;
@@ -1793,7 +1475,7 @@ impl Agent {
 }
 
 /// Build system prompt for subagent based on agent type
-pub(super) fn build_agent_system_prompt(
+pub(crate) fn build_agent_system_prompt(
     agent_description: &str,
     agent_type: Option<&str>,
 ) -> String {

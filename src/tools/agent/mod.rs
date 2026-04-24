@@ -1,5 +1,6 @@
 // Source: ~/claudecode/openclaudecode/src/tools/AgentTool/
 pub mod agent_color_manager;
+pub mod agent_tool;
 pub mod agent_display;
 pub mod agent_memory;
 pub mod agent_memory_snapshot;
@@ -18,6 +19,7 @@ use std::sync::{LazyLock, Mutex};
 
 // Re-export commonly used types
 pub use agent_color_manager::AgentColorName;
+pub use agent_tool::{AgentTool, AgentToolConfig, create_agent_tool_executor};
 pub use load_agents_dir::AgentDefinition;
 
 /// Global agent color map
