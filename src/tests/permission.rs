@@ -294,8 +294,162 @@ fn test_permission_mode_plan() {
 fn test_permission_mode_auto() {
     let ctx = PermissionContext::new().with_mode(PermissionMode::Auto);
     let result = ctx.check_tool("Bash", None);
-    // Auto mode should ask by default
+    // Auto mode should ask by default for non-allowlisted tools
     assert!(result.is_ask());
+}
+
+// =====================================================================
+// Auto Mode - Allowlisted Tools
+// =====================================================================
+
+#[test]
+fn test_permission_mode_auto_allows_file_read() {
+    let ctx = PermissionContext::new().with_mode(PermissionMode::Auto);
+    let result = ctx.check_tool("FileRead", None);
+    assert!(result.is_allowed(), "FileRead should be allowed in auto mode");
+}
+
+#[test]
+fn test_permission_mode_auto_allows_grep() {
+    let ctx = PermissionContext::new().with_mode(PermissionMode::Auto);
+    let result = ctx.check_tool("Grep", None);
+    assert!(result.is_allowed(), "Grep should be allowed in auto mode");
+}
+
+#[test]
+fn test_permission_mode_auto_allows_glob() {
+    let ctx = PermissionContext::new().with_mode(PermissionMode::Auto);
+    let result = ctx.check_tool("Glob", None);
+    assert!(result.is_allowed(), "Glob should be allowed in auto mode");
+}
+
+#[test]
+fn test_permission_mode_auto_allows_todo_write() {
+    let ctx = PermissionContext::new().with_mode(PermissionMode::Auto);
+    let result = ctx.check_tool("TodoWrite", None);
+    assert!(result.is_allowed(), "TodoWrite should be allowed in auto mode");
+}
+
+#[test]
+fn test_permission_mode_auto_asks_bash() {
+    let ctx = PermissionContext::new().with_mode(PermissionMode::Auto);
+    let result = ctx.check_tool("Bash", None);
+    assert!(result.is_ask(), "Bash should ask in auto mode");
+    // Verify the message contains "auto-classification"
+    let msg = result.message().unwrap();
+    assert!(
+        msg.contains("auto-classification"),
+        "Message should mention auto-classification, got: {}",
+        msg
+    );
+}
+
+#[test]
+fn test_permission_mode_auto_asks_agent() {
+    let ctx = PermissionContext::new().with_mode(PermissionMode::Auto);
+    let result = ctx.check_tool("Agent", None);
+    assert!(result.is_ask(), "Agent should ask in auto mode");
+}
+
+#[test]
+fn test_permission_mode_auto_asks_write() {
+    let ctx = PermissionContext::new().with_mode(PermissionMode::Auto);
+    let result = ctx.check_tool("Write", None);
+    assert!(result.is_ask(), "Write should ask in auto mode");
+}
+
+#[test]
+fn test_permission_mode_auto_asks_edit() {
+    let ctx = PermissionContext::new().with_mode(PermissionMode::Auto);
+    let result = ctx.check_tool("Edit", None);
+    assert!(result.is_ask(), "Edit should ask in auto mode");
+}
+
+// =====================================================================
+// Auto Mode - Denial Tracking
+// =====================================================================
+
+#[test]
+fn test_permission_mode_auto_denial_tracking_resets_on_allow() {
+    let dt = crate::utils::permissions::denial_tracking::DenialTrackingState {
+        consecutive_denials: 5,
+        total_denials: 10,
+    };
+    let ctx = PermissionContext::new()
+        .with_mode(PermissionMode::Auto)
+        .with_denial_tracking(dt);
+
+    // Check an allowlisted tool (resets consecutive denials)
+    let _ = ctx.check_tool("FileRead", None);
+
+    let dt = ctx.denial_tracking.read().unwrap();
+    assert_eq!(dt.consecutive_denials, 0, "consecutive denials should be reset");
+    assert_eq!(dt.total_denials, 10, "total denials should be preserved");
+}
+
+#[test]
+fn test_permission_mode_auto_denial_tracking_counts_consecutive() {
+    let ctx = PermissionContext::new().with_mode(PermissionMode::Auto);
+
+    // Check 3 non-allowlisted tools
+    for _ in 0..3 {
+        let _ = ctx.check_tool("Bash", None);
+    }
+
+    let dt = ctx.denial_tracking.read().unwrap();
+    assert_eq!(dt.consecutive_denials, 3);
+    assert_eq!(dt.total_denials, 3);
+}
+
+#[test]
+fn test_permission_mode_auto_fallback_message_after_limit() {
+    let ctx = PermissionContext::new().with_mode(PermissionMode::Auto);
+
+    // Trigger 3 consecutive denials (hitting the limit of 3)
+    for _ in 0..3 {
+        let _ = ctx.check_tool("Bash", None);
+    }
+
+    // The 4th check should include the fallback message
+    let result = ctx.check_tool("Agent", None);
+    let msg = result.message().unwrap();
+    assert!(
+        msg.contains("failed repeatedly"),
+        "Message should include fallback warning after limit, got: {}",
+        msg
+    );
+}
+
+// =====================================================================
+// Auto Mode - Rule Overrides
+// =====================================================================
+
+#[test]
+fn test_permission_mode_auto_deny_rules_override_allowlist() {
+    // Deny rules take precedence over auto mode allowlist
+    let ctx = PermissionContext::new()
+        .with_mode(PermissionMode::Auto)
+        .with_deny_rule(PermissionRule::deny("FileRead"));
+
+    let result = ctx.check_tool("FileRead", None);
+    assert!(
+        result.is_denied(),
+        "Deny rule should override auto mode allowlist"
+    );
+}
+
+#[test]
+fn test_permission_mode_auto_allow_rules_override_mode() {
+    // Allow rules take precedence over mode
+    let ctx = PermissionContext::new()
+        .with_mode(PermissionMode::Auto)
+        .with_allow_rule(PermissionRule::allow("Bash"));
+
+    let result = ctx.check_tool("Bash", None);
+    assert!(
+        result.is_allowed(),
+        "Allow rule should override auto mode default"
+    );
 }
 
 #[test]

@@ -368,7 +368,6 @@ impl PermissionResult {
 }
 
 /// Permission context for checking tool access
-#[derive(Debug, Clone, Default)]
 pub struct PermissionContext {
     /// Current permission mode
     pub mode: PermissionMode,
@@ -378,6 +377,46 @@ pub struct PermissionContext {
     pub deny_rules: Vec<PermissionRule>,
     /// Always ask rules
     pub ask_rules: Vec<PermissionRule>,
+    /// Denial tracking state
+    pub denial_tracking: std::sync::RwLock<crate::utils::permissions::denial_tracking::DenialTrackingState>,
+}
+
+impl std::fmt::Debug for PermissionContext {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("PermissionContext")
+            .field("mode", &self.mode)
+            .field("allow_rules", &self.allow_rules)
+            .field("deny_rules", &self.deny_rules)
+            .field("ask_rules", &self.ask_rules)
+            .finish_non_exhaustive()
+    }
+}
+
+impl Clone for PermissionContext {
+    fn clone(&self) -> Self {
+        let dt = self.denial_tracking.read().map(|dt| *dt).unwrap_or_default();
+        Self {
+            mode: self.mode,
+            allow_rules: self.allow_rules.clone(),
+            deny_rules: self.deny_rules.clone(),
+            ask_rules: self.ask_rules.clone(),
+            denial_tracking: std::sync::RwLock::new(dt),
+        }
+    }
+}
+
+impl Default for PermissionContext {
+    fn default() -> Self {
+        Self {
+            mode: PermissionMode::default(),
+            allow_rules: Vec::new(),
+            deny_rules: Vec::new(),
+            ask_rules: Vec::new(),
+            denial_tracking: std::sync::RwLock::new(
+                crate::utils::permissions::denial_tracking::DenialTrackingState::default(),
+            ),
+        }
+    }
 }
 
 impl PermissionContext {
@@ -407,6 +446,16 @@ impl PermissionContext {
     /// Add an ask rule
     pub fn with_ask_rule(mut self, rule: PermissionRule) -> Self {
         self.ask_rules.push(rule);
+        self
+    }
+
+    /// Set denial tracking state
+    pub fn with_denial_tracking(
+        mut self,
+        state: crate::utils::permissions::denial_tracking::DenialTrackingState,
+    ) -> Self {
+        let guard = self.denial_tracking.get_mut().unwrap();
+        *guard = state;
         self
     }
 
@@ -545,6 +594,42 @@ impl PermissionContext {
                         },
                     ));
                 }
+            }
+            PermissionMode::Auto => {
+                if crate::utils::permissions::classifier_decision::is_auto_mode_allowlisted_tool(
+                    tool_name,
+                ) {
+                    if let Ok(mut dt) = self.denial_tracking.write() {
+                        *dt = crate::utils::permissions::denial_tracking::record_success(*dt);
+                    }
+                    return PermissionResult::Allow(
+                        PermissionAllowDecision::new()
+                            .with_reason(PermissionDecisionReason::Mode {
+                                mode: PermissionMode::Auto,
+                            }),
+                    );
+                }
+                // Record denial
+                if let Ok(mut dt) = self.denial_tracking.write() {
+                    *dt = crate::utils::permissions::denial_tracking::record_denial(*dt);
+                }
+                let should_fallback = if let Ok(dt) = self.denial_tracking.read() {
+                    crate::utils::permissions::denial_tracking::should_fallback_to_prompting(*dt)
+                } else {
+                    false
+                };
+                let mut msg = format!("Tool '{}' requires auto-classification", tool_name);
+                if should_fallback {
+                    msg = format!(
+                        "{}. Auto mode has failed repeatedly — consider switching to a different permission mode.",
+                        msg
+                    );
+                }
+                return PermissionResult::Ask(
+                    PermissionAskDecision::new(&msg).with_reason(PermissionDecisionReason::Mode {
+                        mode: PermissionMode::Auto,
+                    }),
+                );
             }
             _ => {}
         }

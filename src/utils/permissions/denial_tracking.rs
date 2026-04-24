@@ -6,7 +6,7 @@
 //! when to fall back to prompting.
 
 /// State for tracking permission denials.
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Default)]
 pub struct DenialTrackingState {
     pub consecutive_denials: u32,
     pub total_denials: u32,
