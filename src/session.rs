@@ -448,6 +448,96 @@ impl SessionEntry {
             ),
         }
     }
+
+    /// Create a sidechain (subagent) message entry
+    pub fn sidechain_message(message: &Message, agent_id: &str, parent_uuid: Option<&str>) -> Self {
+        let mut data_obj = serde_json::to_value(message).unwrap_or(serde_json::Value::Null);
+        if let Some(obj) = data_obj.as_object_mut() {
+            obj.insert("agentId".to_string(), serde_json::json!(agent_id));
+            obj.insert("isSidechain".to_string(), serde_json::json!(true));
+            if let Some(uuid) = parent_uuid {
+                obj.insert("parentUuid".to_string(), serde_json::json!(uuid));
+            }
+        }
+        Self {
+            timestamp: Some(chrono::Utc::now().to_rfc3339()),
+            entry_type: Some("message".to_string()),
+            data: Some(data_obj),
+        }
+    }
+}
+
+/// Get the sidechain .jsonl path for a subagent's transcript within a session.
+/// Sidechain transcripts are stored as {session_id}/sidechains/{agent_id}.jsonl
+pub fn get_sidechain_jsonl_path(session_id: &str, agent_id: &str) -> PathBuf {
+    get_session_path(session_id)
+        .join("sidechains")
+        .join(format!("{}.jsonl", agent_id))
+}
+
+/// Record a sidechain (subagent) transcript message.
+///
+/// Mirrors TS `recordSidechainTranscript(messages, agentId?, startingParentUuid?)`.
+/// Writes messages to the session's sidechain subdirectory.
+pub async fn record_sidechain_transcript(
+    session_id: &str,
+    messages: &[Message],
+    agent_id: &str,
+    starting_parent_uuid: Option<String>,
+) -> Result<(), crate::error::AgentError> {
+    let mut current_parent_uuid = starting_parent_uuid;
+
+    for message in messages {
+        let entry =
+            SessionEntry::sidechain_message(message, agent_id, current_parent_uuid.as_deref());
+
+        // Write to sidechain-specific file
+        let path = get_sidechain_jsonl_path(session_id, agent_id);
+        fs::create_dir_all(path.parent().unwrap())
+            .await
+            .map_err(crate::error::AgentError::Io)?;
+
+        let line =
+            crate::cli_ndjson_safe_stringify::serialize_to_ndjson(&entry)
+                .map_err(crate::error::AgentError::Json)?;
+        let mut file = fs::OpenOptions::new()
+            .create(true)
+            .append(true)
+            .open(&path)
+            .await
+            .map_err(crate::error::AgentError::Io)?;
+        file.write_all(format!("{line}\n").as_bytes())
+            .await
+            .map_err(crate::error::AgentError::Io)?;
+
+        // Chain parent UUID for next message
+        current_parent_uuid = Some(uuid::Uuid::new_v4().to_string());
+    }
+
+    Ok(())
+}
+
+/// Insert a chain of messages into a session transcript.
+///
+/// Mirrors TS `insertMessageChain(messages, isSidechain, agentId, startingParentUuid)`.
+/// When `is_sidechain` is true, delegates to `record_sidechain_transcript`.
+/// When false, appends to the main session transcript.
+pub async fn insert_message_chain(
+    session_id: &str,
+    messages: &[Message],
+    is_sidechain: bool,
+    agent_id: Option<String>,
+    starting_parent_uuid: Option<String>,
+) -> Result<(), crate::error::AgentError> {
+    if is_sidechain {
+        let aid = agent_id.unwrap_or_else(|| "default".to_string());
+        record_sidechain_transcript(session_id, messages, &aid, starting_parent_uuid).await
+    } else {
+        for message in messages {
+            append_session_message(session_id, message).await?;
+        }
+        Ok(())
+    }
 }
 
 /// Get the .jsonl path for a session's NDJSON transcript.
@@ -1184,5 +1274,177 @@ mod ndjson_tests {
         }
         let _ = fs::remove_dir_all(get_session_path(&session_id1)).await;
         let _ = fs::remove_dir_all(get_session_path(&session_id2)).await;
+    }
+
+    #[tokio::test]
+    async fn test_sidechain_jsonl_path() {
+        let path = get_sidechain_jsonl_path("test-session", "agent-123");
+        assert!(path.to_string_lossy().contains("test-session"));
+        assert!(path.to_string_lossy().contains("sidechains"));
+        assert!(path.to_string_lossy().contains("agent-123.jsonl"));
+    }
+
+    #[tokio::test]
+    async fn test_record_sidechain_transcript() {
+        let session_id = format!("sidechain-test-{}", uuid::Uuid::new_v4());
+        let agent_id = "test-agent-001";
+
+        let msgs = vec![
+            Message {
+                role: crate::types::MessageRole::Assistant,
+                content: "subagent start".to_string(),
+                ..Default::default()
+            },
+            Message {
+                role: crate::types::MessageRole::User,
+                content: "tool result".to_string(),
+                ..Default::default()
+            },
+        ];
+
+        record_sidechain_transcript(&session_id, &msgs, agent_id, None)
+            .await
+            .unwrap();
+
+        // Verify sidechain file exists
+        let path = get_sidechain_jsonl_path(&session_id, agent_id);
+        assert!(path.exists());
+
+        // Verify content
+        let content = fs::read_to_string(&path).await.unwrap();
+        let lines: Vec<&str> = content.lines().collect();
+        assert_eq!(lines.len(), 2); // 2 messages
+
+        for line in &lines {
+            let entry: SessionEntry = serde_json::from_str(line).unwrap();
+            assert_eq!(entry.entry_type.as_deref(), Some("message"));
+            // Verify isSidechain and agentId are in the data
+            let data = entry.data.unwrap();
+            assert!(data.get("isSidechain").unwrap().as_bool().unwrap());
+            assert_eq!(
+                data.get("agentId").unwrap().as_str().unwrap(),
+                agent_id
+            );
+        }
+
+        // Cleanup
+        let _ = fs::remove_dir_all(get_session_path(&session_id)).await;
+    }
+
+    #[tokio::test]
+    async fn test_sidechain_parent_uuid_chaining() {
+        let session_id = format!("sidechain-uuid-{}", uuid::Uuid::new_v4());
+        let agent_id = "uuid-agent";
+
+        let starting_uuid = "start-uuid-123".to_string();
+        let msgs = vec![
+            Message {
+                role: crate::types::MessageRole::Assistant,
+                content: "msg1".to_string(),
+                ..Default::default()
+            },
+            Message {
+                role: crate::types::MessageRole::Assistant,
+                content: "msg2".to_string(),
+                ..Default::default()
+            },
+        ];
+
+        record_sidechain_transcript(&session_id, &msgs, agent_id, Some(starting_uuid))
+            .await
+            .unwrap();
+
+        let content =
+            fs::read_to_string(get_sidechain_jsonl_path(&session_id, agent_id))
+                .await
+                .unwrap();
+        let lines: Vec<&str> = content.lines().collect();
+
+        // First message should have the starting parent UUID
+        let first: SessionEntry = serde_json::from_str(lines[0]).unwrap();
+        assert_eq!(
+            first.data.unwrap().get("parentUuid").unwrap().as_str().unwrap(),
+            "start-uuid-123"
+        );
+
+        // Second message should have a different (auto-generated) parent UUID
+        let second: SessionEntry = serde_json::from_str(lines[1]).unwrap();
+        let second_data = second.data.unwrap();
+        let second_parent = second_data.get("parentUuid");
+        assert!(second_parent.is_some());
+        // It should NOT be the starting UUID (it's chained from the first)
+        assert_ne!(
+            second_parent.unwrap().as_str().unwrap(),
+            "start-uuid-123"
+        );
+
+        // Cleanup
+        let _ = fs::remove_dir_all(get_session_path(&session_id)).await;
+    }
+
+    #[tokio::test]
+    async fn test_insert_message_chain_sidechain() {
+        let session_id = format!("insert-chain-{}", uuid::Uuid::new_v4());
+        let msgs = vec![Message {
+            role: crate::types::MessageRole::Assistant,
+            content: "chain msg".to_string(),
+            ..Default::default()
+        }];
+
+        insert_message_chain(
+            &session_id,
+            &msgs,
+            true,
+            Some("chain-agent".to_string()),
+            None,
+        )
+        .await
+        .unwrap();
+
+        let path = get_sidechain_jsonl_path(&session_id, "chain-agent");
+        assert!(path.exists());
+
+        // Cleanup
+        let _ = fs::remove_dir_all(get_session_path(&session_id)).await;
+    }
+
+    #[tokio::test]
+    async fn test_insert_message_chain_main() {
+        let session_id = format!("insert-main-{}", uuid::Uuid::new_v4());
+        let msgs = vec![Message {
+            role: crate::types::MessageRole::User,
+            content: "main msg".to_string(),
+            ..Default::default()
+        }];
+
+        insert_message_chain(&session_id, &msgs, false, None, None)
+            .await
+            .unwrap();
+
+        // Should go to main session file, not sidechain
+        let path = get_jsonl_path(&session_id);
+        assert!(path.exists());
+
+        // Cleanup
+        let _ = fs::remove_dir_all(get_session_path(&session_id)).await;
+    }
+
+    #[tokio::test]
+    async fn test_sidechain_message_entry() {
+        let msg = Message {
+            role: crate::types::MessageRole::Assistant,
+            content: "test".to_string(),
+            ..Default::default()
+        };
+        let entry = SessionEntry::sidechain_message(&msg, "agent-1", Some("parent-uuid"));
+
+        assert_eq!(entry.entry_type.as_deref(), Some("message"));
+        let data = entry.data.unwrap();
+        assert!(data.get("isSidechain").unwrap().is_boolean());
+        assert_eq!(data.get("agentId").unwrap().as_str().unwrap(), "agent-1");
+        assert_eq!(
+            data.get("parentUuid").unwrap().as_str().unwrap(),
+            "parent-uuid"
+        );
     }
 }

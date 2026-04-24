@@ -1216,6 +1216,7 @@ impl Agent {
                 parent_messages: Vec::new(),
                 parent_user_context: std::collections::HashMap::new(),
                 parent_system_context: std::collections::HashMap::new(),
+                parent_session_id: None,
             }));
             engine.register_tool(
                 "Agent".to_string(),
@@ -1363,6 +1364,7 @@ impl Agent {
                     parent_messages: engine_messages,
                     parent_user_context: engine_user_context,
                     parent_system_context: engine_system_context,
+                    parent_session_id: None,
                 }));
                 eng.register_tool(
                     "Agent".to_string(),

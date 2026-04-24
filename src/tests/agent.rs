@@ -1212,6 +1212,7 @@ fn test_agent_tool_trait_implementation() {
         parent_messages: vec![],
         parent_user_context: std::collections::HashMap::new(),
         parent_system_context: std::collections::HashMap::new(),
+    parent_session_id: None,
     };
     let tool = AgentTool::new(config);
 
@@ -1275,6 +1276,7 @@ fn test_agent_tool_config_clone() {
         parent_messages: vec![],
         parent_user_context: std::collections::HashMap::new(),
         parent_system_context: std::collections::HashMap::new(),
+    parent_session_id: None,
     };
 
     let cloned = config.clone();
@@ -1306,6 +1308,7 @@ fn test_create_agent_tool_executor() {
         parent_messages: vec![],
         parent_user_context: std::collections::HashMap::new(),
         parent_system_context: std::collections::HashMap::new(),
+    parent_session_id: None,
     };
     let tool = Arc::new(AgentTool::new(config));
 
@@ -1348,6 +1351,7 @@ fn test_agent_tool_schema_matches_definition() {
         parent_messages: vec![],
         parent_user_context: std::collections::HashMap::new(),
         parent_system_context: std::collections::HashMap::new(),
+    parent_session_id: None,
     });
 
     let schema = tool.input_schema();

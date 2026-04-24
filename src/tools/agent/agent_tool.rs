@@ -32,6 +32,8 @@ pub struct AgentToolConfig {
     pub parent_user_context: HashMap<String, String>,
     /// Parent system context for fork subagent. Used in the query() path.
     pub parent_system_context: HashMap<String, String>,
+    /// Parent session ID for sidechain transcript recording.
+    pub parent_session_id: Option<String>,
 }
 
 /// A tool that spawns subagents to handle complex, multi-step tasks autonomously.
