@@ -1,7 +1,7 @@
 # Feature Gaps: TypeScript (claude code) → Rust Port
 
 Generated: 2026-04-23
-Last updated: 2026-04-24 (v0.55.0)
+Last updated: 2026-04-24 (v0.56.0)
 
 ## Resolved Gaps (v0.34.0 - v0.50.0)
 
@@ -46,6 +46,8 @@ Last updated: 2026-04-24 (v0.55.0)
 - ✅ Settings Persistence: `settings/mod.rs` with read/write/merge, `persist_permission_update()` wired, 12 tests
 - ✅ Skill Memoization: `load_all_skills_cached()` / `load_skills_from_dir_cached()` with LRU cache (50 entries), 5 tests
 - ✅ Skill Shell Permission Gating: `can_execute` callback in `execute_shell_commands_in_prompt()`, PowerShell fallback to bash, 7 tests
+- ✅ Pre/PostCompact hooks: Wired into snip, microcompact, and reactive compact paths in query_engine.rs
+- ✅ PostToolUseFailure: Differentiated from PostToolUse success path in orchestration closure
 - ✅ Hook Data Plane: `simulate_query_loop()` with QueryEngine, `query_model_without_streaming()` real API call, `query_model_without_streaming_impl()` with dual-format extraction, 29 tests
 
 
@@ -157,9 +159,9 @@ Last updated: 2026-04-24 (v0.55.0)
 | Function hooks | JS/TS handlers run inline | ✅ Implemented — `add_function_hook()` / `remove_function_hook()` infrastructure in session_hooks.rs. Data plane wired: `simulate_query_loop()` uses QueryEngine, `query_model_without_streaming()` makes real API calls, `query_model_without_streaming_impl()` in api_query_hook_helper works. |
 | Wiring into query loop | PreToolUse → canUseTool → tool call → PostToolUse → PostToolUseFailure, sequenced | ✅ Wired — free functions called from orchestration closure at lines 2042-2070 |
 | Skill hook integration | `registerFrontmatterHooks` auto-registers skill hooks | ✅ Wired — register_hooks_from_skills() called in init_engine(), YAML hooks parsing with serde_yaml, 10 tests |
-| Structured output enforcement | `registerStructuredOutputEnforcement` hook | ✅ Partial — `register_structured_output_enforcement()` stub registered, full function hook wiring pending JS runtime |
-| Failure hooks | `PostToolUseFailure` differentiated from success | Registered but not differentiated in execution |
-| Pre/PostCompact hooks | Executed during compaction | Not triggered (compaction itself incomplete) |
+| Structured output enforcement | `registerStructuredOutputEnforcement` hook | ✅ Implemented — `register_structured_output_enforcement()` calls `add_function_hook()` with Stop event callback checking `has_successful_tool_call()` |
+| Failure hooks | `PostToolUseFailure` differentiated from success | ✅ Differentiated — `run_post_tool_use_failure_hooks()` fired on `Err`, `run_post_tool_use_hooks()` fired on `Ok` |
+| Pre/PostCompact hooks | Executed during compaction | ✅ Wired — `execute_pre_compact_hooks()` / `execute_post_compact_hooks()` called around snip, microcompact, and reactive compact paths |
 
 ## 5. Permissions (Medium Severity)
 
@@ -217,7 +219,7 @@ All 10 original high-impact gaps have been resolved:
 9. ✅ **Missing tools** — BriefTool, SyntheticOutputTool, TaskOutputTool, MCPTool all implemented
 10. ✅ **MCP tool execution** — McpToolRegistry with callback dispatch
 
-## Remaining Gaps (v0.55.0)
+## Remaining Gaps (v0.56.0)
 
 Lower-impact gaps that require external dependencies or are stubs in TS:
 
@@ -236,4 +238,6 @@ Already implemented (no further work needed):
 - ✅ Sidechain transcripts (v0.50.0)
 - ✅ Skill memoization with LRU cache (v0.53.0)
 - ✅ Hook data plane: `simulate_query_loop()`, `query_model_without_streaming()`, `query_model_without_streaming_impl()` with real API calls (v0.55.0)
-- ✅ Structured output enforcement (hook registered, full function hook wired)
+- ✅ Structured output enforcement (hook registered, calls add_function_hook with Stop event) (v0.56.0)
+- ✅ Pre/PostCompact hooks wired into snip, microcompact, and reactive compact paths (v0.56.0)
+- ✅ PostToolUseFailure hooks differentiated from success path (v0.56.0)

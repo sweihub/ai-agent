@@ -1338,10 +1338,13 @@ impl QueryEngine {
         // Note: max_turns check is done AFTER turn completes (matching TypeScript)
         // See below after tool execution loop for the check
 
+        // Apply snip compact and microcompact with PreCompact/PostCompact hooks
+        let _pre_compact_instructions = self.execute_pre_compact_hooks().await;
         // Apply snip compact before microcompact (establishes compaction order)
         crate::services::compact::snip_compact_if_known(&self.messages);
         // Apply microcompact before auto-compact: evict old tool result content
         crate::services::compact::microcompact::microcompact_messages(&mut self.messages);
+        self.execute_post_compact_hooks("Snip + microcompact applied").await;
 
         // Check auto-compact BEFORE entering tool loop - don't wait until after API call
         // This ensures we compact before hitting the token limit
@@ -1381,10 +1384,13 @@ impl QueryEngine {
         while max_tool_turns > 0 {
             max_tool_turns -= 1;
 
+            // Apply snip compact and microcompact with PreCompact/PostCompact hooks
+            let _pre_compact_instructions = self.execute_pre_compact_hooks().await;
             // Apply snip compact before microcompact (establishes compaction order)
             crate::services::compact::snip_compact_if_known(&self.messages);
             // Apply microcompact before auto-compact in the tool loop
             crate::services::compact::microcompact::microcompact_messages(&mut self.messages);
+            self.execute_post_compact_hooks("Snip + microcompact applied").await;
 
             // Check if we should auto-compact based on token count (after tool execution)
             let token_count = compact::estimate_token_count(&self.messages, self.config.max_tokens);
@@ -1642,6 +1648,7 @@ impl QueryEngine {
 
                         if is_prompt_too_long {
                             eprintln!("Prompt too large (413), attempting reactive compact...");
+                            let _pre_compact_instructions = self.execute_pre_compact_hooks().await;
                             match crate::services::compact::reactive_compact::run_reactive_compact(
                                 &self.messages,
                                 &self.config.model,
@@ -1652,6 +1659,7 @@ impl QueryEngine {
                                         reactive_result.messages.len()
                                     );
                                     self.messages = reactive_result.messages;
+                                    self.execute_post_compact_hooks("Reactive compact applied after 413 error").await;
                                     use_fallback_model = true;
                                     continue; // Retry with compacted context
                                 }

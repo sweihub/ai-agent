@@ -106,25 +106,43 @@ pub fn hook_response_input_json_schema() -> serde_json::Value {
 /// This adds a session-level hook that checks if the StructuredOutput tool
 /// was called when the agent finishes.
 pub fn register_structured_output_enforcement(
-    _set_app_state: &dyn Fn(&dyn Fn(&mut serde_json::Value)),
-    _session_id: &str,
-) {
-    // In the TypeScript version, this calls addFunctionHook to register
-    // a function hook that checks if the StructuredOutput tool was called.
-    // The Rust implementation would need a similar mechanism.
-    //
-    // The TS implementation:
-    // 1. Registers a function hook for the 'Stop' event with no matcher
-    // 2. The callback checks if there's a successful tool call to SYNTHETIC_OUTPUT_TOOL_NAME
-    // 3. If not, it returns an error message telling the agent to call the tool
-    //
-    // In Rust, this would require:
-    // 1. A way to register function hooks in session state
-    // 2. A callback that checks message history for tool calls
-    log::debug!(
-        "Registered structured output enforcement for session {}",
-        _session_id
+    set_app_state: &dyn Fn(&dyn Fn(&mut serde_json::Value)),
+    session_id: &str,
+) -> String {
+    use std::sync::Arc;
+
+    use crate::utils::hooks::hooks_settings::HookEvent;
+    use crate::utils::hooks::session_hooks::add_function_hook;
+
+    let tool_name = SYNTHETIC_OUTPUT_TOOL_NAME.to_string();
+    let callback: Arc<dyn Fn(&[serde_json::Value]) -> bool + Send + Sync> =
+        Arc::new(move |messages: &[serde_json::Value]| {
+            has_successful_tool_call(messages, &tool_name)
+        });
+
+    let error_message = format!(
+        "You MUST call the {} tool to return your verification result.",
+        SYNTHETIC_OUTPUT_TOOL_NAME
     );
+
+    let hook_id = add_function_hook(
+        set_app_state,
+        session_id,
+        &HookEvent::Stop,
+        "", // no matcher - applies to all
+        callback,
+        error_message.clone(),
+        Some(5000), // 5-second timeout
+        Some(format!("structured-output-enforcement-{}", session_id)),
+    );
+
+    log::debug!(
+        "Registered structured output enforcement hook '{}' for session {}",
+        hook_id,
+        session_id
+    );
+
+    hook_id
 }
 
 /// Check if messages contain a successful tool call to the given tool name
