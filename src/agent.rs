@@ -1474,6 +1474,56 @@ impl Agent {
             }
         }
     }
+
+    /// Generate a short session recap summarizing the conversation so far.
+    ///
+    /// Produces a 1-3 sentence summary suitable for a "while you were away"
+    /// card or CLI status display. Uses the small/fast model (Haiku) with
+    /// the last 30 messages and optional session memory context.
+    ///
+    /// Returns `AwaySummaryResult` which indicates whether the LLM produced
+    /// a summary, was aborted, or returned empty (no conversation history).
+    ///
+    /// # Example
+    /// ```ignore
+    /// let agent = Agent::new("claude-sonnet-4-6")
+    ///     .api_key("sk-ant-...");
+    /// agent.query("build a REST API").await.ok();
+    /// // ... user steps away ...
+    /// let recap = agent.recap().await;
+    /// if let Some(summary) = recap.summary {
+    ///     println!("※ {}", summary);
+    /// }
+    /// ```
+    pub async fn recap(
+        &self,
+    ) -> crate::services::away_summary::AwaySummaryResult {
+        let (messages, api_key, abort_ctrl) = {
+            let inner = self.inner.lock().unwrap();
+            let messages = inner
+                .engine
+                .as_ref()
+                .and_then(|e| e.try_lock().ok().map(|g| g.get_messages()))
+                .unwrap_or_default();
+            let api_key = inner.api_key.clone();
+            let abort_ctrl = inner.abort_controller.clone();
+            (messages, api_key, abort_ctrl)
+        };
+
+        let api_key = match api_key {
+            Some(k) if !k.is_empty() => k,
+            _ => std::env::var("AI_AUTH_TOKEN")
+                .or_else(|_| std::env::var("AI_API_KEY"))
+                .unwrap_or_default(),
+        };
+
+        crate::services::away_summary::generate_away_summary(
+            &messages,
+            &api_key,
+            abort_ctrl.signal().abort_flag(),
+        )
+        .await
+    }
 }
 
 /// Build system prompt for subagent based on agent type

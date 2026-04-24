@@ -1,7 +1,7 @@
 # Feature Gaps: TypeScript (claude code) → Rust Port
 
 Generated: 2026-04-23
-Last updated: 2026-04-24 (v0.57.0)
+Last updated: 2026-04-24 (v0.58.0)
 
 ## Resolved Gaps (v0.34.0 - v0.50.0)
 
@@ -50,6 +50,7 @@ Last updated: 2026-04-24 (v0.57.0)
 - ✅ PostToolUseFailure: Differentiated from PostToolUse success path in orchestration closure
 - ✅ Hook Data Plane: `simulate_query_loop()` with QueryEngine, `query_model_without_streaming()` real API call, `query_model_without_streaming_impl()` with dual-format extraction, 29 tests
 - ✅ Concurrency-Safe Tool Annotations: `ToolAnnotations::concurrency_safe()` on 20 read-only tools (FileRead, Glob, Grep, WebSearch, TaskList, TaskGet, ToolSearch, CronList, TodoWrite, Skill, TaskStop, TaskOutput, AskUserQuestion, Config, SendUserMessage, StructuredOutput, CronDelete, LSP, ReadMcpResourceTool, ListMcpResourcesTool), enabling `partition_tool_calls()` parallel execution
+- ✅ Agent Recap: `Agent::recap()` method for TUI/CLI "while you were away" session summary, delegates to `generate_away_summary()` with last 30 messages, abort signal support, 5 tests
 
 
 

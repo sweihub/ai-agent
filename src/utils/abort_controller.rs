@@ -94,6 +94,12 @@ impl AbortSignal {
         self.aborted.load(Ordering::SeqCst)
     }
 
+    /// Expose the underlying AtomicBool for callers that need to pass it
+    /// to functions expecting &AtomicBool abort signals.
+    pub fn abort_flag(&self) -> &std::sync::atomic::AtomicBool {
+        &self.aborted
+    }
+
     /// Get the abort reason
     pub fn reason(&self) -> Option<Arc<dyn std::any::Any + Send + Sync>> {
         self.reason.lock().ok().and_then(|guard| guard.clone())
@@ -280,5 +286,25 @@ mod tests {
         let child = create_child_abort_controller(&parent, None);
 
         assert!(child.is_aborted());
+    }
+
+    #[test]
+    fn test_abort_flag_reflects_state() {
+        let controller = create_abort_controller(50);
+        let flag = controller.signal().abort_flag();
+        assert!(!flag.load(Ordering::SeqCst));
+
+        controller.abort(None);
+        assert!(flag.load(Ordering::SeqCst));
+    }
+
+    #[test]
+    fn test_abort_flag_survives_guard() {
+        let abort_ctrl = create_abort_controller(50);
+        let flag = abort_ctrl.signal().abort_flag();
+        // flag borrows from abort_ctrl, not from a mutex guard
+        assert!(!flag.load(Ordering::SeqCst));
+        abort_ctrl.abort(None);
+        assert!(flag.load(Ordering::SeqCst));
     }
 }
