@@ -5,6 +5,8 @@
 
 use crate::AgentError;
 use crate::utils::git::gitignore::is_path_gitignored;
+use crate::utils::memoize::memoize_with_lru;
+use once_cell::sync::Lazy;
 use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -637,9 +639,84 @@ pub fn load_all_skills(cwd: &str) -> Result<Vec<UnifiedSkill>, AgentError> {
     Ok(all_skills)
 }
 
+// ---------------------------------------------------------------------------
+// Memoized (LRU-cached) skill loading
+// ---------------------------------------------------------------------------
+// Matches TS `memoize(getSkillDirCommands)` from loadSkillsDir.ts.
+//
+// `AgentError` does not derive Clone, so the cached variants return
+// `Result<..., String>` instead.  The original unmemoized functions remain
+// public and return `Result<..., AgentError>`.
+
+/// Key for `load_skills_from_dir` memoization.
+/// Bundles the two string arguments into a single cache key.
+#[derive(Debug, Clone, Hash, Eq, PartialEq)]
+#[allow(dead_code)]
+pub struct SkillsDirKey {
+    pub base_path: String,
+    pub cwd: String,
+}
+
+/// Memoized version of `load_all_skills`, keyed by cwd.
+/// Matches TS `memoize(getSkillDirCommands)` from loadSkillsDir.ts
+#[allow(dead_code)]
+static LOAD_ALL_SKILLS_MEMO: Lazy<
+    crate::utils::memoize::LruMemoized<String, String, Result<Vec<UnifiedSkill>, String>>,
+> = Lazy::new(|| {
+    memoize_with_lru(
+        |cwd: String| load_all_skills(&cwd).map_err(|e| e.to_string()),
+        |cwd: &String| cwd.clone(),
+        50, // Max 50 cached cwd entries
+    )
+});
+
+/// Memoized version of `load_all_skills(cwd)`.
+/// Caches results per working directory to avoid re-scanning the filesystem
+/// on every turn.
+#[allow(dead_code)]
+pub fn load_all_skills_cached(cwd: &str) -> Result<Vec<UnifiedSkill>, String> {
+    LOAD_ALL_SKILLS_MEMO.call(cwd.to_string())
+}
+
+/// Memoized version of `load_skills_from_dir`.
+/// Keyed by (base_path, cwd) tuple to avoid redundant filesystem scans.
+#[allow(dead_code)]
+static LOAD_SKILLS_FROM_DIR_MEMO: Lazy<
+    crate::utils::memoize::LruMemoized<
+        SkillsDirKey,
+        SkillsDirKey,
+        Result<Vec<LoadedSkill>, String>,
+    >,
+> = Lazy::new(|| {
+    memoize_with_lru(
+        |key: SkillsDirKey| {
+            load_skills_from_dir(Path::new(&key.base_path), Path::new(&key.cwd))
+                .map_err(|e| e.to_string())
+        },
+        |key: &SkillsDirKey| key.clone(),
+        50, // Max 50 cached entries
+    )
+});
+
+/// Memoized version of `load_skills_from_dir(base_path, cwd)`.
+/// Caches results per directory path to avoid re-scanning the filesystem.
+#[allow(dead_code)]
+pub fn load_skills_from_dir_cached(
+    base_path: &str,
+    cwd: &str,
+) -> Result<Vec<LoadedSkill>, String> {
+    let key = SkillsDirKey {
+        base_path: base_path.to_string(),
+        cwd: cwd.to_string(),
+    };
+    LOAD_SKILLS_FROM_DIR_MEMO.call(key)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::hash::Hasher;
+    use std::io::Write;
 
     #[test]
     fn test_glob_match_simple() {
@@ -925,5 +1002,193 @@ map_val:
         // Should have exactly 1 skill (the normal one), not the ignored one
         assert_eq!(skills.len(), 1);
         assert_eq!(skills[0].metadata.name, "normal-skill");
+    }
+
+    // -----------------------------------------------------------------------
+    // Memoization tests
+    // -----------------------------------------------------------------------
+
+    #[test]
+    fn test_load_all_skills_memoization() {
+        use std::io::Write;
+
+        // Clear shared cache to isolate this test from others
+        LOAD_ALL_SKILLS_MEMO.clear();
+
+        let temp = tempfile::tempdir().unwrap();
+        let cwd = temp.path().to_string_lossy().to_string();
+
+        // Create a project skill
+        let skill_dir = temp.path().join(".ai").join("skills").join("memo-test");
+        std::fs::create_dir_all(&skill_dir).unwrap();
+        let mut skill_file = std::fs::File::create(skill_dir.join("SKILL.md")).unwrap();
+        writeln!(skill_file, "---").unwrap();
+        writeln!(skill_file, "description: Memo test skill").unwrap();
+        writeln!(skill_file, "---").unwrap();
+        writeln!(skill_file, "Body").unwrap();
+        drop(skill_file);
+
+        // First call - populates the cache
+        let skills1 = load_all_skills_cached(&cwd).unwrap();
+        let has_skill1 = skills1.iter().any(|s| s.name == "memo-test");
+        assert!(has_skill1);
+
+        // Second call with the same cwd - should hit the cache
+        let skills2 = load_all_skills_cached(&cwd).unwrap();
+        let has_skill2 = skills2.iter().any(|s| s.name == "memo-test");
+        assert!(has_skill2);
+
+        // Results should be identical
+        assert_eq!(skills1.len(), skills2.len());
+    }
+
+    #[test]
+    fn test_load_skills_from_dir_memoization() {
+        use std::io::Write;
+
+        // Clear shared cache to isolate this test from others
+        LOAD_SKILLS_FROM_DIR_MEMO.clear();
+
+        let temp = tempfile::tempdir().unwrap();
+        let base_dir = temp.path().join(".ai").join("skills");
+        std::fs::create_dir_all(&base_dir).unwrap();
+
+        // Create a skill inside the directory
+        let skill_dir = base_dir.join("cached-skill");
+        std::fs::create_dir_all(&skill_dir).unwrap();
+        let mut sf = std::fs::File::create(skill_dir.join("SKILL.md")).unwrap();
+        writeln!(sf, "---").unwrap();
+        writeln!(sf, "description: Cached skill").unwrap();
+        writeln!(sf, "---").unwrap();
+        writeln!(sf, "Body").unwrap();
+        drop(sf);
+
+        let base_str = base_dir.to_string_lossy().to_string();
+        let cwd_str = temp.path().to_string_lossy().to_string();
+
+        // First call
+        let skills1 = load_skills_from_dir_cached(&base_str, &cwd_str).unwrap();
+        assert_eq!(skills1.len(), 1);
+        assert_eq!(skills1[0].metadata.name, "cached-skill");
+
+        // Second call with same args - should hit cache
+        let skills2 = load_skills_from_dir_cached(&base_str, &cwd_str).unwrap();
+        assert_eq!(skills2.len(), 1);
+        assert_eq!(skills2[0].metadata.name, "cached-skill");
+    }
+
+    #[test]
+    fn test_lru_memoization_eviction() {
+        use std::io::Write;
+
+        // Clear shared cache
+        LOAD_ALL_SKILLS_MEMO.clear();
+
+        // Create more than 50 temp directories to exercise LRU eviction.
+        // Each directory gets a unique skill name so results are distinguishable.
+        let temps: Vec<tempfile::TempDir> = (0..55)
+            .map(|i| {
+                let temp = tempfile::tempdir().unwrap();
+                let skill_dir = temp.path().join(".ai").join("skills").join(format!("skill-{i}"));
+                std::fs::create_dir_all(&skill_dir).unwrap();
+                let mut sf = std::fs::File::create(skill_dir.join("SKILL.md")).unwrap();
+                writeln!(sf, "---").unwrap();
+                writeln!(sf, "description: Skill {i}").unwrap();
+                writeln!(sf, "---").unwrap();
+                writeln!(sf, "Body {i}").unwrap();
+                drop(sf);
+                temp
+            })
+            .collect();
+
+        // Load all 55 directories through the cached function (max 50 cached).
+        let cwd_vec: Vec<String> = temps
+            .iter()
+            .map(|t| t.path().to_string_lossy().to_string())
+            .collect();
+
+        for cwd in &cwd_vec {
+            let _ = load_all_skills_cached(cwd);
+        }
+
+        // The cache can hold at most 50 entries; the first 5 should have been evicted.
+        // Call one of the earliest entries - it will re-compute (cache miss, not an error).
+        let first_cwd = &cwd_vec[0];
+        let _ = load_all_skills_cached(first_cwd);
+
+        // Call a middle entry that should still be cached (index 30 is within
+        // the 50-entry window after eviction of entries 0..5).
+        let middle_cwd = &cwd_vec[30];
+        let skills = load_all_skills_cached(middle_cwd).unwrap();
+        // Should find skill-30
+        assert!(skills.iter().any(|s| s.name == "skill-30"));
+
+        // The static cache size should be <= 50 (it may be slightly less because
+        // the first entry was re-loaded, bumping out another).
+        assert!(
+            LOAD_ALL_SKILLS_MEMO.size() <= 50,
+            "Cache size {} exceeds max 50",
+            LOAD_ALL_SKILLS_MEMO.size()
+        );
+    }
+
+    #[test]
+    fn test_skills_dir_key_equality() {
+        use std::collections::hash_map::DefaultHasher;
+        use std::hash::{Hash, Hasher};
+
+        let k1 = SkillsDirKey {
+            base_path: "/a".to_string(),
+            cwd: "/b".to_string(),
+        };
+        let k2 = SkillsDirKey {
+            base_path: "/a".to_string(),
+            cwd: "/b".to_string(),
+        };
+        let k3 = SkillsDirKey {
+            base_path: "/c".to_string(),
+            cwd: "/d".to_string(),
+        };
+        assert_eq!(k1, k2);
+        assert_ne!(k1, k3);
+        // Hash equality
+        let mut h1 = DefaultHasher::new();
+        let mut h2 = DefaultHasher::new();
+        k1.hash(&mut h1);
+        k2.hash(&mut h2);
+        assert_eq!(h1.finish(), h2.finish());
+    }
+
+    #[test]
+    fn test_memoization_different_keys_return_different_results() {
+        use std::io::Write;
+
+        LOAD_ALL_SKILLS_MEMO.clear();
+
+        // Create two temp directories with different skills
+        let temp_a = tempfile::tempdir().unwrap();
+        let temp_b = tempfile::tempdir().unwrap();
+
+        for (temp, name) in [(&temp_a, "skill-a"), (&temp_b, "skill-b")] {
+            let skill_dir = temp.path().join(".ai").join("skills").join(name);
+            std::fs::create_dir_all(&skill_dir).unwrap();
+            let mut sf = std::fs::File::create(skill_dir.join("SKILL.md")).unwrap();
+            writeln!(sf, "---").unwrap();
+            writeln!(sf, "description: {name}").unwrap();
+            writeln!(sf, "---").unwrap();
+            writeln!(sf, "Body").unwrap();
+            drop(sf);
+        }
+
+        let cwd_a = temp_a.path().to_string_lossy().to_string();
+        let cwd_b = temp_b.path().to_string_lossy().to_string();
+
+        let skills_a = load_all_skills_cached(&cwd_a).unwrap();
+        let skills_b = load_all_skills_cached(&cwd_b).unwrap();
+
+        assert!(skills_a.iter().any(|s| s.name == "skill-a"));
+        assert!(!skills_a.iter().any(|s| s.name == "skill-b"));
+        assert!(skills_b.iter().any(|s| s.name == "skill-b"));
+        assert!(!skills_b.iter().any(|s| s.name == "skill-a"));
     }
 }

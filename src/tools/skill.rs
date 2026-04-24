@@ -256,7 +256,7 @@ impl SkillTool {
                 .map(FrontmatterShell::from_str)
                 .unwrap_or_default();
             let processed_content =
-                execute_shell_commands_in_prompt(&substituted_content, &shell, skill_name)
+                execute_shell_commands_in_prompt(&substituted_content, &shell, skill_name, None::<&(dyn Fn(&str, &str) -> bool + Send + Sync)>)
                     .await;
 
             let content = format!(

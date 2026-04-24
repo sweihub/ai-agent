@@ -9,6 +9,7 @@ pub mod loader;
 pub use bundled::init_bundled_skills;
 pub use bundled_skills::*;
 pub use loader::{
-    LoadedSkill, SkillMetadata, SkillSource, UnifiedSkill, load_all_skills, load_skill_from_dir,
-    load_skills_from_dir, get_user_skills_dir, get_project_skills_dir,
+    LoadedSkill, SkillMetadata, SkillSource, UnifiedSkill, SkillsDirKey, load_all_skills,
+    load_all_skills_cached, load_skill_from_dir, load_skills_from_dir,
+    load_skills_from_dir_cached, get_user_skills_dir, get_project_skills_dir,
 };

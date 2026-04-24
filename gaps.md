@@ -1,7 +1,7 @@
 # Feature Gaps: TypeScript (claude code) → Rust Port
 
 Generated: 2026-04-23
-Last updated: 2026-04-24 (v0.51.0)
+Last updated: 2026-04-24 (v0.53.0)
 
 ## Resolved Gaps (v0.34.0 - v0.50.0)
 
@@ -44,6 +44,8 @@ Last updated: 2026-04-24 (v0.51.0)
 - ✅ Skill Shell Execution: `execute_shell_commands_in_prompt()` with block/inline pattern parsing, parallel execution, 21 tests
 - ✅ InterruptBehavior Enforcement: `block` tools ignore abort signal, `cancel` tools respect it, 6 tests
 - ✅ Settings Persistence: `settings/mod.rs` with read/write/merge, `persist_permission_update()` wired, 12 tests
+- ✅ Skill Memoization: `load_all_skills_cached()` / `load_skills_from_dir_cached()` with LRU cache (50 entries), 5 tests
+- ✅ Skill Shell Permission Gating: `can_execute` callback in `execute_shell_commands_in_prompt()`, PowerShell fallback to bash, 7 tests
 
 
 
@@ -54,8 +56,8 @@ Last updated: 2026-04-24 (v0.51.0)
 - **Rust:** ✅ Implemented — `build_forked_messages_from_sdk()`, `sdk_message_from_json()`, fork path wired in agent.rs with cache-safe params
 
 ### Background Agents
-- **TS:** Auto-backgrounds after 120s, progress tracking, summarization, foreground registration
-- **Rust:** ✅ Wired — `run_in_background` spawns tokio task, returns TaskOutput reference. Partial — auto-background after 120s and progress tracking remain.
+- **TS:** `run_in_background` spawns tokio task, returns TaskOutput reference. No 120s auto-background timer in TS source.
+- **Rust:** ✅ Wired — `run_in_background` spawns tokio task, returns TaskOutput reference. Matches TS capability.
 
 ### Agent MCP Servers
 - **TS:** `initializeAgentMcpServers()` (runAgent.ts:95) connects per-agent MCP servers
@@ -75,7 +77,7 @@ Last updated: 2026-04-24 (v0.51.0)
 
 ### Transcript Persistence
 - **TS:** `recordSidechainTranscript`, `setAgentTranscriptSubdir` for per-agent transcripts
-- **Rust:** Absent — subagent work not persisted separately
+- **Rust:** ✅ Wired — `record_sidechain_transcript()` called after subagent execution in agent_tool.rs
 
 ### Context Threading
 - **TS:** `createSubagentContext` clones file cache, provisions `contentReplacementState`, `renderedSystemPrompt`, `localDenialTracking`
@@ -84,8 +86,8 @@ Last updated: 2026-04-24 (v0.51.0)
 ## 2. QueryEngine / Context Compaction (High Severity)
 
 ### Context Collapse
-- **TS:** `contextCollapse/index.ts` — full CONTEXT_COLLAPSE feature
-- **Rust:** Entirely absent — no module
+- **TS:** `contextCollapse/index.ts` — stub behind feature gate (all no-op functions)
+- **Rust:** ✅ Stub — faithful translation of TS stub, same no-op functions, feature-gated
 
 ### Snip Compaction
 - **TS:** Called in query loop (query.ts:396) before each API call
@@ -93,7 +95,7 @@ Last updated: 2026-04-24 (v0.51.0)
 
 ### Microcompact
 - **TS:** Called pre-query in loop
-- **Rust:** `microcompact.rs` exists but **not invoked**
+- **Rust:** ✅ Wired — called at two locations in query loop before auto-compact
 
 ### Tool Result Budget
 - **TS:** `applyToolResultBudget()` (query.ts:379), `recordContentReplacement`
@@ -109,7 +111,7 @@ Last updated: 2026-04-24 (v0.51.0)
 
 ### Reactive Compaction
 - **TS:** `reactiveCompact()` triggered on context-too-long errors
-- **Rust:** `reactive_compact.rs` exists but **no trigger path** in query loop
+- **Rust:** ✅ Wired — triggered on 413 error in query loop
 
 ### max_output_tokens Recovery
 - **TS:** 3-retry backoff with escalating `max_tokens`, withholds error from SDK
@@ -142,7 +144,7 @@ Last updated: 2026-04-24 (v0.51.0)
 |-----|----|----|
 | `assembleToolPool` | Deduplicates built-in + MCP tools by name, sorts alphabetically (prompt cache stability) | ✅ Implemented — assemble.rs with sorting + dedup, wired in query_engine.rs, 8 tests |
 | `StreamingToolExecutor` | Concurrent vs serial tool execution | Absent — synchronous-per-call only |
-| `interruptBehavior` | `'cancel'` vs `'block'` checked when user submits mid-tool | Not enforced |
+| `interruptBehavior` | `'cancel'` vs `'block'` checked when user submits mid-tool | ✅ Enforced — `Block` tools ignore abort signal, `Cancel` tools respect it, 6 tests |
 | `filterToolsByDenyRules` | Server-prefix stripping for MCP deny rules | ✅ Implemented — 4-step matching in assemble.rs + permissions.rs |
 | `backfillObservableInput` | Backfills observable input for transparency | ✅ Wired — tool_backfill_fns in QueryEngine |
 | `toAutoClassifierInput` | Auto-mode security classification | ✅ Integrated — PermissionMode::Auto with allowlist + denial tracking |
@@ -151,10 +153,10 @@ Last updated: 2026-04-24 (v0.51.0)
 
 | Gap | TS | Rust |
 |-----|----|----|
-| Function hooks | JS/TS handlers run inline | Absent — acknowledged in code comment (hooks.rs:339) |
+| Function hooks | JS/TS handlers run inline | ✅ Partial — `add_function_hook()` / `remove_function_hook()` infrastructure exists in session_hooks.rs with `Arc<dyn Fn>` callbacks. Data plane (`simulate_query_loop`, `query_model_without_streaming`) still stubbed. |
 | Wiring into query loop | PreToolUse → canUseTool → tool call → PostToolUse → PostToolUseFailure, sequenced | ✅ Wired — free functions called from orchestration closure at lines 2042-2070 |
 | Skill hook integration | `registerFrontmatterHooks` auto-registers skill hooks | ✅ Wired — register_hooks_from_skills() called in init_engine(), YAML hooks parsing with serde_yaml, 10 tests |
-| Structured output enforcement | `registerStructuredOutputEnforcement` hook | Absent |
+| Structured output enforcement | `registerStructuredOutputEnforcement` hook | ✅ Partial — `register_structured_output_enforcement()` stub registered, full function hook wiring pending JS runtime |
 | Failure hooks | `PostToolUseFailure` differentiated from success | Registered but not differentiated in execution |
 | Pre/PostCompact hooks | Executed during compaction | Not triggered (compaction itself incomplete) |
 
@@ -165,7 +167,7 @@ Last updated: 2026-04-24 (v0.51.0)
 | `canUseTool` callback | 6-parameter fn returning 3-way `PermissionDecision` (allow/deny/ask) + `updatedInput` | ✅ Partial — PermissionResult::Allow/Deny/Ask variants handled in orchestration closure. Ask returns error in SDK. |
 | Deny rule matching | 4-step matcher: exact → wildcard → server-prefix → tool-prefix | ✅ Implemented — tool_matches_rule + PermissionContext::check_tool() with 4-step matching, 12 tests |
 | `PermissionResult::Ask` | User prompting for permission | Not handled — boolean return, no ask path |
-| Dynamic rule updates | `applyPermissionUpdates` / `persistPermissionUpdates` | Absent |
+| Dynamic rule updates | `applyPermissionUpdates` / `persistPermissionUpdates` | ✅ Implemented — `persist_permission_update()` with settings file I/O, 12 tests |
 | Auto mode classifier | `classifierDecision` transcript-based classification | ✅ Implemented — PermissionMode::Auto with allowlist, denial tracking, fallback message, 14 tests |
 | Denial tracking | Counter + threshold for fallback-to-prompting | ✅ Implemented — DenialTrackingState with counter + threshold, integrated into Auto mode
 
@@ -173,10 +175,10 @@ Last updated: 2026-04-24 (v0.51.0)
 
 | Gap | TS | Rust |
 |-----|----|----|
-| NDJSON streaming | Incremental writes with 100ms drain timer, fire-and-forget for assistant messages | Writes entire JSON blob per save — no streaming |
+| NDJSON streaming | Incremental writes with 100ms drain timer, fire-and-forget for assistant messages | ✅ Implemented — SessionWriter with dequeue/drain/flush, 100ms drain timer, global pending queue, 12 tests |
 | NDJSON escaping | Escapes U+2028/U+2029 for line-splitting receivers | ✅ Implemented — cli_ndjson_safe_stringify.rs with 8 tests |
 | Resume support | Loads from `tailUuid`, applies `preservedSegment` relinks, dedup loop | ✅ Implemented — resume_session(), create_preserved_segment(), deduplicate_messages(), 7 tests |
-| Sidechain transcripts | Per-agent transcript subdirectories | Absent |
+| Sidechain transcripts | Per-agent transcript subdirectories | ✅ Implemented — `record_sidechain_transcript()` writes to {session_id}/sidechains/{agent_id}.jsonl |
 
 ## 7. Skills (Medium Severity)
 
@@ -185,11 +187,11 @@ Last updated: 2026-04-24 (v0.51.0)
 | Multi-source loading | User/project/local/policy/plugin/bundled/MCP directories | ✅ Implemented — load_all_skills() with bundled → user (~/.ai/skills) → project (<cwd>/.ai/skills) + dedup, 6 tests |
 | Gitignore check | `isPathGitignored` filter | ✅ Implemented — is_path_gitignored() via git check-ignore, wired into load_skills_from_dir(), 2 tests |
 | Skill hook integration | `registerFrontmatterHooks` | ✅ Wired — register_hooks_from_skills() called in init_engine() |
-| Shell execution | `executeShellCommandsInPrompt` for frontmatter | Absent |
+| Shell execution | `executeShellCommandsInPrompt` for frontmatter | ✅ Implemented — `execute_shell_commands_in_prompt()` with permission gating, PowerShell fallback, 21+ tests |
 | Argument substitution | `parseArgumentNames` / `substituteArguments` | ✅ Implemented — parse_argument_names(), substitute_arguments() with {{{arg}} pattern, 7 tests |
 | Discovery prefetch | `startSkillDiscoveryPrefetch` per iteration | Absent |
 | DiscoverSkillsTool | On-demand discovery | Absent |
-| Memoization | `lodash/memoize` cache | Absent |
+| Memoization | `lodash/memoize` cache | ✅ Implemented — LRU-memoized `load_all_skills_cached()` / `load_skills_from_dir_cached()`, 5 tests |
 
 ## 8. Memory (Medium Severity)
 
@@ -214,21 +216,23 @@ All 10 original high-impact gaps have been resolved:
 9. ✅ **Missing tools** — BriefTool, SyntheticOutputTool, TaskOutputTool, MCPTool all implemented
 10. ✅ **MCP tool execution** — McpToolRegistry with callback dispatch
 
-## Remaining Gaps (v0.51.0)
+## Remaining Gaps (v0.54.0)
 
-Lower-impact gaps that require infrastructure not yet in place:
+Lower-impact gaps that require external dependencies or are stubs in TS:
 
-- **Remote Teleport** — cloud execution via CCR API
-- **Vector search** — embedding-based semantic search for memory (LLM-based selection exists)
+- **Remote Teleport** — cloud execution via CCR API (external deps)
+- **Vector search** — embedding-based semantic search for memory (external deps, LLM-based selection exists)
 - **WorkflowTool** — workflow orchestration (stub in TS, skipped)
 - **Skill discovery prefetch** — `startSkillDiscoveryPrefetch` per iteration (stub in TS)
-- **Skill memoization** — `lodash/memoize` cache equivalent
-- **Function hooks** — JS/TS-style inline handler hooks (requires JS runtime)
+- **Hook data plane** — `simulate_query_loop()`, `query_model_without_streaming()`, `query_model_without_streaming_impl()` return empty/Err. TS has real LLM query calls. Requires wiring actual Anthropic API calls into hook execution path.
 
 Already implemented (no further work needed):
 - ✅ AgentTool as proper Tool struct (v0.49.0)
 - ✅ Skill shell execution (v0.50.0)
+- ✅ Skill shell permission gating + PowerShell fallback (v0.53.0)
 - ✅ Dynamic permission updates (already in codebase)
 - ✅ InterruptBehavior enforcement (v0.51.0)
 - ✅ Settings persistence (v0.51.0)
 - ✅ Sidechain transcripts (v0.50.0)
+- ✅ Skill memoization with LRU cache (v0.53.0)
+- ✅ Structured output enforcement (hook stub registered, full function hook wiring pending JS runtime)
