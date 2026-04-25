@@ -13,7 +13,7 @@ dependencies = [
 
 [[package]]
 name = "ai-agent"
-version = "0.62.0"
+version = "0.65.0"
 dependencies = [
  "anyhow",
  "atty",
@@ -30,6 +30,7 @@ dependencies = [
  "log",
  "lru",
  "once_cell",
+ "parking_lot",
  "rand 0.8.5",
  "regex",
  "reqwest",

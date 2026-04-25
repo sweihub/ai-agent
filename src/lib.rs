@@ -17,7 +17,7 @@ pub mod http_client;
 pub mod interact;
 pub mod mcp;
 pub mod message_queue_types;
-pub mod query_engine;
+pub(crate) mod query_engine;
 pub mod session;
 pub mod state;
 pub mod stream;
@@ -126,7 +126,6 @@ pub use plugin::{
     PluginRepository, PluginSkill, get_plugin_error_message, load_plugin, load_plugin_skills,
     load_plugins_from_dir, load_plugins_from_sources, register_plugin_skills,
 };
-pub use query_engine::QueryEngine;
 pub use services::compact::auto_compact::{
     AutoCompactResult, AutoCompactTrackingState, RecompactionInfo, is_auto_compact_enabled,
     should_auto_compact,

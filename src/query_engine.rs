@@ -690,14 +690,6 @@ impl QueryEngine {
         *guard = Some(registry);
     }
 
-    /// Set the event callback for agent events (tool start/complete/error, thinking, done)
-    pub fn set_event_callback<F>(&mut self, callback: F)
-    where
-        F: Fn(AgentEvent) + Send + Sync + 'static,
-    {
-        self.config.on_event = Some(std::sync::Arc::new(callback));
-    }
-
     /// Run PreToolUse hooks
     async fn run_pre_tool_use_hooks(
         &self,
@@ -3182,7 +3174,7 @@ async fn make_anthropic_streaming_request(
     let mut thinking_content = String::new();
 
     // ─── Process stream chunks ───
-    while let Some(chunk_result) = stream.next().await {
+    'stream_loop: while let Some(chunk_result) = stream.next().await {
         // Check if user aborted
         if abort_handle.load(Ordering::SeqCst) {
             // Release stream resources
@@ -3735,7 +3727,11 @@ async fn make_anthropic_streaming_request(
                                     result.cost = calculate_streaming_cost(&result.usage, &model);
                                 }
                                 "message_stop" => {
-                                    // Message complete - no-op marker (matching TypeScript)
+                                    // Message complete — break from the stream loop so the
+                                    // post-loop code can emit AgentEvent::MessageStop.
+                                    // (The server may not close the HTTP connection
+                                    // immediately, causing the loop to hang indefinitely.)
+                                    break 'stream_loop;
                                 }
                                 _ => {}
                             }

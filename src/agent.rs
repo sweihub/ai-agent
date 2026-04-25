@@ -2,7 +2,7 @@
 use crate::env::EnvConfig;
 use crate::error::AgentError;
 use crate::query_engine::{QueryEngine, QueryEngineConfig};
-use crate::stream::{CancelGuard, EventSubscriber};
+use crate::stream::{CancelGuard, EventBroadcasters, EventSubscriber};
 use crate::tools::ask::AskUserQuestionTool;
 use crate::tools::bash::BashTool;
 use crate::tools::brief::BriefTool;
@@ -793,13 +793,13 @@ pub(crate) fn register_all_tool_executors(engine: &mut QueryEngine) {
 /// ```
 #[derive(Clone)]
 pub struct Agent {
-    pub(crate) inner: std::sync::Arc<std::sync::Mutex<AgentInner>>,
+    pub(crate) inner: std::sync::Arc<parking_lot::Mutex<AgentInner>>,
 }
 
 #[cfg(test)]
 impl Agent {
     /// Test-only accessor for the inner agent state.
-    pub(crate) fn inner_for_test(&self) -> &std::sync::Arc<std::sync::Mutex<AgentInner>> {
+    pub(crate) fn inner_for_test(&self) -> &std::sync::Arc<parking_lot::Mutex<AgentInner>> {
         &self.inner
     }
 }
@@ -830,6 +830,8 @@ pub(crate) struct AgentInner {
     /// the same conversation state (messages, usage, turns).
     /// `None` until first query — lazily initialized.
     engine: Option<Arc<TokioMutex<QueryEngine>>>,
+    /// Event broadcast channels for subscribe() callers
+    broadcasters: EventBroadcasters,
 }
 
 impl Agent {
@@ -860,7 +862,7 @@ impl Agent {
             .unwrap_or_else(|_| ".".to_string());
 
         Self {
-            inner: std::sync::Arc::new(std::sync::Mutex::new(AgentInner {
+            inner: std::sync::Arc::new(parking_lot::Mutex::new(AgentInner {
                 model,
                 api_key,
                 base_url,
@@ -881,6 +883,7 @@ impl Agent {
                     crate::utils::create_abort_controller_default(),
                 ),
                 engine: None,
+                broadcasters: EventBroadcasters::new(),
             })),
         }
     }
@@ -889,7 +892,7 @@ impl Agent {
     ///
     /// Triggers engine recreation if the engine is already initialized.
     pub fn model(mut self, model: &str) -> Self {
-        self.inner.lock().unwrap().model = model.to_string();
+        self.inner.lock().model = model.to_string();
         self
     }
 
@@ -897,7 +900,7 @@ impl Agent {
     ///
     /// Triggers engine recreation if the engine is already initialized.
     pub fn api_key(mut self, api_key: &str) -> Self {
-        self.inner.lock().unwrap().api_key = Some(api_key.to_string());
+        self.inner.lock().api_key = Some(api_key.to_string());
         self
     }
 
@@ -905,7 +908,7 @@ impl Agent {
     ///
     /// Triggers engine recreation if the engine is already initialized.
     pub fn base_url(mut self, base_url: &str) -> Self {
-        self.inner.lock().unwrap().base_url = Some(base_url.to_string());
+        self.inner.lock().base_url = Some(base_url.to_string());
         self
     }
 
@@ -913,13 +916,13 @@ impl Agent {
     ///
     /// Triggers engine recreation if the engine is already initialized.
     pub fn cwd(mut self, cwd: &str) -> Self {
-        self.inner.lock().unwrap().cwd = cwd.to_string();
+        self.inner.lock().cwd = cwd.to_string();
         self
     }
 
     /// Set a custom system prompt.
     pub fn system_prompt(mut self, prompt: &str) -> Self {
-        self.inner.lock().unwrap().system_prompt = Some(prompt.to_string());
+        self.inner.lock().system_prompt = Some(prompt.to_string());
         self
     }
 
@@ -927,49 +930,49 @@ impl Agent {
     ///
     /// Triggers engine recreation if the engine is already initialized.
     pub fn max_turns(mut self, max_turns: u32) -> Self {
-        self.inner.lock().unwrap().max_turns = max_turns;
+        self.inner.lock().max_turns = max_turns;
         self
     }
 
     /// Set the maximum budget in USD.
     pub fn max_budget_usd(mut self, budget: f64) -> Self {
-        self.inner.lock().unwrap().max_budget_usd = Some(budget);
+        self.inner.lock().max_budget_usd = Some(budget);
         self
     }
 
     /// Set the maximum tokens for a single response.
     pub fn max_tokens(mut self, max_tokens: u32) -> Self {
-        self.inner.lock().unwrap().max_tokens = max_tokens;
+        self.inner.lock().max_tokens = max_tokens;
         self
     }
 
     /// Set the fallback model.
     pub fn fallback_model(mut self, model: &str) -> Self {
-        self.inner.lock().unwrap().fallback_model = Some(model.to_string());
+        self.inner.lock().fallback_model = Some(model.to_string());
         self
     }
 
     /// Set thinking configuration for extended thinking.
     pub fn thinking(mut self, thinking: ThinkingConfig) -> Self {
-        self.inner.lock().unwrap().thinking = Some(thinking);
+        self.inner.lock().thinking = Some(thinking);
         self
     }
 
     /// Set tool definitions.
     pub fn tools(mut self, tools: Vec<ToolDefinition>) -> Self {
-        self.inner.lock().unwrap().tool_pool = tools;
+        self.inner.lock().tool_pool = tools;
         self
     }
 
     /// Only allow specific tools by name.
     pub fn allowed_tools(mut self, tools: Vec<String>) -> Self {
-        self.inner.lock().unwrap().allowed_tools = tools;
+        self.inner.lock().allowed_tools = tools;
         self
     }
 
     /// Explicitly disallow specific tools by name.
     pub fn disallowed_tools(mut self, tools: Vec<String>) -> Self {
-        self.inner.lock().unwrap().disallowed_tools = tools;
+        self.inner.lock().disallowed_tools = tools;
         self
     }
 
@@ -978,26 +981,29 @@ impl Agent {
         mut self,
         servers: std::collections::HashMap<String, crate::mcp::McpServerConfig>,
     ) -> Self {
-        self.inner.lock().unwrap().mcp_servers = Some(servers);
+        self.inner.lock().mcp_servers = Some(servers);
         self
     }
 
     /// Set an event callback for streaming agent events.
     ///
-    /// Can be called at any time (before or after `query()`). Takes `&self`
+    /// Can be called at any time (before or after `query()`). Takes `self`
     /// so it can be updated between queries for dynamic event handling.
+    ///
+    /// For fully async event handling, prefer [`Agent::subscribe()`] with
+    /// the [`EventSubscriber`] stream instead.
     pub fn on_event<F>(mut self, callback: F) -> Self
     where
         F: Fn(AgentEvent) + Send + Sync + 'static,
     {
-        self.inner.lock().unwrap().on_event = Some(std::sync::Arc::new(callback));
+        self.inner.lock().on_event = Some(std::sync::Arc::new(callback));
         self
     }
 
     /// Uses interior mutability — takes `&self` so the agent can be shared across tasks.
     /// Lazily creates the QueryEngine on first query.
-    fn init_engine(&self) {
-        let mut inner = self.inner.lock().unwrap();
+    async fn init_engine(&self) {
+        let mut inner = self.inner.lock();
         if inner.engine.is_none() {
             let cwd = inner.cwd.clone();
             let allowed_tools = inner.allowed_tools.clone();
@@ -1079,70 +1085,82 @@ impl Agent {
         Ok(result.text)
     }
 
+    /// Get the configured model name.
     pub fn get_model(&self) -> String {
-        self.inner.lock().unwrap().model.clone()
+        self.inner.lock().model.clone()
     }
 
+    /// Get the session ID.
     pub fn get_session_id(&self) -> String {
-        self.inner.lock().unwrap().session_id.clone()
+        self.inner.lock().session_id.clone()
     }
 
     /// Get all messages in the conversation history.
     /// Delegates to the persisted QueryEngine which owns the message state
     /// (matches TypeScript: engine.mutableMessages).
-    pub fn get_messages(&self) -> Vec<Message> {
-        let inner = self.inner.lock().unwrap();
-        inner
-            .engine
-            .as_ref()
-            .and_then(|e| e.try_lock().ok().map(|g| g.get_messages()))
-            .unwrap_or_default()
+    pub async fn get_messages(&self) -> Vec<Message> {
+        let engine_opt = {
+            let inner = self.inner.lock();
+            inner.engine.clone()
+        };
+        if let Some(engine) = engine_opt {
+            let eng = engine.lock().await;
+            eng.get_messages()
+        } else {
+            Vec::new()
+        }
     }
 
     /// Get all tools available to the agent
     pub fn get_tools(&self) -> Vec<ToolDefinition> {
-        self.inner.lock().unwrap().tool_pool.clone()
+        self.inner.lock().tool_pool.clone()
     }
 
     /// Set system prompt for the agent (interior mutability).
     pub fn set_system_prompt(&self, prompt: &str) {
-        self.inner.lock().unwrap().system_prompt = Some(prompt.to_string());
+        self.inner.lock().system_prompt = Some(prompt.to_string());
     }
 
     /// Set the working directory for the agent (interior mutability).
     pub fn set_cwd(&self, cwd: &str) {
-        self.inner.lock().unwrap().cwd = cwd.to_string();
+        self.inner.lock().cwd = cwd.to_string();
     }
 
-    /// Set the event callback for agent events.
-    ///
-    /// Can be called at any time. Takes effect on the next `query()` call,
-    /// where `on_event` is set on the engine before submitting the message.
-    /// Takes `&self` (interior mutability).
-    pub fn set_event_callback<F>(&self, callback: F)
-    where
-        F: Fn(AgentEvent) + Send + Sync + 'static,
-    {
-        self.inner.lock().unwrap().on_event = Some(std::sync::Arc::new(callback));
-    }
 
     /// Set thinking configuration for the agent (interior mutability).
     pub fn set_thinking(&self, thinking: Option<ThinkingConfig>) {
-        self.inner.lock().unwrap().thinking = thinking;
+        self.inner.lock().thinking = thinking;
     }
 
-    /// Execute a tool directly (for testing/demo purposes).
-    /// Takes `&self` (interior mutability).
-    pub async fn execute_tool(
+    /// Set the model name at runtime (interior mutability).
+    ///
+    /// Changes the model for subsequent `query()` calls, matching TypeScript's
+    /// `QueryEngine.setModel()`.
+    pub fn set_model(&self, model: &str) {
+        self.inner.lock().model = model.to_string();
+    }
+
+    /// Execute a tool directly.
+    pub(crate) async fn execute_tool(
         &self,
         name: &str,
         input: serde_json::Value,
     ) -> Result<ToolResult, AgentError> {
-        let inner = &*self.inner.lock().unwrap();
-        let cwd = inner.cwd.clone();
-        let model = inner.model.clone();
-        let api_key = inner.api_key.clone();
-        let base_url = inner.base_url.clone();
+        // Clone all needed data before dropping the lock
+        let (cwd, model, api_key, base_url, abort_controller, allowed_tools, disallowed_tools, on_event, thinking) = {
+            let inner = self.inner.lock();
+            (
+                inner.cwd.clone(),
+                inner.model.clone(),
+                inner.api_key.clone(),
+                inner.base_url.clone(),
+                inner.abort_controller.clone(),
+                inner.allowed_tools.clone(),
+                inner.disallowed_tools.clone(),
+                inner.on_event.clone(),
+                inner.thinking.clone(),
+            )
+        };
 
         let mut engine = QueryEngine::new(QueryEngineConfig {
             cwd: cwd.clone(),
@@ -1160,7 +1178,7 @@ impl Agent {
             can_use_tool: None,
             on_event: None,
             thinking: None,
-            abort_controller: Some(inner.abort_controller.clone()),
+            abort_controller: Some(abort_controller.clone()),
             token_budget: None,
             agent_id: None,
             loaded_nested_memory_paths: std::collections::HashSet::new(),
@@ -1170,8 +1188,6 @@ impl Agent {
         let parent_can_use_tool: Option<
             std::sync::Arc<dyn Fn(ToolDefinition, serde_json::Value) -> PermissionResult + Send + Sync>,
         > = {
-            let allowed_tools = inner.allowed_tools.clone();
-            let disallowed_tools = inner.disallowed_tools.clone();
             if !allowed_tools.is_empty() || !disallowed_tools.is_empty() {
                 Some(std::sync::Arc::new(
                     move |tool_def: ToolDefinition, _input: serde_json::Value| {
@@ -1194,8 +1210,8 @@ impl Agent {
                 None
             }
         };
-        let parent_on_event = inner.on_event.clone();
-        let parent_thinking = inner.thinking.clone();
+        let parent_on_event = on_event;
+        let parent_thinking = thinking;
 
         // Register all tool executors (including Bash, Read, Write, etc.)
         register_all_tool_executors(&mut engine);
@@ -1209,7 +1225,7 @@ impl Agent {
                 base_url: base_url.clone(),
                 model: model.clone(),
                 tool_pool: crate::tools::get_all_base_tools(),
-                abort_controller: inner.abort_controller.clone(),
+                abort_controller: abort_controller.clone(),
                 can_use_tool: parent_can_use_tool,
                 on_event: parent_on_event,
                 thinking: parent_thinking,
@@ -1229,12 +1245,12 @@ impl Agent {
 
     /// Build the system prompt by combining AI.md, memory mechanics,
     /// base system prompt, and custom system prompt.
-    fn build_system_prompt(&self, cwd: &std::path::Path) -> Option<String> {
+    async fn build_system_prompt(&self, cwd: &std::path::Path) -> Option<String> {
         use crate::ai_md::load_ai_md;
         use crate::memdir::load_memory_prompt_sync;
         use crate::prompts::build_system_prompt as base_build_system_prompt;
 
-        let inner = &*self.inner.lock().unwrap();
+        let inner = &*self.inner.lock();
         let ai_md_prompt = load_ai_md(cwd).ok().flatten();
         let memory_mechanics_prompt =
             if inner.system_prompt.is_some() && crate::memdir::has_auto_mem_path_override() {
@@ -1273,8 +1289,8 @@ impl Agent {
     /// Select the tools to use: all base tools if tool_pool is empty, otherwise the tool pool.
     /// Tools are sorted by name for prompt cache stability (matches TypeScript assembleToolPool).
     /// Applies deny rules to filter out disallowed MCP tools.
-    fn select_tools(&self) -> Vec<ToolDefinition> {
-        let inner = &*self.inner.lock().unwrap();
+    async fn select_tools(&self) -> Vec<ToolDefinition> {
+        let inner = &*self.inner.lock();
         let tools = if inner.tool_pool.is_empty() {
             crate::tools::get_all_base_tools()
         } else {
@@ -1304,24 +1320,25 @@ impl Agent {
     ///
     /// Takes `&self` (interior mutability) — the agent can be shared across tasks.
     pub async fn query(&self, prompt: &str) -> Result<QueryResult, AgentError> {
-        self.init_engine();
+        self.init_engine().await;
 
         // Clone all data from AgentInner before any .await (MutexGuard is not Send).
         // Single lock acquisition.
-        let (cwd, on_event, thinking, abort_controller, engine) = {
-            let inner = self.inner.lock().unwrap();
+        let (cwd, on_event, thinking, abort_controller, engine, broadcasters) = {
+            let inner = self.inner.lock();
             (
                 inner.cwd.clone(),
                 inner.on_event.clone(),
                 inner.thinking.clone(),
                 inner.abort_controller.clone(),
                 Arc::clone(inner.engine.as_ref().unwrap()),
+                inner.broadcasters.clone(),
             )
         };
         let cwd_path = std::path::Path::new(&cwd);
 
-        let system_prompt = self.build_system_prompt(cwd_path);
-        let tools = self.select_tools();
+        let system_prompt = self.build_system_prompt(&cwd_path).await;
+        let tools = self.select_tools().await;
 
         let start = std::time::Instant::now();
         let (response_text, exit_reason, current_model, usage, turns) = {
@@ -1330,6 +1347,16 @@ impl Agent {
             // Update per-query config
             eng.config.system_prompt = system_prompt;
             eng.config.tools = tools;
+            // Wrap on_event to also broadcast to channel subscribers
+            let on_event = {
+                let cb = on_event;
+                Some(Arc::new(move |event: crate::types::AgentEvent| {
+                    if let Some(ref f) = cb {
+                        f(event.clone());
+                    }
+                    broadcasters.broadcast(&event);
+                }) as std::sync::Arc<dyn Fn(crate::types::AgentEvent) + Send + Sync>)
+            };
             eng.config.on_event = on_event;
             eng.config.thinking = thinking;
 
@@ -1384,7 +1411,7 @@ impl Agent {
 
         // Track model in case it changed (for recreation detection)
         if current_model != self.get_model() {
-            self.inner.lock().unwrap().model = current_model;
+            self.inner.lock().model = current_model;
         }
 
         Ok(QueryResult {
@@ -1405,15 +1432,14 @@ impl Agent {
     ///
     /// Clears all messages, usage tracking, and turn count. This starts a fresh
     /// conversation while preserving model, API key, tools, and other settings.
-    /// Takes `&self` (interior mutability).
-    pub fn reset(&self) {
-        {
-            let inner = &*self.inner.lock().unwrap();
-            if let Some(engine) = &inner.engine {
-                if let Ok(mut eng) = engine.try_lock() {
-                    eng.reset();
-                }
-            }
+    pub async fn reset(&self) {
+        let engine_opt = {
+            let inner = self.inner.lock();
+            inner.engine.clone()
+        };
+        if let Some(engine) = engine_opt {
+            let mut eng = engine.lock().await;
+            eng.reset();
         }
     }
 
@@ -1443,9 +1469,8 @@ impl Agent {
     /// }
     /// ```
     pub fn subscribe(&self) -> (EventSubscriber, CancelGuard) {
-        let (tx, rx) = mpsc::channel(256);
-        let guard = CancelGuard::new(tx);
-        (EventSubscriber::new(rx), guard)
+        let inner = self.inner.lock();
+        inner.broadcasters.subscribe()
     }
 
     /// Interrupt the agent loop. This aborts the current `query()` call,
@@ -1464,15 +1489,8 @@ impl Agent {
     /// agent.interrupt(); // Cancel the running prompt
     /// ```
     pub fn interrupt(&self) {
-        {
-            let inner = &*self.inner.lock().unwrap();
-            inner.abort_controller.abort(None);
-            if let Some(ref engine) = inner.engine {
-                if let Ok(mut eng) = engine.try_lock() {
-                    eng.interrupt();
-                }
-            }
-        }
+        let inner = self.inner.lock();
+        inner.abort_controller.abort(None);
     }
 
     /// Generate a short session recap summarizing the conversation so far.
@@ -1498,16 +1516,19 @@ impl Agent {
     pub async fn recap(
         &self,
     ) -> crate::services::away_summary::AwaySummaryResult {
-        let (messages, api_key, abort_ctrl) = {
-            let inner = self.inner.lock().unwrap();
-            let messages = inner
-                .engine
-                .as_ref()
-                .and_then(|e| e.try_lock().ok().map(|g| g.get_messages()))
-                .unwrap_or_default();
-            let api_key = inner.api_key.clone();
-            let abort_ctrl = inner.abort_controller.clone();
-            (messages, api_key, abort_ctrl)
+        let engine_opt = {
+            let inner = self.inner.lock();
+            inner.engine.clone()
+        };
+        let messages = if let Some(engine) = engine_opt.as_ref() {
+            let eng = engine.lock().await;
+            eng.get_messages()
+        } else {
+            Vec::new()
+        };
+        let (api_key, abort_ctrl) = {
+            let inner = self.inner.lock();
+            (inner.api_key.clone(), inner.abort_controller.clone())
         };
 
         let api_key = match api_key {
