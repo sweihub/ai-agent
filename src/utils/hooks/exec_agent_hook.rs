@@ -435,7 +435,8 @@ When done, return your result using the {tool} tool with:
             | AgentEvent::RateLimitStatus { .. }
             | AgentEvent::MaxTurnsReached { .. }
             | AgentEvent::Tombstone { .. }
-            | AgentEvent::Compact { .. } => {
+            | AgentEvent::Compact { .. }
+            | AgentEvent::TokenUsage { .. } => {
                 // Streaming and internal events — mapped to generic stream_event.
                 serde_json::json!({ "type": "stream_event" })
             }

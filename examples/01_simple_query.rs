@@ -112,6 +112,16 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             AgentEvent::StreamRequestEnd => {
                 println!("\n[Request] response received");
             }
+            AgentEvent::TokenUsage { usage, cost } => {
+                println!(
+                    "\n[Usage] input={} output={} cache_read={} cache_write={} cost=${:.4}",
+                    usage.input_tokens,
+                    usage.output_tokens,
+                    usage.cache_read_input_tokens.unwrap_or(0),
+                    usage.cache_creation_input_tokens.unwrap_or(0),
+                    cost
+                );
+            }
             AgentEvent::RateLimitStatus {
                 is_rate_limited,
                 retry_after_secs: _,

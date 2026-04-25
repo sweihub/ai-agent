@@ -3889,6 +3889,12 @@ async fn make_anthropic_streaming_request(
                                     }
                                     // Calculate cost from current usage
                                     result.cost = calculate_streaming_cost(&result.usage, &model);
+                                    if let Some(ref cb) = on_event {
+                                        cb(AgentEvent::TokenUsage {
+                                            usage: result.usage.clone(),
+                                            cost: result.cost,
+                                        });
+                                    }
                                 }
                                 "message_stop" => {
                                     // Message complete — break from the stream loop so the

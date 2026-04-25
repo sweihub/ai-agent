@@ -685,6 +685,12 @@ pub enum AgentEvent {
     /// Compact progress event (hooks_start, compact_start, compact_end)
     /// Matches TypeScript ToolUseContext.onCompactProgress
     Compact { event: CompactProgressEvent },
+    /// Actual API token usage from message_delta event
+    /// Emitted after all content_block_stop events, before message_stop
+    TokenUsage {
+        usage: TokenUsage,
+        cost: f64,
+    },
 }
 
 /// Content delta types for streaming
