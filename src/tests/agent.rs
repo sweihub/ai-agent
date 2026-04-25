@@ -1660,3 +1660,193 @@ async fn test_agent_done_event_after_tool_execution() {
         assert!(!qr.text.is_empty(), "Done result should have text. Got: {}", qr.text);
     }
 }
+
+/// Test that AgentEvent::Done has a valid duration_ms (> 0).
+/// The query engine tracks start_time at submit_message() entry and computes
+/// elapsed time for all Done emission paths.
+#[serial_test::serial]
+#[tokio::test]
+async fn test_done_event_has_valid_duration() {
+    if !has_required_env_vars() {
+        eprintln!("Skipping test: AI_BASE_URL, AI_MODEL, or AI_AUTH_TOKEN not set");
+        return;
+    }
+
+    let config = EnvConfig::load();
+    if config.base_url.is_none() || config.auth_token.is_none() {
+        eprintln!("Skipping test: no API config found");
+        return;
+    }
+
+    clear_all_test_state();
+
+    use std::sync::Mutex;
+    let events: std::sync::Arc<Mutex<Vec<crate::types::AgentEvent>>> =
+        std::sync::Arc::new(Mutex::new(Vec::new()));
+    let events_clone = events.clone();
+
+    let agent = Agent::new(config.model.as_ref().unwrap())
+        .max_turns(1)
+        .on_event(move |event| {
+            events_clone.lock().unwrap().push(event);
+        });
+
+    let result = tokio::time::timeout(
+        std::time::Duration::from_secs(30),
+        agent.query("Reply ONLY with: DurationTest"),
+    )
+    .await
+    .expect("test timed out after 30s");
+
+    assert!(result.is_ok(), "Agent should respond successfully");
+
+    let events = events.lock().unwrap();
+    let done_events: Vec<_> = events
+        .iter()
+        .filter_map(|e| {
+            if let crate::types::AgentEvent::Done { result } = e {
+                Some(result)
+            } else {
+                None
+            }
+        })
+        .collect();
+
+    assert!(
+        !done_events.is_empty(),
+        "Should have received AgentEvent::Done. Events: {:?}",
+        events
+    );
+
+    for qr in &done_events {
+        assert!(
+            qr.duration_ms > 0,
+            "Done event should have duration_ms > 0, got {}. Events: {:?}",
+            qr.duration_ms,
+            events
+        );
+    }
+}
+
+/// Test that compact progress events (CompactStart/CompactEnd) can be collected
+/// through the AgentEvent stream via CompactProgress variant.
+#[test]
+fn test_compact_progress_event_variants() {
+    use crate::types::AgentEvent;
+    use crate::types::CompactHookType;
+    use crate::types::CompactProgressEvent;
+
+    // Simulate what query_engine emits via on_event callback
+    let events: Vec<AgentEvent> = vec![
+        AgentEvent::CompactProgress {
+            event: CompactProgressEvent::HooksStart {
+                hook_type: CompactHookType::PreCompact,
+            },
+        },
+        AgentEvent::CompactProgress {
+            event: CompactProgressEvent::CompactStart,
+        },
+        AgentEvent::CompactProgress {
+            event: CompactProgressEvent::CompactEnd,
+        },
+    ];
+
+    let compact_events: Vec<_> = events
+        .iter()
+        .filter_map(|e| {
+            if let AgentEvent::CompactProgress { event } = e {
+                Some(event)
+            } else {
+                None
+            }
+        })
+        .collect();
+
+    assert_eq!(
+        compact_events.len(),
+        3,
+        "Should have 3 compact progress events"
+    );
+
+    match &compact_events[0] {
+        CompactProgressEvent::HooksStart { hook_type } => {
+            assert_eq!(*hook_type, CompactHookType::PreCompact);
+        }
+        _ => panic!("Expected HooksStart event, got {:?}", compact_events[0]),
+    }
+
+    assert!(
+        matches!(compact_events[1], CompactProgressEvent::CompactStart),
+        "Second event should be CompactStart"
+    );
+    assert!(
+        matches!(compact_events[2], CompactProgressEvent::CompactEnd),
+        "Third event should be CompactEnd"
+    );
+}
+
+/// Test that all three CompactHookType variants can be emitted and parsed.
+#[test]
+fn test_compact_hook_type_variants() {
+    use crate::types::CompactHookType;
+    use crate::types::CompactProgressEvent;
+    use crate::types::AgentEvent;
+
+    // Verify all hook types can be constructed
+    let pre = AgentEvent::CompactProgress {
+        event: CompactProgressEvent::HooksStart {
+            hook_type: CompactHookType::PreCompact,
+        },
+    };
+    let post = AgentEvent::CompactProgress {
+        event: CompactProgressEvent::HooksStart {
+            hook_type: CompactHookType::PostCompact,
+        },
+    };
+    let session = AgentEvent::CompactProgress {
+        event: CompactProgressEvent::HooksStart {
+            hook_type: CompactHookType::SessionStart,
+        },
+    };
+
+    // Verify pattern matching works for all variants
+    assert!(matches!(
+        pre,
+        AgentEvent::CompactProgress {
+            event: CompactProgressEvent::HooksStart { hook_type: CompactHookType::PreCompact }
+        }
+    ));
+    assert!(matches!(
+        post,
+        AgentEvent::CompactProgress {
+            event: CompactProgressEvent::HooksStart { hook_type: CompactHookType::PostCompact }
+        }
+    ));
+    assert!(matches!(
+        session,
+        AgentEvent::CompactProgress {
+            event: CompactProgressEvent::HooksStart { hook_type: CompactHookType::SessionStart }
+        }
+    ));
+
+    // Verify CompactStart and CompactEnd
+    let start = AgentEvent::CompactProgress {
+        event: CompactProgressEvent::CompactStart,
+    };
+    let end = AgentEvent::CompactProgress {
+        event: CompactProgressEvent::CompactEnd,
+    };
+
+    assert!(matches!(
+        start,
+        AgentEvent::CompactProgress {
+            event: CompactProgressEvent::CompactStart
+        }
+    ));
+    assert!(matches!(
+        end,
+        AgentEvent::CompactProgress {
+            event: CompactProgressEvent::CompactEnd
+        }
+    ));
+}

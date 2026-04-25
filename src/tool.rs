@@ -81,17 +81,10 @@ pub struct SetToolJsxArgs {
 }
 
 // ---------------------------------------------------------------------------
-// Compact progress events
+// Compact progress events (re-exported from types)
 // ---------------------------------------------------------------------------
 
-#[derive(Debug, Clone)]
-pub enum CompactProgressEvent {
-    HooksStart {
-        hook_type: String, // "pre_compact" | "post_compact" | "session_start"
-    },
-    CompactStart,
-    CompactEnd,
-}
+pub use crate::types::CompactProgressEvent;
 
 // ---------------------------------------------------------------------------
 // Tool permission context (re-export + extension)

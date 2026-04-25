@@ -1226,6 +1226,15 @@ impl QueryEngine {
             return None;
         }
 
+        // Emit hooks_start event
+        if let Some(ref cb) = self.config.on_event {
+            cb(AgentEvent::CompactProgress {
+                event: CompactProgressEvent::HooksStart {
+                    hook_type: CompactHookType::PreCompact,
+                },
+            });
+        }
+
         let trigger = if self.auto_compact_tracking.compacted {
             "auto"
         } else {
@@ -1275,6 +1284,15 @@ impl QueryEngine {
 
         if !registry.has_hooks("PostCompact") {
             return;
+        }
+
+        // Emit hooks_start event
+        if let Some(ref cb) = self.config.on_event {
+            cb(AgentEvent::CompactProgress {
+                event: CompactProgressEvent::HooksStart {
+                    hook_type: CompactHookType::PostCompact,
+                },
+            });
         }
 
         let trigger = if self.auto_compact_tracking.compacted {
@@ -1357,7 +1375,9 @@ impl QueryEngine {
 
         if self.auto_compact_tracking.consecutive_failures < 3 && token_count > threshold {
             if let Some(ref cb) = self.config.on_event {
-                cb(AgentEvent::CompactStart);
+                cb(AgentEvent::CompactProgress {
+                    event: CompactProgressEvent::CompactStart,
+                });
             }
             // Try to compact before making any API call
             match self.do_auto_compact().await {
@@ -1378,7 +1398,9 @@ impl QueryEngine {
                 }
             }
             if let Some(ref cb) = self.config.on_event {
-                cb(AgentEvent::CompactEnd);
+                cb(AgentEvent::CompactProgress {
+                    event: CompactProgressEvent::CompactEnd,
+                });
             }
         }
 
@@ -1412,7 +1434,9 @@ impl QueryEngine {
             // 2. Token count exceeds auto-compact threshold
             if self.auto_compact_tracking.consecutive_failures < 3 && token_count > threshold {
                 if let Some(ref cb) = self.config.on_event {
-                    cb(AgentEvent::CompactStart);
+                    cb(AgentEvent::CompactProgress {
+                        event: CompactProgressEvent::CompactStart,
+                    });
                 }
                 // Attempt auto-compact
                 match self.do_auto_compact().await {
@@ -1436,7 +1460,9 @@ impl QueryEngine {
                     }
                 }
                 if let Some(ref cb) = self.config.on_event {
-                    cb(AgentEvent::CompactEnd);
+                    cb(AgentEvent::CompactProgress {
+                        event: CompactProgressEvent::CompactEnd,
+                    });
                 }
             }
 

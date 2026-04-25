@@ -6,7 +6,7 @@
  *
  * Run: cargo run --example 01_simple_query
  */
-use ai_agent::{Agent, AgentEvent};
+use ai_agent::{Agent, AgentEvent, CompactHookType, CompactProgressEvent};
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 
@@ -121,8 +121,22 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     if is_rate_limited { "hit" } else { "cleared" }
                 );
             }
-            AgentEvent::CompactStart => println!("\n[Compact] starting compaction"),
-            AgentEvent::CompactEnd => println!("\n[Compact] compaction complete"),
+            AgentEvent::CompactProgress { event } => match event {
+                CompactProgressEvent::HooksStart { hook_type } => {
+                    let msg = match hook_type {
+                        CompactHookType::PreCompact => "Running PreCompact hooks…",
+                        CompactHookType::PostCompact => "Running PostCompact hooks…",
+                        CompactHookType::SessionStart => "Running SessionStart hooks…",
+                    };
+                    println!("\n[Compact] {}", msg);
+                }
+                CompactProgressEvent::CompactStart => {
+                    println!("\n[Compact] starting compaction");
+                }
+                CompactProgressEvent::CompactEnd => {
+                    println!("\n[Compact] compaction complete");
+                }
+            },
         }
     };
 

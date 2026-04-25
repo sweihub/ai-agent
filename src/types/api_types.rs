@@ -571,6 +571,30 @@ impl Default for ExitReason {
     }
 }
 
+/// Compact progress event types
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(tag = "type")]
+pub enum CompactProgressEvent {
+    #[serde(rename = "hooks_start")]
+    HooksStart {
+        #[serde(rename = "hookType")]
+        hook_type: CompactHookType,
+    },
+    #[serde(rename = "compact_start")]
+    CompactStart,
+    #[serde(rename = "compact_end")]
+    CompactEnd,
+}
+
+/// Compact hook types
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum CompactHookType {
+    PreCompact,
+    PostCompact,
+    SessionStart,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct QueryResult {
     pub text: String,
@@ -644,10 +668,9 @@ pub enum AgentEvent {
     /// Tombstone event for orphaned messages on streaming fallback
     /// (matches TypeScript 'tombstone' event)
     Tombstone { message: String },
-    /// Compaction started (messages are being summarized)
-    CompactStart,
-    /// Compaction finished (messages have been summarized)
-    CompactEnd,
+    /// Compact progress event (hooks_start, compact_start, compact_end)
+    /// Matches TypeScript ToolUseContext.onCompactProgress
+    CompactProgress { event: CompactProgressEvent },
 }
 
 /// Content delta types for streaming
@@ -878,30 +901,6 @@ impl Default for ToolPermissionContext {
 /// Create empty tool permission context
 pub fn get_empty_tool_permission_context() -> ToolPermissionContext {
     ToolPermissionContext::default()
-}
-
-/// Compact progress event types
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(tag = "type")]
-pub enum CompactProgressEvent {
-    #[serde(rename = "hooks_start")]
-    HooksStart {
-        #[serde(rename = "hookType")]
-        hook_type: CompactHookType,
-    },
-    #[serde(rename = "compact_start")]
-    CompactStart,
-    #[serde(rename = "compact_end")]
-    CompactEnd,
-}
-
-/// Compact hook types
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum CompactHookType {
-    PreCompact,
-    PostCompact,
-    SessionStart,
 }
 
 /// Tool input JSON schema (for MCP tools)
