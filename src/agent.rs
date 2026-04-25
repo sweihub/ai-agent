@@ -1245,7 +1245,7 @@ impl Agent {
 
     /// Build the system prompt by combining AI.md, memory mechanics,
     /// base system prompt, and custom system prompt.
-    async fn build_system_prompt(&self, cwd: &std::path::Path) -> Option<String> {
+    fn build_system_prompt(&self, cwd: &std::path::Path) -> Option<String> {
         use crate::ai_md::load_ai_md;
         use crate::memdir::load_memory_prompt_sync;
         use crate::prompts::build_system_prompt as base_build_system_prompt;
@@ -1289,7 +1289,7 @@ impl Agent {
     /// Select the tools to use: all base tools if tool_pool is empty, otherwise the tool pool.
     /// Tools are sorted by name for prompt cache stability (matches TypeScript assembleToolPool).
     /// Applies deny rules to filter out disallowed MCP tools.
-    async fn select_tools(&self) -> Vec<ToolDefinition> {
+    fn select_tools(&self) -> Vec<ToolDefinition> {
         let inner = &*self.inner.lock();
         let tools = if inner.tool_pool.is_empty() {
             crate::tools::get_all_base_tools()
@@ -1337,8 +1337,8 @@ impl Agent {
         };
         let cwd_path = std::path::Path::new(&cwd);
 
-        let system_prompt = self.build_system_prompt(&cwd_path).await;
-        let tools = self.select_tools().await;
+        let system_prompt = self.build_system_prompt(&cwd_path);
+        let tools = self.select_tools();
 
         let start = std::time::Instant::now();
         let (response_text, exit_reason, current_model, usage, turns) = {
