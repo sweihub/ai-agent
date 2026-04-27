@@ -262,39 +262,23 @@ fn get_small_fast_model() -> String {
     "claude-3-haiku-20240307".to_string()
 }
 
-/// Execute a real multi-turn agent query loop using the QueryEngine.
-/// Collects events via on_event callback and returns them as JSON messages
-/// compatible with the exec_agent_hook consumer (assistant turns, structured
-/// output attachments, done event).
+/// Execute a multi-turn agent query loop using direct API calls.
+/// Avoids importing from crate::query_engine and crate::agent to prevent
+/// a compile-time type cycle: hooks -> exec_agent_hook -> query_engine -> hooks.
+///
+/// For each turn:
+/// 1. Read the transcript file if it exists and prepend to context
+/// 2. Call the Anthropic API with JSON schema output
+/// 3. Parse the response for structured output (ok/reason)
+/// 4. Return events compatible with the exec_agent_hook consumer
 async fn simulate_query_loop(
     messages: &[serde_json::Value],
     transcript_path: &str,
     model: &str,
 ) -> Vec<serde_json::Value> {
-    use crate::agent::register_all_tool_executors;
-    use crate::query_engine::{QueryEngine, QueryEngineConfig};
-    use crate::types::AgentEvent;
+    use crate::utils::hooks::hook_helpers::hook_response_schema;
 
-    // Channel for streaming events from the spawned query task back to this function.
-    let (sender, mut receiver) = tokio::sync::mpsc::channel::<AgentEvent>(256);
-
-    // Build system prompt matching the TypeScript version's instruction template.
-    let system_prompt = format!(
-        "You are verifying a stop condition in Claude Code. Your task is to verify that \
-         the agent completed the given plan. The conversation transcript is available at: \
-         {transcript_path}\nYou can read this file to analyze the conversation history if needed.
-
-Use the available tools to inspect the codebase and verify the condition.
-Use as few steps as possible - be efficient and direct.
-
-When done, return your result using the {tool} tool with:
-- ok: true if the condition is met
-- ok: false with reason if the condition is not met",
-        transcript_path = transcript_path,
-        tool = SYNTHETIC_OUTPUT_TOOL_NAME,
-    );
-
-    // Extract prompt text from input messages (same shape as create_user_message output).
+    // Extract prompt text from input messages.
     let prompt = messages
         .iter()
         .filter_map(|m| {
@@ -309,146 +293,150 @@ When done, return your result using the {tool} tool with:
         .collect::<Vec<String>>()
         .join("\n");
 
-    // Resolve API credentials.
+    // Read transcript file content if available
+    let transcript_content = tokio::fs::read_to_string(transcript_path)
+        .await
+        .unwrap_or_default();
+
+    // Build system prompt with transcript context
+    let system_prompt = format!(
+        "You are verifying a stop condition in Claude Code. Your task is to verify that \
+         the agent completed the given plan.\n\nConversation transcript:{}\n\n\
+         Use the transcript above to analyze the conversation history.\
+         Return your verification result as JSON.",
+        if transcript_content.is_empty() {
+            " (not available)".to_string()
+        } else {
+            format!("\n---\n{}\n---", transcript_content.chars().take(50000).collect::<String>())
+        }
+    );
+
+    // Build the query messages
+    let user_msg = serde_json::json!({
+        "role": "user",
+        "content": prompt
+    });
+    let query_messages = vec![user_msg];
+
+    // Resolve API credentials
+    let base_url = std::env::var("AI_API_BASE_URL")
+        .unwrap_or_else(|_| "https://api.anthropic.com".to_string());
     let api_key = std::env::var("AI_AUTH_TOKEN")
         .or_else(|_| std::env::var("ANTHROPIC_API_KEY"))
         .or_else(|_| std::env::var("ANTHROPIC_AUTH_TOKEN"))
         .ok();
 
-    // If no API key is available, drop the sender so the receiver closes immediately
-    // and the caller's for-await loop exits cleanly.
     if api_key.is_none() {
         log_for_debugging("Hooks: No API key available, skipping agent query");
-        drop(sender);
         return Vec::new();
     }
-
     let api_key = api_key.unwrap();
 
-    // Create abort controller that will be cloned into the engine.
-    let abort_controller = crate::utils::abort_controller::create_abort_controller_default();
-
-    // Build the QueryEngine config with an on_event callback that forwards every
-    // AgentEvent through the mpsc channel.
-    let on_event = {
-        let ch = sender.clone();
-        Some(Arc::new({
-            move |event: AgentEvent| {
-                let _ = ch.blocking_send(event);
-            }
-        }) as Arc<dyn Fn(AgentEvent) + Send + Sync>)
-    };
-
-    let mut engine = QueryEngine::new(QueryEngineConfig {
-        cwd: std::env::current_dir()
-            .map(|p| p.to_string_lossy().to_string())
-            .unwrap_or_else(|_| ".".to_string()),
-        model: model.to_string(),
-        api_key: Some(api_key),
-        base_url: std::env::var("AI_API_BASE_URL").ok(),
-        tools: Vec::new(),
-        system_prompt: Some(system_prompt),
-        max_turns: 5,
-        max_budget_usd: None,
-        max_tokens: 4096,
-        fallback_model: None,
-        user_context: std::collections::HashMap::new(),
-        system_context: std::collections::HashMap::new(),
-        can_use_tool: None,
-        on_event,
-        thinking: Some(crate::types::api_types::ThinkingConfig::Disabled),
-        abort_controller: None,
-        token_budget: None,
-        agent_id: Some("hook-agent".to_string()),
-        loaded_nested_memory_paths: HashSet::new(),
-        task_budget: None,
-    });
-
-    // Spawn the query task so events flow asynchronously through the channel.
-    let ac = Arc::new(abort_controller);
-    let task = tokio::spawn({
-        let ac = Arc::clone(&ac);
-        async move {
-            // Register all built-in tool executors (includes StructuredOutput).
-            register_all_tool_executors(&mut engine);
-
-            // Override the engine's abort controller so the caller's abort signal
-            // can stop the query loop.
-            // (The engine stores its own AbortController; we signal it via the
-            // watch channel in exec_agent_hook which the loop checks.)
-
-            let _ = engine.submit_message(&prompt).await;
-
-            // Signal completion so the receiver loop can exit.
-            // The sender will also be dropped when this task ends.
+    let url = format!("{}/v1/messages", base_url);
+    let request_body = serde_json::json!({
+        "model": model,
+        "max_tokens": 4096,
+        "system": [{"type": "text", "text": system_prompt}],
+        "messages": query_messages,
+        "temperature": 0.0,
+        "output": {
+            "type": "json_schema",
+            "name": "hook_response",
+            "schema": hook_response_schema(),
+            "strict": true
         }
     });
 
-    // Wait for the query task with a timeout to prevent indefinite hangs.
-    let task_handle = tokio::time::timeout(
-        std::time::Duration::from_secs(120),
-        task,
-    );
+    let client = reqwest::Client::new();
+    let mut req_builder = client.post(&url)
+        .json(&request_body)
+        .header("Content-Type", "application/json");
 
-    // Spawn a background task that waits for the query and then drops the sender.
-    let sender_for_cleanup = sender.clone();
-    let _cleanup = tokio::spawn(async move {
-        let _ = task_handle.await;
-        drop(sender_for_cleanup);
-    });
-
-    // Collect events from the channel, converting each AgentEvent to the JSON
-    // message format expected by the caller's loop.
-    let mut result = Vec::new();
-    while let Some(event) = receiver.recv().await {
-        let json = match event {
-            AgentEvent::Thinking { .. } => {
-                // Maps to "assistant" type for turn counting.
-                serde_json::json!({ "type": "assistant" })
-            }
-            AgentEvent::ToolStart {
-                tool_name, input, ..
-            } if tool_name == SYNTHETIC_OUTPUT_TOOL_NAME => {
-                // Structured output tool called — emit as attachment so the
-                // caller detects it and breaks the loop.
-                serde_json::json!({
-                    "type": "attachment",
-                    "attachment": {
-                        "type": "structured_output",
-                        "data": input,
-                    }
-                })
-            }
-            AgentEvent::ToolStart { .. } => {
-                // Other tool starts — mapped to generic stream_event.
-                serde_json::json!({ "type": "stream_event" })
-            }
-            AgentEvent::ToolComplete { .. }
-            | AgentEvent::ToolError { .. }
-            | AgentEvent::ContentBlockStart { .. }
-            | AgentEvent::ContentBlockDelta { .. }
-            | AgentEvent::ContentBlockStop { .. }
-            | AgentEvent::MessageStart { .. }
-            | AgentEvent::MessageStop
-            | AgentEvent::RequestStart
-            | AgentEvent::StreamRequestEnd
-            | AgentEvent::RateLimitStatus { .. }
-            | AgentEvent::MaxTurnsReached { .. }
-            | AgentEvent::Tombstone { .. }
-            | AgentEvent::Compact { .. }
-            | AgentEvent::TokenUsage { .. } => {
-                // Streaming and internal events — mapped to generic stream_event.
-                serde_json::json!({ "type": "stream_event" })
-            }
-            AgentEvent::Done { .. } => {
-                // Query loop finished — emit done event.
-                serde_json::json!({ "type": "done" })
-            }
-        };
-        result.push(json);
+    if base_url.contains("anthropic.com") {
+        req_builder = req_builder
+            .header("x-api-key", &api_key)
+            .header("anthropic-version", "2023-06-01");
+    } else {
+        req_builder = req_builder.header("Authorization", format!("Bearer {}", api_key));
     }
 
+    let mut result = Vec::new();
+    // Emit assistant turn event for turn counting
+    result.push(serde_json::json!({ "type": "assistant" }));
+
+    match req_builder.send().await {
+        Ok(response) => {
+            let status = response.status();
+            let body = response.text().await.unwrap_or_default();
+
+            if !status.is_success() {
+                log_for_debugging(&format!("Hooks: API error {}: {}", status, body));
+                result.push(serde_json::json!({ "type": "done" }));
+                return result;
+            }
+
+            let parsed: serde_json::Value = match serde_json::from_str(&body) {
+                Ok(v) => v,
+                Err(e) => {
+                    log_for_debugging(&format!("Hooks: Failed to parse API response: {}", e));
+                    result.push(serde_json::json!({ "type": "done" }));
+                    return result;
+                }
+            };
+
+            // Extract text from response (supports both Anthropic and OpenAI formats)
+            let text = extract_text(&parsed);
+            if text.is_empty() {
+                log_for_debugging("Hooks: Empty response from model");
+                result.push(serde_json::json!({ "type": "done" }));
+                return result;
+            }
+
+            log_for_debugging(&format!("Hooks: Model response: {}", text));
+
+            // Emit structured output attachment so the caller detects it
+            result.push(serde_json::json!({
+                "type": "attachment",
+                "attachment": {
+                    "type": "structured_output",
+                    "data": serde_json::from_str::<serde_json::Value>(&text).unwrap_or_else(|_| {
+                        serde_json::json!({"ok": false, "reason": "Failed to parse model response"})
+                    })
+                }
+            }));
+        }
+        Err(e) => {
+            log_for_debugging(&format!("Hooks: Request failed: {}", e));
+        }
+    }
+
+    result.push(serde_json::json!({ "type": "done" }));
     result
+}
+
+/// Extract text content from an API response (supports both Anthropic and OpenAI formats)
+fn extract_text(response: &serde_json::Value) -> String {
+    // OpenAI format: choices[].message.content
+    if let Some(content) = response.get("choices").and_then(|c| c.as_array())
+        .and_then(|c| c.first())
+        .and_then(|c| c.get("message"))
+        .and_then(|m| m.get("content"))
+        .and_then(|c| c.as_str()) {
+        return content.to_string();
+    }
+    // Anthropic format: content[].text
+    if let Some(blocks) = response.get("content").and_then(|c| c.as_array()) {
+        let mut texts = Vec::new();
+        for block in blocks {
+            if let Some(text) = block.get("text").and_then(|t| t.as_str()) {
+                texts.push(text.to_string());
+            }
+        }
+        if !texts.is_empty() {
+            return texts.join("\n");
+        }
+    }
+    String::new()
 }
 
 /// No-op set_app_state for use with session hook functions that require a

@@ -764,6 +764,7 @@ mod tests {
             tool_calls: None,
             is_error: None,
             is_meta: None,
+            uuid: None,
         };
         let assistant_msg = Message {
             role: MessageRole::Assistant,
@@ -773,6 +774,7 @@ mod tests {
             tool_calls: None,
             is_error: None,
             is_meta: None,
+            uuid: None,
         };
         let tool_msg = Message {
             role: MessageRole::Tool,
@@ -782,6 +784,7 @@ mod tests {
             tool_calls: None,
             is_error: None,
             is_meta: None,
+            uuid: None,
         };
 
         assert!(is_model_visible_message(&user_msg));
@@ -800,6 +803,7 @@ mod tests {
                 tool_calls: None,
                 is_error: None,
                 is_meta: None,
+            uuid: None,
             },
             Message {
                 role: MessageRole::Assistant,
@@ -809,6 +813,7 @@ mod tests {
                 tool_calls: None,
                 is_error: None,
                 is_meta: None,
+            uuid: None,
             },
             Message {
                 role: MessageRole::User,
@@ -818,6 +823,7 @@ mod tests {
                 tool_calls: None,
                 is_error: None,
                 is_meta: None,
+            uuid: None,
             },
         ];
 
@@ -838,6 +844,7 @@ mod tests {
             tool_calls: None,
             is_error: None,
             is_meta: None,
+            uuid: None,
         }];
 
         assert!(!should_extract_memories(&few_messages, &config));
@@ -860,6 +867,7 @@ mod tests {
                 tool_calls: None,
                 is_error: None,
                 is_meta: None,
+            uuid: None,
             })
             .collect();
 

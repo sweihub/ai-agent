@@ -80,6 +80,10 @@ pub use crate::utils::hooks::register_skill_hooks::HookMatcher;
 pub struct SkillMetadata {
     pub name: String,
     pub description: String,
+    /// Display name parsed from frontmatter `name` field (TS: displayName)
+    pub display_name: Option<String>,
+    /// Version parsed from frontmatter `version` field
+    pub version: Option<String>,
     pub allowed_tools: Option<Vec<String>>,
     pub argument_hint: Option<String>,
     pub arg_names: Option<Vec<String>>,
@@ -136,6 +140,43 @@ fn parse_frontmatter(content: &str) -> (HashMap<String, String>, String) {
     }
 
     (fields, content.to_string())
+}
+
+/// Substitute `${CLAUDE_SKILL_DIR}` and `${CLAUDE_SESSION_ID}` environment
+/// variables in skill content strings.
+///
+/// Matches TypeScript behavior at loadSkillsDir.ts lines 362-368 where
+/// `getPromptForCommand` replaces `${CLAUDE_SKILL_DIR}` with the skill's
+/// base directory and `${CLAUDE_SESSION_ID}` with the current session ID.
+pub fn substitute_env_vars_in_skill(content: &str, base_dir: &str) -> String {
+    let session_id = crate::bootstrap::state::get_session_id();
+    // Normalize backslashes to forward slashes on Windows so shell commands
+    // don't treat them as escapes.
+    #[cfg(windows)]
+    let normalised_base_dir = base_dir.replace('\\', "/");
+    #[cfg(not(windows))]
+    let normalised_base_dir = base_dir.to_string();
+
+    content
+        .replace("${CLAUDE_SKILL_DIR}", &normalised_base_dir)
+        .replace("${CLAUDE_SESSION_ID}", &session_id)
+}
+
+/// Estimate token count for a skill based on frontmatter only
+/// (name, description, when_to_use) since full content is only loaded on invocation.
+///
+/// Matches TypeScript `estimateSkillFrontmatterTokens` at loadSkillsDir.ts lines 97-105.
+pub fn estimate_skill_frontmatter_tokens(metadata: &SkillMetadata) -> usize {
+    let parts: Vec<&str> = vec![
+        Some(metadata.name.as_str()),
+        Some(metadata.description.as_str()),
+        metadata.when_to_use.as_deref(),
+    ]
+    .into_iter()
+    .flatten()
+    .collect();
+    let frontmatter_text = parts.join(" ");
+    crate::services::token_estimation::rough_token_count_estimation(&frontmatter_text, 4.0)
 }
 
 /// Load a skill from a directory containing SKILL.md
@@ -243,6 +284,9 @@ pub fn load_skill_from_dir(dir_path: &Path) -> Result<LoadedSkill, AgentError> {
         .unwrap_or("unknown")
         .to_string();
 
+    let display_name = fields.get("name").cloned();
+    let version = fields.get("version").cloned();
+
     let description = fields.get("description").cloned().unwrap_or_default();
 
     let allowed_tools = fields
@@ -285,6 +329,8 @@ pub fn load_skill_from_dir(dir_path: &Path) -> Result<LoadedSkill, AgentError> {
     let metadata = SkillMetadata {
         name,
         description,
+        display_name,
+        version,
         allowed_tools,
         argument_hint,
         arg_names,
@@ -710,6 +756,106 @@ pub fn load_skills_from_dir_cached(
         cwd: cwd.to_string(),
     };
     LOAD_SKILLS_FROM_DIR_MEMO.call(key)
+}
+
+// ============================================================================
+// MCP skill builders registration
+//
+// Registers the two loadSkillsDir functions that MCP skill discovery needs.
+// This write-once registry breaks the circular dependency between MCP skill
+// discovery and the skill loader.
+// ============================================================================
+
+fn create_skill_command_for_mcp(
+    params: &crate::skills::mcp_skill_builders::LoadedSkillCommandParams,
+) -> crate::skills::bundled_skills::BundledSkillDefinition {
+    use crate::skills::bundled_skills::{BundledSkillDefinition, ContentBlock, SkillContext};
+    use crate::AgentError;
+
+    let markdown_content = params.markdown_content.clone();
+    let base_dir = params.base_dir.clone();
+    let argument_names = params.argument_names.clone();
+
+    crate::skills::bundled_skills::BundledSkillDefinition {
+        name: params.skill_name.clone(),
+        description: params.description.clone(),
+        aliases: params
+            .display_name
+            .as_ref()
+            .map(|d| vec![d.clone()]),
+        when_to_use: params.when_to_use.clone(),
+        argument_hint: params.argument_hint.clone(),
+        allowed_tools: params.allowed_tools.clone(),
+        model: params.model.clone(),
+        disable_model_invocation: Some(params.disable_model_invocation),
+        user_invocable: Some(params.user_invocable),
+        is_enabled: None,
+        hooks: None,
+        context: None,
+        agent: None,
+        files: None,
+        get_prompt_for_command: std::sync::Arc::new(move |args: &str, _ctx: &SkillContext| {
+            let mut content = markdown_content.clone();
+
+            // Substitute CLAUDE_SKILL_DIR
+            if !base_dir.is_empty() {
+                let skill_dir = base_dir.replace('\\', "/");
+                content = content.replace("${CLAUDE_SKILL_DIR}", &skill_dir);
+            }
+
+            // Substitute CLAUDE_SESSION_ID
+            content = content.replace(
+                "${CLAUDE_SESSION_ID}",
+                &std::env::var("AI_SESSION_ID").unwrap_or_default(),
+            );
+
+            // Substitute arguments
+            if let Some(ref arg_names) = argument_names {
+                for (i, name) in arg_names.iter().enumerate() {
+                    let placeholder = format!("${}", name);
+                    let args_vec: Vec<&str> = args.split_whitespace().collect();
+                    if let Some(val) = args_vec.get(i) {
+                        content = content.replace(&placeholder, val);
+                    }
+                }
+            }
+
+            // Prepend base dir info
+            let final_content = if !base_dir.is_empty() {
+                format!("Base directory for this skill: {}\n\n{}", base_dir, content)
+            } else {
+                content
+            };
+
+            Ok(vec![ContentBlock::Text {
+                text: final_content,
+            }])
+        }),
+    }
+}
+
+fn parse_skill_frontmatter_fields_for_mcp(
+    content: &str,
+) -> crate::skills::mcp_skill_builders::SkillFrontmatterFields {
+    crate::skills::mcp_skill_builders::default_parse_skill_frontmatter_fields(content)
+}
+
+/// Register MCP skill builders at module init.
+/// This static is initialized when first accessed, which occurs at startup
+/// when the loader module is imported.
+static MCP_SKILL_BUILDERS_INIT: once_cell::sync::OnceCell<()> = once_cell::sync::OnceCell::new();
+
+fn init_mcp_skill_builders() {
+    let _ = MCP_SKILL_BUILDERS_INIT.get_or_init(|| {
+        use crate::skills::mcp_skill_builders::{register_mcp_skill_builders, LoadedSkillCommandParams, SkillFrontmatterFields};
+
+        let create_fn: Box<dyn Fn(&LoadedSkillCommandParams) -> crate::skills::bundled_skills::BundledSkillDefinition + Send + Sync> =
+            Box::new(create_skill_command_for_mcp);
+        let parse_fn: Box<dyn Fn(&str) -> SkillFrontmatterFields + Send + Sync> =
+            Box::new(parse_skill_frontmatter_fields_for_mcp);
+
+        register_mcp_skill_builders(create_fn, parse_fn);
+    });
 }
 
 #[cfg(test)]
@@ -1190,5 +1336,99 @@ map_val:
         assert!(!skills_a.iter().any(|s| s.name == "skill-b"));
         assert!(skills_b.iter().any(|s| s.name == "skill-b"));
         assert!(!skills_b.iter().any(|s| s.name == "skill-a"));
+    }
+
+    #[test]
+    fn test_substitute_env_vars_in_skill() {
+        // Test ${CLAUDE_SKILL_DIR} substitution
+        let content = "Script in ${CLAUDE_SKILL_DIR}/bin/run.sh";
+        let result = substitute_env_vars_in_skill(&content, "/home/user/.ai/skills/my-skill");
+        assert_eq!(result, "Script in /home/user/.ai/skills/my-skill/bin/run.sh");
+
+        // Test ${CLAUDE_SESSION_ID} substitution
+        let content = "Session: ${CLAUDE_SESSION_ID}";
+        let result = substitute_env_vars_in_skill(&content, "/some/dir");
+        // Session ID is generated, so we just check that the placeholder was replaced
+        assert!(!result.contains("${CLAUDE_SESSION_ID}"));
+        assert!(result.starts_with("Session: "));
+
+        // Test both substitutions together
+        let content = "Dir: ${CLAUDE_SKILL_DIR}, Session: ${CLAUDE_SESSION_ID}";
+        let result = substitute_env_vars_in_skill(&content, "/skills/test");
+        assert!(!result.contains("${CLAUDE_SKILL_DIR}"));
+        assert!(!result.contains("${CLAUDE_SESSION_ID}"));
+        assert!(result.contains("Dir: /skills/test"));
+    }
+
+    #[test]
+    fn test_estimate_skill_frontmatter_tokens() {
+        let metadata = SkillMetadata {
+            name: "my-skill".to_string(),
+            description: "A skill that does something useful".to_string(),
+            display_name: None,
+            version: None,
+            allowed_tools: None,
+            argument_hint: None,
+            arg_names: None,
+            when_to_use: Some("When you need help".to_string()),
+            user_invocable: None,
+            paths: None,
+            hooks: None,
+            effort: None,
+            model: None,
+            context: None,
+            agent: None,
+            shell: None,
+        };
+        let tokens = estimate_skill_frontmatter_tokens(&metadata);
+        // "my-skill A skill that does something useful When you need help"
+        // should be a positive number of tokens
+        assert!(tokens > 0);
+
+        // Empty metadata should return 0 tokens
+        let empty = SkillMetadata {
+            name: "".to_string(),
+            description: "".to_string(),
+            display_name: None,
+            version: None,
+            allowed_tools: None,
+            argument_hint: None,
+            arg_names: None,
+            when_to_use: None,
+            user_invocable: None,
+            paths: None,
+            hooks: None,
+            effort: None,
+            model: None,
+            context: None,
+            agent: None,
+            shell: None,
+        };
+        let empty_tokens = estimate_skill_frontmatter_tokens(&empty);
+        assert_eq!(empty_tokens, 0);
+    }
+
+    #[test]
+    fn test_load_skill_parses_version_and_display_name() {
+        use std::io::Write;
+
+        let temp = tempfile::tempdir().unwrap();
+        let skill_dir = temp.path().join("versioned-skill");
+        std::fs::create_dir_all(&skill_dir).unwrap();
+
+        let mut skill_file = std::fs::File::create(skill_dir.join("SKILL.md")).unwrap();
+        writeln!(skill_file, "---").unwrap();
+        writeln!(skill_file, "name: My Display Name").unwrap();
+        writeln!(skill_file, "version: 2.1.0").unwrap();
+        writeln!(skill_file, "description: A versioned skill").unwrap();
+        writeln!(skill_file, "---").unwrap();
+        writeln!(skill_file, "Skill body content").unwrap();
+        drop(skill_file);
+
+        let skill = load_skill_from_dir(&skill_dir).unwrap();
+        assert_eq!(skill.metadata.name, "versioned-skill");
+        assert_eq!(skill.metadata.display_name.as_deref(), Some("My Display Name"));
+        assert_eq!(skill.metadata.version.as_deref(), Some("2.1.0"));
+        assert_eq!(skill.metadata.description, "A versioned skill");
     }
 }

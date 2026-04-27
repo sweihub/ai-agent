@@ -11,6 +11,8 @@
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 
+use crate::tools::mcp::classify_for_collapse::classify_mcp_tool_for_collapse;
+
 /// Tool name constants
 const BASH_TOOL_NAME: &str = "Bash";
 const READ_TOOL_NAME: &str = "Read";
@@ -103,21 +105,21 @@ const MAX_HINT_CHARS: usize = 300;
 /// Format a bash command for the hint. Drops blank lines, collapses runs of
 /// inline whitespace, then caps total length.
 fn command_as_hint(command: &str) -> String {
-    let cleaned: String = "$ "
-        + &command
-            .lines()
-            .map(|l| {
-                let trimmed = l.split_whitespace().collect::<Vec<_>>().join(" ");
-                trimmed
-            })
-            .filter(|l| !l.is_empty())
-            .collect::<Vec<_>>()
-            .join("\n");
+    let cleaned: String = command
+        .lines()
+        .map(|l| {
+            let trimmed = l.split_whitespace().collect::<Vec<_>>().join(" ");
+            trimmed
+        })
+        .filter(|l| !l.is_empty())
+        .collect::<Vec<_>>()
+        .join("\n");
+    let prefixed = format!("$ {}", cleaned);
 
-    if cleaned.len() > MAX_HINT_CHARS {
-        format!("{}...", &cleaned[..MAX_HINT_CHARS - 1])
+    if prefixed.len() > MAX_HINT_CHARS {
+        format!("{}...", &prefixed[..MAX_HINT_CHARS - 3])
     } else {
-        cleaned
+        prefixed
     }
 }
 
@@ -260,19 +262,33 @@ pub fn get_tool_search_or_read_info(
         _ => (false, false, false),
     };
 
+    // Handle MCP tools: names starting with "mcp__" format "mcp__{server}__{tool_name}"
+    let mcp_info = if tool_name.starts_with("mcp__") {
+        parse_and_classify_mcp_tool(tool_name)
+    } else {
+        None
+    };
+
     let is_collapsible = is_search || is_read || is_list;
+
+    // Extract MCP classification values
+    let (mcp_is_search, mcp_is_read, mcp_server_name) = match mcp_info {
+        Some(m) => (m.is_search, m.is_read, Some(m.server_name)),
+        None => (false, false, None),
+    };
 
     // Under fullscreen mode, non-search/read Bash commands are also collapsible
     SearchOrReadResult {
         is_collapsible: is_collapsible
-            || (is_fullscreen_env_enabled() && tool_name == BASH_TOOL_NAME),
-        is_search,
-        is_read,
+            || (is_fullscreen_env_enabled() && tool_name == BASH_TOOL_NAME)
+            || mcp_server_name.is_some(),
+        is_search: is_search || mcp_is_search,
+        is_read: is_read || mcp_is_read,
         is_list,
         is_repl: false,
         is_memory_write: false,
         is_absorbed_silently: false,
-        mcp_server_name: None,
+        mcp_server_name,
         is_bash: if is_fullscreen_env_enabled() {
             Some(!is_collapsible && tool_name == BASH_TOOL_NAME)
         } else {
@@ -282,6 +298,35 @@ pub fn get_tool_search_or_read_info(
 }
 
 /// Check if a bash command is a search command.
+/// Parse an MCP tool name and classify it for collapse.
+/// Returns Some when the tool is classified as search or read.
+/// MCP tool names are in format "mcp__{server}__{tool_name}".
+fn parse_and_classify_mcp_tool(tool_name: &str) -> Option<McpCollapseInfo> {
+    // Format: mcp__{server}__{tool_name}
+    let without_prefix = tool_name.strip_prefix("mcp__")?;
+    let mut parts = without_prefix.splitn(2, "__");
+    let server_name = parts.next()?.to_string();
+    let raw_tool_name = parts.next()?;
+
+    let classification = classify_mcp_tool_for_collapse(&server_name, raw_tool_name);
+    if classification.is_search || classification.is_read {
+        Some(McpCollapseInfo {
+            server_name,
+            is_search: classification.is_search,
+            is_read: classification.is_read,
+        })
+    } else {
+        None
+    }
+}
+
+#[derive(Debug, Clone)]
+struct McpCollapseInfo {
+    server_name: String,
+    is_search: bool,
+    is_read: bool,
+}
+
 fn is_bash_search_command(command: &str) -> bool {
     let cmd = command.trim_start();
     cmd.starts_with("grep ")
@@ -776,9 +821,9 @@ pub fn summarize_recent_activities(
     let mut search_count = 0;
     let mut read_count = 0;
     for activity in activities.iter().rev() {
-        if activity.is_search {
+        if activity.is_search == Some(true) {
             search_count += 1;
-        } else if activity.is_read {
+        } else if activity.is_read == Some(true) {
             read_count += 1;
         } else {
             break;
@@ -867,7 +912,7 @@ mod tests {
     fn test_get_search_read_summary_text() {
         let summary = get_search_read_summary_text(3, 2, false, 0, None, 0);
         assert!(summary.contains("Searched for 3 patterns"));
-        assert!(summary.contains("Read 2 files"));
+        assert!(summary.contains("read 2 files"));
     }
 
     #[test]

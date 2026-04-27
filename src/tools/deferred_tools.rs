@@ -441,7 +441,7 @@ mod tests {
         let tool1 = make_tool("Bash", None, None, None);
         let tool2 = make_tool("WebSearch", Some(true), None, None);
         let tool3 = make_tool("mcp__slack__send", None, Some(true), None);
-        let tool4 = make_tool("FileRead", None, None, None);
+        let tool4 = make_tool("Read", None, None, None);
         let tools = vec![tool1, tool2, tool3, tool4];
         let deferred = get_deferred_tool_names(&tools);
         assert_eq!(deferred, vec!["WebSearch", "mcp__slack__send"]);
@@ -449,7 +449,7 @@ mod tests {
 
     #[test]
     fn test_parse_tool_name_regular() {
-        let parts = parse_tool_name("FileRead");
+        let parts = parse_tool_name("Read");
         // CamelCase splitting in Rust is basic - it won't perfectly split CamelCase
         // The important thing is it handles MCP tools correctly
         assert!(!parts.is_mcp);
@@ -488,7 +488,7 @@ mod tests {
     fn test_search_tools_keyword() {
         let tool1 = make_tool("WebSearch", Some(true), None, None);
         let tool2 = make_tool("WebFetch", Some(true), None, None);
-        let tool3 = make_tool("FileRead", None, None, None);
+        let tool3 = make_tool("Read", None, None, None);
         let tools = vec![&tool1, &tool2, &tool3];
         let results = search_tools_with_keywords("search", &tools, 5);
         assert!(results.contains(&"WebSearch".to_string()));

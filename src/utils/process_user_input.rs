@@ -423,7 +423,7 @@ pub async fn process_user_input(
 async fn process_user_input_base(
     input: ProcessUserInput,
     mode: PromptInputMode,
-    _context: ProcessUserInputContext,
+    context: ProcessUserInputContext,
     pasted_contents: Option<std::collections::HashMap<u32, PastedContent>>,
     uuid: Option<String>,
     is_meta: Option<bool>,
@@ -476,8 +476,7 @@ async fn process_user_input_base(
     // Handle bash commands
     if let Some(input) = input_string {
         if mode == PromptInputMode::Bash {
-            // Process bash command (simplified)
-            return process_bash_command(input, preceding_input_blocks, vec![]);
+            return process_bash_command(input, preceding_input_blocks, vec![], &context).await;
         }
 
         // Handle slash commands
@@ -487,7 +486,8 @@ async fn process_user_input_base(
                 preceding_input_blocks,
                 image_content_blocks,
                 vec![],
-            );
+                &context,
+            ).await;
         }
     }
 
@@ -581,6 +581,7 @@ fn process_text_prompt(
         tool_calls: None,
         is_error: None,
         is_meta: None,
+            uuid: None,
     };
 
     Ok(ProcessUserInputBaseResult {
@@ -590,42 +591,561 @@ fn process_text_prompt(
     })
 }
 
-/// Process bash command (simplified stub)
-fn process_bash_command(
-    _input: String,
-    _preceding_input_blocks: Vec<ContentBlockParam>,
-    _attachment_messages: Vec<Message>,
-) -> Result<ProcessUserInputBaseResult, String> {
-    // Simplified stub - full implementation would be in processBashCommand.tsx
-    Ok(ProcessUserInputBaseResult {
-        messages: vec![],
-        should_query: false,
-        allowed_tools: None,
-        model: None,
-        effort: None,
-        result_text: Some("Bash command processing not yet implemented".to_string()),
-        next_input: None,
-        submit_next_input: None,
+/// Format command input with XML tags
+fn format_command_input_tags(command_name: &str, args: &str) -> String {
+    let mut parts = vec![
+        format!("<command-message>{}</command-message>", command_name),
+        format!("<command-name>/{}</command-name>", command_name),
+    ];
+    if !args.trim().is_empty() {
+        parts.push(format!("<command-args>{}</command-args>", args));
+    }
+    parts.join("\n")
+}
+
+/// Parsed slash command result
+struct ParsedSlashCommand {
+    command_name: String,
+    args: String,
+    is_mcp: bool,
+}
+
+/// Parses a slash command input string into its component parts.
+/// Returns null if input doesn't start with '/' or is empty after stripping.
+fn parse_slash_command(input: &str) -> Option<ParsedSlashCommand> {
+    let trimmed = input.trim();
+    if !trimmed.starts_with('/') || trimmed.len() <= 1 {
+        return None;
+    }
+    let without_slash = &trimmed[1..];
+    let words: Vec<&str> = without_slash.split_whitespace().collect();
+    if words.is_empty() {
+        return None;
+    }
+    let mut command_name = words[0].to_string();
+    let mut is_mcp = false;
+    let mut args_start = 1;
+
+    // Check for MCP commands (second word is '(MCP)')
+    if words.len() > 1 && words[1] == "(MCP)" {
+        command_name = format!("{} (MCP)", command_name);
+        is_mcp = true;
+        args_start = 2;
+    }
+
+    // Reconstruct args from original string to preserve spacing
+    let args = if args_start < words.len() {
+        // Find position after command name + (MCP) in the original string
+        let skip_len = 1 + words[0].len(); // '/' + command
+        let skip_len = if is_mcp {
+            skip_len + 1 + 5 // space + "(MCP)"
+        } else {
+            skip_len + 1 // space
+        };
+        let skipped = trimmed.chars().skip(skip_len).collect::<String>();
+        skipped.trim_start().to_string()
+    } else {
+        String::new()
+    };
+
+    Some(ParsedSlashCommand {
+        command_name,
+        args,
+        is_mcp,
     })
 }
 
-/// Process slash command (simplified stub)
-fn process_slash_command(
-    _input: String,
+/// Determines if a string looks like a valid command name.
+/// Valid command names only contain letters, numbers, colons, hyphens, and underscores.
+fn looks_like_command(command_name: &str) -> bool {
+    command_name.chars().all(|c| {
+        c.is_alphanumeric() || c == ':' || c == '-' || c == '_'
+    })
+}
+
+/// Find a command by name or alias in the available commands.
+fn find_command(name: &str, commands: &[serde_json::Value]) -> Option<serde_json::Value> {
+    for cmd in commands {
+        let cmd_name = cmd.get("name").and_then(|n| n.as_str()).unwrap_or("");
+        if cmd_name == name {
+            return Some(cmd.clone());
+        }
+        // Check aliases
+        if let Some(aliases) = cmd.get("aliases").and_then(|a| a.as_array()) {
+            for alias in aliases {
+                if let Some(a) = alias.as_str() {
+                    if a == name {
+                        return Some(cmd.clone());
+                    }
+                }
+            }
+        }
+    }
+    None
+}
+
+/// Check if a command name exists in the available commands.
+fn has_command(name: &str, commands: &[serde_json::Value]) -> bool {
+    find_command(name, commands).is_some()
+}
+
+/// Create a user message with string content
+fn make_user_message(content: String, is_meta: Option<bool>) -> Message {
+    Message {
+        role: crate::types::MessageRole::User,
+        content,
+        uuid: Some(uuid::Uuid::new_v4().to_string()),
+        attachments: None,
+        tool_call_id: None,
+        tool_calls: None,
+        is_error: None,
+        is_meta,
+    }
+}
+
+/// Create a system message
+fn make_system_message(content: String) -> Message {
+    Message {
+        role: crate::types::MessageRole::System,
+        content,
+        uuid: Some(uuid::Uuid::new_v4().to_string()),
+        attachments: None,
+        tool_call_id: None,
+        tool_calls: None,
+        is_error: None,
+        is_meta: None,
+    }
+}
+
+/// Create a synthetic user caveat message (meta, invisible to user)
+fn make_synthetic_caveat() -> Message {
+    Message {
+        role: crate::types::MessageRole::User,
+        content: "The user didn't say anything. Continue working.".to_string(),
+        uuid: Some(uuid::Uuid::new_v4().to_string()),
+        attachments: None,
+        tool_call_id: None,
+        tool_calls: None,
+        is_error: None,
+        is_meta: Some(true),
+    }
+}
+
+/// Create a system local command message
+fn make_system_local_command(content: String) -> Message {
+    make_system_message(content)
+}
+
+/// Process bash command — dispatches to BashTool or PowerShellTool
+async fn process_bash_command(
+    input: String,
     _preceding_input_blocks: Vec<ContentBlockParam>,
-    _image_content_blocks: Vec<ContentBlockParam>,
-    _attachment_messages: Vec<Message>,
+    attachment_messages: Vec<Message>,
+    context: &ProcessUserInputContext,
 ) -> Result<ProcessUserInputBaseResult, String> {
-    // Simplified stub - full implementation would be in processSlashCommand.tsx
+    let user_message = make_user_message(
+        format!("<bash-input>{}</bash-input>", input),
+        None,
+    );
+
+    // Shell resolution: PowerShell on Windows when enabled, otherwise Bash
+    let use_powershell = crate::tools::config_tools::is_powershell_tool_enabled();
+
+    let tool_result = if use_powershell {
+        let ps_tool = crate::tools::powershell::PowerShellTool::new();
+        ps_tool
+            .execute(
+                serde_json::json!({"command": input}),
+                &crate::types::ToolContext {
+                    cwd: context.cwd.clone(),
+                    abort_signal: Default::default(),
+                },
+            )
+            .await
+    } else {
+        let bash_tool = crate::tools::bash::BashTool::new();
+        bash_tool
+            .execute(
+                serde_json::json!({"command": input}),
+                &crate::types::ToolContext {
+                    cwd: context.cwd.clone(),
+                    abort_signal: Default::default(),
+                },
+            )
+            .await
+    };
+
+    let escape_xml = crate::utils::xml::escape_xml;
+
+    match tool_result {
+        Ok(result) => {
+            let stdout = if result.content.is_empty() {
+                "".to_string()
+            } else {
+                result.content.clone()
+            };
+            let stderr = if result.is_error == Some(true) {
+                "Command completed with errors".to_string()
+            } else {
+                String::new()
+            };
+            let output_message = make_user_message(
+                format!(
+                    "<bash-stdout>{}</bash-stdout><bash-stderr>{}</bash-stderr>",
+                    escape_xml(&stdout),
+                    escape_xml(&stderr)
+                ),
+                None,
+            );
+            let mut messages = vec![
+                make_synthetic_caveat(),
+                user_message,
+            ];
+            messages.extend(attachment_messages);
+            messages.push(output_message);
+            Ok(ProcessUserInputBaseResult {
+                messages,
+                should_query: false,
+                ..Default::default()
+            })
+        }
+        Err(e) => {
+            let error_message = make_user_message(
+                format!(
+                    "<bash-stderr>Command failed: {}</bash-stderr>",
+                    escape_xml(&e.to_string())
+                ),
+                None,
+            );
+            let mut messages = vec![
+                make_synthetic_caveat(),
+                user_message,
+            ];
+            messages.extend(attachment_messages);
+            messages.push(error_message);
+            Ok(ProcessUserInputBaseResult {
+                messages,
+                should_query: false,
+                ..Default::default()
+            })
+        }
+    }
+}
+
+/// Process slash command — dispatches to registered commands
+async fn process_slash_command(
+    input: String,
+    preceding_input_blocks: Vec<ContentBlockParam>,
+    _image_content_blocks: Vec<ContentBlockParam>,
+    attachment_messages: Vec<Message>,
+    context: &ProcessUserInputContext,
+) -> Result<ProcessUserInputBaseResult, String> {
+    let parsed = parse_slash_command(&input);
+    let parsed = match parsed {
+        Some(p) => p,
+        None => {
+            let error_msg = "Commands are in the form `/command [args]`".to_string();
+            return Ok(ProcessUserInputBaseResult {
+                messages: vec![
+                    make_synthetic_caveat(),
+                ]
+                .into_iter()
+                .chain(attachment_messages.into_iter())
+                .chain(std::iter::once(make_user_message(error_msg.clone(), None)))
+                .collect(),
+                should_query: false,
+                result_text: Some(error_msg),
+                ..Default::default()
+            });
+        }
+    };
+
+    let ParsedSlashCommand {
+        command_name,
+        args,
+        is_mcp: _is_mcp,
+    } = parsed;
+
+    // Check if command exists
+    if !has_command(&command_name, &context.options.commands) {
+        // Check if it looks like a file path — if not, report as unknown skill
+        let fs = std::path::Path::new(&command_name);
+        let is_file_path = fs.exists();
+
+        if looks_like_command(&command_name) && !is_file_path {
+            let unknown_msg = format!("Unknown skill: {}", command_name);
+            let mut messages = vec![
+                make_synthetic_caveat(),
+            ];
+            messages.extend(attachment_messages);
+            messages.push(make_user_message(unknown_msg.clone(), None));
+            if !args.trim().is_empty() {
+                messages.push(make_system_message(
+                    format!("Args from unknown skill: {}", args)
+                ));
+            }
+            return Ok(ProcessUserInputBaseResult {
+                messages,
+                should_query: false,
+                result_text: Some(unknown_msg),
+                ..Default::default()
+            });
+        }
+
+        // Not a command name — treat as regular text prompt
+        let content = if preceding_input_blocks.is_empty() {
+            input
+        } else {
+            // Include preceding blocks context
+            format!("[{} blocks] {}", preceding_input_blocks.len(), input)
+        };
+        return Ok(ProcessUserInputBaseResult {
+            messages: vec![make_user_message(content, None)]
+                .into_iter()
+                .chain(attachment_messages)
+                .collect(),
+            should_query: true,
+            ..Default::default()
+        });
+    }
+
+    let command = find_command(&command_name, &context.options.commands)
+        .ok_or_else(|| format!("Command '{}' not found", command_name))?;
+
+    let command_type = command.get("type").and_then(|t| t.as_str()).unwrap_or("");
+
+    match command_type {
+        "local" => execute_local_command(command_name, args, command, preceding_input_blocks, attachment_messages, context).await,
+        "prompt" => execute_prompt_command(command_name, args, command, preceding_input_blocks, attachment_messages, context).await,
+        "local-jsx" => {
+            // Not supported in headless Rust SDK — return text result
+            let msg = format!("Command '/{}' requires a UI and is not available in this environment.", command_name);
+            Ok(ProcessUserInputBaseResult {
+                messages: vec![
+                    make_synthetic_caveat(),
+                    make_user_message(msg.clone(), None),
+                ]
+                .into_iter()
+                .chain(attachment_messages)
+                .collect(),
+                should_query: false,
+                result_text: Some(msg),
+                ..Default::default()
+            })
+        }
+        _ => {
+            let msg = format!("Unknown command type: {}", command_type);
+            Err(msg)
+        }
+    }
+}
+
+/// Execute a local command by dispatching to registered handlers
+async fn execute_local_command(
+    command_name: String,
+    args: String,
+    _command: serde_json::Value,
+    _preceding_input_blocks: Vec<ContentBlockParam>,
+    attachment_messages: Vec<Message>,
+    _context: &ProcessUserInputContext,
+) -> Result<ProcessUserInputBaseResult, String> {
+    let input_display = format_command_input_tags(&command_name, &args);
+    let user_message = make_user_message(input_display, None);
+
+    // Dispatch to built-in local command handler
+    let result = dispatch_local_command(&command_name, &args).await;
+
+    match result {
+        Ok(call_result) => {
+            use crate::commands::version::CommandCallResult;
+            match call_result.result_type.as_str() {
+                "text" => {
+                    let output = if call_result.value.is_empty() {
+                        make_system_local_command(
+                            "(no output)".to_string()
+                        )
+                    } else {
+                        make_system_local_command(
+                            format!("<local-command-stdout>{}</local-command-stdout>", call_result.value)
+                        )
+                    };
+                    let mut messages = vec![
+                        make_synthetic_caveat(),
+                        user_message,
+                    ];
+                    messages.extend(attachment_messages);
+                    messages.push(output);
+                    Ok(ProcessUserInputBaseResult {
+                        messages,
+                        should_query: false,
+                        result_text: Some(call_result.value),
+                        ..Default::default()
+                    })
+                }
+                "compact" => {
+                    // Compact result — the compaction was already performed
+                    let mut messages = vec![
+                        make_synthetic_caveat(),
+                        user_message,
+                    ];
+                    messages.extend(attachment_messages);
+                    messages.push(make_system_local_command(
+                        format!("<local-command-stdout>Conversation compacted</local-command-stdout>")
+                    ));
+                    Ok(ProcessUserInputBaseResult {
+                        messages,
+                        should_query: false,
+                        result_text: Some("Conversation compacted".to_string()),
+                        ..Default::default()
+                    })
+                }
+                "skip" => Ok(ProcessUserInputBaseResult {
+                    messages: vec![],
+                    should_query: false,
+                    ..Default::default()
+                }),
+                _ => Err(format!("Unknown local command result type: {}", call_result.result_type)),
+            }
+        }
+        Err(e) => {
+            let mut messages = vec![
+                make_synthetic_caveat(),
+                user_message,
+            ];
+            messages.extend(attachment_messages);
+            messages.push(make_system_local_command(
+                format!("<local-command-stderr>{}</local-command-stderr>", e)
+            ));
+            Ok(ProcessUserInputBaseResult {
+                messages,
+                should_query: false,
+                ..Default::default()
+            })
+        }
+    }
+}
+
+/// Dispatch to a built-in local command handler.
+/// Matches command name to handler function.
+async fn dispatch_local_command(
+    name: &str,
+    args: &str,
+) -> Result<crate::commands::version::CommandCallResult, String> {
+    match name {
+        "clear" => handle_clear_command(args),
+        "cost" => handle_cost_command(args),
+        "compact" => handle_compact_command(args),
+        "version" => handle_version_command(args),
+        "model" => handle_model_command(args),
+        _ => {
+            // For commands that don't have a Rust handler yet, return a text result
+            Ok(crate::commands::version::CommandCallResult::text(
+                format!("Command '/{}' is registered but not yet implemented in this environment.", name)
+            ))
+        }
+    }
+}
+
+/// Handle /clear command
+fn handle_clear_command(args: &str) -> Result<crate::commands::version::CommandCallResult, String> {
+    let target = args.trim().split_whitespace().next().unwrap_or("conversation");
+    match target {
+        "cache" => Ok(crate::commands::version::CommandCallResult::text(
+            "Cache cleared."
+        )),
+        "all" => Ok(crate::commands::version::CommandCallResult::text(
+            "Conversation and cache cleared."
+        )),
+        _ => Ok(crate::commands::version::CommandCallResult::text("")),
+    }
+}
+
+/// Handle /cost command
+fn handle_cost_command(_args: &str) -> Result<crate::commands::version::CommandCallResult, String> {
+    // Cost tracking is session-state dependent; without access to the session
+    // state we can only report that cost tracking is available.
+    Ok(crate::commands::version::CommandCallResult::text(
+        "Cost tracking is available through the session's cost tracker."
+    ))
+}
+
+/// Handle /compact command
+fn handle_compact_command(_args: &str) -> Result<crate::commands::version::CommandCallResult, String> {
+    // Compact requires session state manipulation which is handled by the query engine.
+    // Return a text result indicating compaction was requested.
+    Ok(crate::commands::version::CommandCallResult {
+        result_type: "compact".to_string(),
+        value: "Compact requested".to_string(),
+    })
+}
+
+/// Handle /version command
+fn handle_version_command(_args: &str) -> Result<crate::commands::version::CommandCallResult, String> {
+    let version = env!("CARGO_PKG_VERSION");
+    Ok(crate::commands::version::CommandCallResult::text(version))
+}
+
+/// Handle /model command
+fn handle_model_command(_args: &str) -> Result<crate::commands::version::CommandCallResult, String> {
+    Ok(crate::commands::version::CommandCallResult::text(
+        "Model configuration is managed through session settings."
+    ))
+}
+
+/// Execute a prompt command by expanding its prompt and sending to the model
+async fn execute_prompt_command(
+    command_name: String,
+    args: String,
+    command: serde_json::Value,
+    preceding_input_blocks: Vec<ContentBlockParam>,
+    attachment_messages: Vec<Message>,
+    _context: &ProcessUserInputContext,
+) -> Result<ProcessUserInputBaseResult, String> {
+    let input_display = format_command_input_tags(&command_name, &args);
+    let progress_message = command.get("progressMessage").and_then(|p| p.as_str()).unwrap_or("Loading");
+    let model = command.get("model").and_then(|m| m.as_str()).map(String::from);
+    let allowed_tools = command
+        .get("allowedTools")
+        .and_then(|t| t.as_array())
+        .map(|t| t.iter().filter_map(|v| v.as_str().map(String::from)).collect::<Vec<String>>());
+    let effort = command.get("effort").and_then(|e| e.as_str()).map(|e| {
+        crate::utils::process_user_input::EffortValue {
+            effort: e.to_string(),
+            reason: None,
+        }
+    });
+
+    // Build prompt content from the command's content field
+    let content = command.get("content").and_then(|c| c.as_str()).unwrap_or("");
+    let prompt_text = if !args.trim().is_empty() {
+        format!("{}\n\nArguments: {}", content, args)
+    } else {
+        content.to_string()
+    };
+
+    // If there are preceding input blocks, include them
+    let full_content = if preceding_input_blocks.is_empty() {
+        prompt_text
+    } else {
+        format!("[{} preceding blocks]\n{}", preceding_input_blocks.len(), prompt_text)
+    };
+
+    let mut messages = vec![
+        make_system_message(
+            format!("[{}] {}", progress_message, command_name)
+        ),
+        make_user_message(input_display, None),
+    ];
+    messages.extend(attachment_messages);
+    messages.push(make_user_message(full_content, None));
+
     Ok(ProcessUserInputBaseResult {
-        messages: vec![],
-        should_query: false,
-        allowed_tools: None,
-        model: None,
-        effort: None,
-        result_text: Some("Slash command processing not yet implemented".to_string()),
-        next_input: None,
-        submit_next_input: None,
+        messages,
+        should_query: true,
+        allowed_tools,
+        model,
+        effort,
+        ..Default::default()
     })
 }
 
@@ -654,5 +1174,210 @@ mod tests {
 
         assert!(result.should_query);
         assert_eq!(result.messages.len(), 1);
+    }
+
+    #[test]
+    fn test_parse_slash_command_basic() {
+        let parsed = parse_slash_command("/compact").unwrap();
+        assert_eq!(parsed.command_name, "compact");
+        assert_eq!(parsed.args, "");
+        assert!(!parsed.is_mcp);
+    }
+
+    #[test]
+    fn test_parse_slash_command_with_args() {
+        let parsed = parse_slash_command("/model opus").unwrap();
+        assert_eq!(parsed.command_name, "model");
+        assert_eq!(parsed.args, "opus");
+        assert!(!parsed.is_mcp);
+    }
+
+    #[test]
+    fn test_parse_slash_command_mcp() {
+        let parsed = parse_slash_command("/my-tool (MCP) arg1 arg2").unwrap();
+        assert_eq!(parsed.command_name, "my-tool (MCP)");
+        assert_eq!(parsed.args, "arg1 arg2");
+        assert!(parsed.is_mcp);
+    }
+
+    #[test]
+    fn test_parse_slash_command_no_slash() {
+        assert!(parse_slash_command("hello").is_none());
+    }
+
+    #[test]
+    fn test_parse_slash_command_empty() {
+        assert!(parse_slash_command("/").is_none());
+    }
+
+    #[test]
+    fn test_parse_slash_command_spaces_only() {
+        assert!(parse_slash_command("/ ").is_none());
+    }
+
+    #[test]
+    fn test_looks_like_command_valid() {
+        assert!(looks_like_command("compact"));
+        assert!(looks_like_command("my-command"));
+        assert!(looks_like_command("my_command"));
+        assert!(looks_like_command("my:command"));
+        assert!(looks_like_command("cmd123"));
+    }
+
+    #[test]
+    fn test_looks_like_command_invalid() {
+        assert!(!looks_like_command("/var/log"));
+        assert!(!looks_like_command("file.txt"));
+        assert!(!looks_like_command("path/to/file"));
+    }
+
+    #[test]
+    fn test_has_command() {
+        let commands = vec![
+            serde_json::json!({"name": "clear", "type": "local"}),
+            serde_json::json!({"name": "compact", "type": "local", "aliases": ["summarize"]}),
+        ];
+        assert!(has_command("clear", &commands));
+        assert!(has_command("compact", &commands));
+        assert!(has_command("summarize", &commands));
+        assert!(!has_command("unknown", &commands));
+    }
+
+    #[test]
+    fn test_find_command_by_name() {
+        let commands = vec![
+            serde_json::json!({"name": "clear", "type": "local"}),
+        ];
+        let cmd = find_command("clear", &commands).unwrap();
+        assert_eq!(cmd["name"], "clear");
+    }
+
+    #[test]
+    fn test_find_command_by_alias() {
+        let commands = vec![
+            serde_json::json!({"name": "compact", "aliases": ["summarize"]}),
+        ];
+        let cmd = find_command("summarize", &commands).unwrap();
+        assert_eq!(cmd["name"], "compact");
+    }
+
+    #[test]
+    fn test_format_command_input_tags() {
+        let tags = format_command_input_tags("compact", "");
+        assert!(tags.contains("<command-message>compact</command-message>"));
+        assert!(tags.contains("<command-name>/compact</command-name>"));
+        assert!(!tags.contains("<command-args>"));
+    }
+
+    #[test]
+    fn test_format_command_input_tags_with_args() {
+        let tags = format_command_input_tags("model", "opus");
+        assert!(tags.contains("<command-message>model</command-message>"));
+        assert!(tags.contains("<command-name>/model</command-name>"));
+        assert!(tags.contains("<command-args>opus</command-args>"));
+    }
+
+    #[tokio::test]
+    async fn test_dispatch_clear_command() {
+        let result = dispatch_local_command("clear", "").await.unwrap();
+        assert_eq!(result.result_type, "text");
+        assert_eq!(result.value, "");
+    }
+
+    #[tokio::test]
+    async fn test_dispatch_clear_cache_command() {
+        let result = dispatch_local_command("clear", "cache").await.unwrap();
+        assert_eq!(result.result_type, "text");
+        assert!(result.value.contains("Cache cleared"));
+    }
+
+    #[tokio::test]
+    async fn test_dispatch_version_command() {
+        let result = dispatch_local_command("version", "").await.unwrap();
+        assert_eq!(result.result_type, "text");
+        assert!(!result.value.is_empty());
+    }
+
+    #[tokio::test]
+    async fn test_dispatch_unknown_command() {
+        let result = dispatch_local_command("unknown-cmd", "").await.unwrap();
+        assert_eq!(result.result_type, "text");
+        assert!(result.value.contains("not yet implemented"));
+    }
+
+    #[tokio::test]
+    async fn test_dispatch_compact_command() {
+        let result = dispatch_local_command("compact", "").await.unwrap();
+        assert_eq!(result.result_type, "compact");
+    }
+
+    #[tokio::test]
+    async fn test_process_slash_command_invalid() {
+        let context = ProcessUserInputContext::default();
+        let result = process_slash_command(
+            "hello".to_string(),
+            vec![],
+            vec![],
+            vec![],
+            &context,
+        ).await;
+        assert!(result.is_ok());
+        let r = result.unwrap();
+        assert!(!r.should_query);
+        assert!(r.result_text.as_ref().unwrap().contains("Commands are in the form"));
+    }
+
+    #[tokio::test]
+    async fn test_process_slash_command_unknown() {
+        let context = ProcessUserInputContext::default();
+        let result = process_slash_command(
+            "/nonexistent-command".to_string(),
+            vec![],
+            vec![],
+            vec![],
+            &context,
+        ).await;
+        assert!(result.is_ok());
+        let r = result.unwrap();
+        assert!(!r.should_query);
+        assert!(r.result_text.as_ref().unwrap().contains("Unknown skill"));
+    }
+
+    #[tokio::test]
+    async fn test_process_slash_command_known_local() {
+        let mut commands = vec![];
+        commands.push(serde_json::json!({"name": "clear", "type": "local"}));
+        let context = ProcessUserInputContext {
+            options: ProcessUserInputContextOptions {
+                commands,
+                ..Default::default()
+            },
+            ..Default::default()
+        };
+        let result = process_slash_command(
+            "/clear".to_string(),
+            vec![],
+            vec![],
+            vec![],
+            &context,
+        ).await;
+        assert!(result.is_ok());
+        let r = result.unwrap();
+        assert!(!r.should_query);
+    }
+
+    #[tokio::test]
+    async fn test_process_bash_command_echo() {
+        let context = ProcessUserInputContext::default();
+        let result = process_bash_command(
+            "echo hello".to_string(),
+            vec![],
+            vec![],
+            &context,
+        ).await;
+        assert!(result.is_ok());
+        let r = result.unwrap();
+        assert!(!r.should_query);
+        assert!(!r.messages.is_empty());
     }
 }

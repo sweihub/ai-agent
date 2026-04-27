@@ -5,6 +5,44 @@ use std::future::Future;
 pub use crate::types::{ToolDefinition, ToolInputSchema};
 
 // Schema functions for all tools
+fn sleep_schema() -> ToolInputSchema {
+    ToolInputSchema {
+        schema_type: "object".to_string(),
+        properties: serde_json::json!({
+            "duration": {
+                "type": "number",
+                "description": "Duration to sleep in seconds (default: 60)"
+            }
+        }),
+        required: None,
+    }
+}
+
+fn powershell_schema() -> ToolInputSchema {
+    ToolInputSchema {
+        schema_type: "object".to_string(),
+        properties: serde_json::json!({
+            "command": {
+                "type": "string",
+                "description": "PowerShell command to execute"
+            },
+            "timeout": {
+                "type": "number",
+                "description": "Optional timeout in milliseconds (default: 120000, max: 600000)"
+            },
+            "description": {
+                "type": "string",
+                "description": "Brief description of what this command does"
+            },
+            "run_in_background": {
+                "type": "boolean",
+                "description": "Run the command in the background (default: false)"
+            }
+        }),
+        required: Some(vec!["command".to_string()]),
+    }
+}
+
 fn monitor_schema() -> ToolInputSchema {
     ToolInputSchema {
         schema_type: "object".to_string(),
@@ -86,7 +124,23 @@ fn bash_schema() -> ToolInputSchema {
         properties: serde_json::json!({
             "command": {
                 "type": "string",
-                "description": "The shell command to execute"
+                "description": "The command to execute"
+            },
+            "timeout": {
+                "type": "number",
+                "description": "Optional timeout in milliseconds"
+            },
+            "description": {
+                "type": "string",
+                "description": "Clear, concise description of what this command does in active voice"
+            },
+            "run_in_background": {
+                "type": "boolean",
+                "description": "Set to true to run this command in the background. Use Read to read the output later."
+            },
+            "dangerouslyDisableSandbox": {
+                "type": "boolean",
+                "description": "Set this to true to dangerously override sandbox mode and run commands without sandboxing."
             }
         }),
         required: Some(vec!["command".to_string()]),
@@ -97,12 +151,24 @@ fn file_read_schema() -> ToolInputSchema {
     ToolInputSchema {
         schema_type: "object".to_string(),
         properties: serde_json::json!({
-            "path": {
+            "file_path": {
                 "type": "string",
-                "description": "The file path to read"
+                "description": "The absolute path to the file to read"
+            },
+            "offset": {
+                "type": "integer",
+                "description": "The line number to start reading from. Only provide if the file is too large to read at once"
+            },
+            "limit": {
+                "type": "integer",
+                "description": "The number of lines to read. Only provide if the file is too large to read at once."
+            },
+            "pages": {
+                "type": "string",
+                "description": "Page range for PDF files (e.g., \"1-5\", \"3\", \"10-20\"). Only applicable to PDF files. Maximum 20 pages per request."
             }
         }),
-        required: Some(vec!["path".to_string()]),
+        required: Some(vec!["file_path".to_string()]),
     }
 }
 
@@ -110,16 +176,16 @@ fn file_write_schema() -> ToolInputSchema {
     ToolInputSchema {
         schema_type: "object".to_string(),
         properties: serde_json::json!({
-            "path": {
+            "file_path": {
                 "type": "string",
-                "description": "The file path to write to"
+                "description": "The absolute path to the file to write (must be absolute, not relative)"
             },
             "content": {
                 "type": "string",
-                "description": "The content to write"
+                "description": "The content to write to the file"
             }
         }),
-        required: Some(vec!["path".to_string(), "content".to_string()]),
+        required: Some(vec!["file_path".to_string(), "content".to_string()]),
     }
 }
 
@@ -247,11 +313,17 @@ fn web_search_schema() -> ToolInputSchema {
         properties: serde_json::json!({
             "query": {
                 "type": "string",
-                "description": "The search query"
+                "description": "The search query to use"
             },
-            "num_results": {
-                "type": "number",
-                "description": "Number of results to return (default: 5)"
+            "allowed_domains": {
+                "type": "array",
+                "items": {"type": "string"},
+                "description": "Only include search results from these domains"
+            },
+            "blocked_domains": {
+                "type": "array",
+                "items": {"type": "string"},
+                "description": "Never include search results from these domains"
             }
         }),
         required: Some(vec!["query".to_string()]),
@@ -272,9 +344,9 @@ const ALL_TOOLS: &[(&str, &str, fn() -> ToolDefinition)] = &[
         user_facing_name: None,
         interrupt_behavior: None,
     }),
-    ("FileRead", "Read files, images, PDFs, notebooks", || {
+    ("Read", "Read files, images, PDFs, notebooks", || {
         ToolDefinition {
-            name: "FileRead".to_string(),
+            name: "Read".to_string(),
             description: "Read files from filesystem. Supports text files, images (PNG, JPG, GIF, WebP), PDFs, and Jupyter notebooks. Use offset and limit for large files.".to_string(),
             input_schema: file_read_schema(),
             annotations: Some(ToolAnnotations::concurrency_safe()),
@@ -287,8 +359,8 @@ const ALL_TOOLS: &[(&str, &str, fn() -> ToolDefinition)] = &[
             interrupt_behavior: None,
         }
     }),
-    ("FileWrite", "Write content to files", || ToolDefinition {
-        name: "FileWrite".to_string(),
+    ("Write", "Write content to files", || ToolDefinition {
+        name: "Write".to_string(),
         description: "Write content to files".to_string(),
         input_schema: file_write_schema(),
         annotations: None,
@@ -844,6 +916,40 @@ const ALL_TOOLS: &[(&str, &str, fn() -> ToolDefinition)] = &[
         },
     ),
     (
+        "MCPTool",
+        "Execute a tool on an MCP server",
+        || ToolDefinition {
+            name: "MCPTool".to_string(),
+            description: "Execute a tool on an MCP server. MCP tools define their own schemas and are registered dynamically.".to_string(),
+            input_schema: mcp_tool_schema(),
+            annotations: None,
+            should_defer: None,
+            always_load: None,
+            is_mcp: Some(true),
+            search_hint: Some("execute MCP server tools".to_string()),
+            aliases: None,
+            user_facing_name: None,
+            interrupt_behavior: None,
+        },
+    ),
+    (
+        "McpAuth",
+        "Authenticate an MCP server",
+        || ToolDefinition {
+            name: "McpAuth".to_string(),
+            description: "Authenticate an MCP server that requires OAuth. Returns an authorization URL for the user to complete the flow.".to_string(),
+            input_schema: mcp_auth_schema(),
+            annotations: None,
+            should_defer: None,
+            always_load: None,
+            is_mcp: Some(true),
+            search_hint: Some("authenticate MCP server OAuth".to_string()),
+            aliases: None,
+            user_facing_name: None,
+            interrupt_behavior: None,
+        },
+    ),
+    (
         "SendUserMessage",
         "Send a message to the user",
         || ToolDefinition {
@@ -872,6 +978,142 @@ const ALL_TOOLS: &[(&str, &str, fn() -> ToolDefinition)] = &[
             always_load: None,
             is_mcp: None,
             search_hint: Some("return the final response as structured JSON".to_string()),
+            aliases: None,
+            user_facing_name: None,
+            interrupt_behavior: None,
+        },
+    ),
+    (
+        "Sleep",
+        "Wait for a specified duration",
+        || ToolDefinition {
+            name: "Sleep".to_string(),
+            description: "Wait for a specified duration. The user can interrupt the sleep at any time. Prefer this over Bash(sleep ...) — it doesn't hold a shell process.".to_string(),
+            input_schema: sleep_schema(),
+            annotations: Some(ToolAnnotations::concurrency_safe()),
+            should_defer: None,
+            always_load: None,
+            is_mcp: None,
+            search_hint: None,
+            aliases: None,
+            user_facing_name: None,
+            interrupt_behavior: None,
+        },
+    ),
+    (
+        "PowerShell",
+        "Execute PowerShell commands",
+        || ToolDefinition {
+            name: "PowerShell".to_string(),
+            description: "Execute a PowerShell command. Windows-only tool for PowerShell cmdlets and native executable execution".to_string(),
+            input_schema: powershell_schema(),
+            annotations: None,
+            should_defer: None,
+            always_load: None,
+            is_mcp: None,
+            search_hint: None,
+            aliases: None,
+            user_facing_name: None,
+            interrupt_behavior: None,
+        },
+    ),
+    (
+        "OverflowTest",
+        "Test overflow behavior",
+        || ToolDefinition {
+            name: "OverflowTest".to_string(),
+            description: "Test overflow behavior (not implemented)".to_string(),
+            input_schema: overflow_test_schema(),
+            annotations: None,
+            should_defer: None,
+            always_load: None,
+            is_mcp: None,
+            search_hint: None,
+            aliases: None,
+            user_facing_name: None,
+            interrupt_behavior: None,
+        },
+    ),
+    (
+        "ReviewArtifact",
+        "Review artifacts",
+        || ToolDefinition {
+            name: "ReviewArtifact".to_string(),
+            description: "Review artifacts (not implemented)".to_string(),
+            input_schema: review_artifact_schema(),
+            annotations: None,
+            should_defer: None,
+            always_load: None,
+            is_mcp: None,
+            search_hint: None,
+            aliases: None,
+            user_facing_name: None,
+            interrupt_behavior: None,
+        },
+    ),
+    (
+        "Workflow",
+        "Manage workflows",
+        || ToolDefinition {
+            name: "Workflow".to_string(),
+            description: "Manage workflows (not implemented)".to_string(),
+            input_schema: workflow_schema(),
+            annotations: None,
+            should_defer: None,
+            always_load: None,
+            is_mcp: None,
+            search_hint: None,
+            aliases: None,
+            user_facing_name: None,
+            interrupt_behavior: None,
+        },
+    ),
+    (
+        "Snip",
+        "Compaction tool",
+        || ToolDefinition {
+            name: "Snip".to_string(),
+            description: "Model-callable compaction tool (not implemented)".to_string(),
+            input_schema: snip_schema(),
+            annotations: None,
+            should_defer: None,
+            always_load: None,
+            is_mcp: None,
+            search_hint: None,
+            aliases: None,
+            user_facing_name: None,
+            interrupt_behavior: None,
+        },
+    ),
+    (
+        "DiscoverSkills",
+        "Discover available skills",
+        || ToolDefinition {
+            name: "DiscoverSkills".to_string(),
+            description: "On-demand skill discovery (not implemented)".to_string(),
+            input_schema: discover_skills_schema(),
+            annotations: None,
+            should_defer: None,
+            always_load: None,
+            is_mcp: None,
+            search_hint: None,
+            aliases: None,
+            user_facing_name: None,
+            interrupt_behavior: None,
+        },
+    ),
+    (
+        "TerminalCapture",
+        "Capture terminal screen",
+        || ToolDefinition {
+            name: "TerminalCapture".to_string(),
+            description: "Terminal screen capture (not implemented)".to_string(),
+            input_schema: terminal_capture_schema(),
+            annotations: None,
+            should_defer: None,
+            always_load: None,
+            is_mcp: None,
+            search_hint: None,
             aliases: None,
             user_facing_name: None,
             interrupt_behavior: None,
@@ -924,7 +1166,11 @@ fn task_create_schema() -> ToolInputSchema {
         properties: serde_json::json!({
             "subject": { "type": "string", "description": "A brief title for the task" },
             "description": { "type": "string", "description": "What needs to be done" },
-            "activeForm": { "type": "string", "description": "Spinner text when in_progress" }
+            "activeForm": { "type": "string", "description": "Present continuous form shown in spinner when in_progress (e.g., \"Running tests\")" },
+            "metadata": {
+                "type": "object",
+                "description": "Arbitrary metadata to attach to the task"
+            }
         }),
         required: Some(vec!["subject".to_string(), "description".to_string()]),
     }
@@ -944,9 +1190,16 @@ fn task_update_schema() -> ToolInputSchema {
         properties: serde_json::json!({
             "taskId": { "type": "string", "description": "The ID of the task to update" },
             "subject": { "type": "string", "description": "New subject for the task" },
-            "description": { "type": "string", "description": "New description" },
-            "status": { "type": "string", "enum": ["pending", "in_progress", "completed", "deleted"], "description": "New status" },
-            "activeForm": { "type": "string", "description": "New spinner text" }
+            "description": { "type": "string", "description": "New description for the task" },
+            "status": { "type": "string", "enum": ["pending", "in_progress", "completed", "deleted"], "description": "New status for the task" },
+            "activeForm": { "type": "string", "description": "Present continuous form shown in spinner when in_progress (e.g., \"Running tests\")" },
+            "addBlocks": { "type": "array", "items": {"type": "string"}, "description": "Task IDs that this task blocks" },
+            "addBlockedBy": { "type": "array", "items": {"type": "string"}, "description": "Task IDs that block this task" },
+            "owner": { "type": "string", "description": "New owner for the task" },
+            "metadata": {
+                "type": "object",
+                "description": "Metadata keys to merge into the task. Set a key to null to delete it."
+            }
         }),
         required: Some(vec!["taskId".to_string()]),
     }
@@ -1211,6 +1464,96 @@ fn read_mcp_resource_schema() -> ToolInputSchema {
             "uri": { "type": "string", "description": "The resource URI to read" }
         }),
         required: Some(vec!["server".to_string(), "uri".to_string()]),
+    }
+}
+
+// MCPTool schema (generic MCP tool execution)
+fn mcp_tool_schema() -> ToolInputSchema {
+    ToolInputSchema {
+        schema_type: "object".to_string(),
+        properties: serde_json::json!({
+            "server": {
+                "type": "string",
+                "description": "The MCP server name"
+            },
+            "tool": {
+                "type": "string",
+                "description": "The tool name to execute on the server"
+            },
+            "arguments": {
+                "type": "object",
+                "description": "Arguments to pass to the MCP tool"
+            }
+        }),
+        required: Some(vec!["server".to_string(), "tool".to_string()]),
+    }
+}
+
+// McpAuthTool schema (authenticate MCP server)
+fn mcp_auth_schema() -> ToolInputSchema {
+    ToolInputSchema {
+        schema_type: "object".to_string(),
+        properties: serde_json::json!({
+            "server": {
+                "type": "string",
+                "description": "The MCP server name to authenticate"
+            }
+        }),
+        required: Some(vec!["server".to_string()]),
+    }
+}
+
+// OverflowTest tool schema
+fn overflow_test_schema() -> ToolInputSchema {
+    ToolInputSchema {
+        schema_type: "object".to_string(),
+        properties: serde_json::json!({}),
+        required: None,
+    }
+}
+
+// ReviewArtifact tool schema
+fn review_artifact_schema() -> ToolInputSchema {
+    ToolInputSchema {
+        schema_type: "object".to_string(),
+        properties: serde_json::json!({}),
+        required: None,
+    }
+}
+
+// Workflow tool schema
+fn workflow_schema() -> ToolInputSchema {
+    ToolInputSchema {
+        schema_type: "object".to_string(),
+        properties: serde_json::json!({}),
+        required: None,
+    }
+}
+
+// Snip tool schema
+fn snip_schema() -> ToolInputSchema {
+    ToolInputSchema {
+        schema_type: "object".to_string(),
+        properties: serde_json::json!({}),
+        required: None,
+    }
+}
+
+// DiscoverSkills tool schema
+fn discover_skills_schema() -> ToolInputSchema {
+    ToolInputSchema {
+        schema_type: "object".to_string(),
+        properties: serde_json::json!({}),
+        required: None,
+    }
+}
+
+// TerminalCapture tool schema
+fn terminal_capture_schema() -> ToolInputSchema {
+    ToolInputSchema {
+        schema_type: "object".to_string(),
+        properties: serde_json::json!({}),
+        required: None,
     }
 }
 

@@ -9,6 +9,14 @@ use std::path::{Path, PathBuf};
 
 use serde_json::{Map, Value};
 
+pub mod permission_validation;
+pub mod settings_cache;
+pub mod tool_validation_config;
+pub mod validation;
+
+// Re-export from MCP types for use in settings validation
+pub use crate::services::mcp::ConfigScope;
+
 #[cfg(test)]
 #[path = "tests/settings_tests.rs"]
 mod settings_tests;

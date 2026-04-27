@@ -272,6 +272,8 @@ pub struct QueryEngineConfig {
     pub token_budget: Option<f64>,
     /// Optional agent ID for subagent identification. Token budget is skipped for subagents.
     pub agent_id: Option<String>,
+    /// Optional session state manager for tracking agent lifecycle states
+    pub session_state: Option<std::sync::Arc<crate::session_state::SessionStateManager>>,
     /// Memory paths already loaded by parent agents
     pub loaded_nested_memory_paths: std::collections::HashSet<String>,
     /// API task_budget (distinct from tokenBudget +500k auto-continue feature).
@@ -305,6 +307,7 @@ impl Default for QueryEngineConfig {
             abort_controller: None,
             token_budget: None,
             agent_id: None,
+            session_state: None,
             loaded_nested_memory_paths: std::collections::HashSet::new(),
             task_budget: None,
         }
@@ -636,8 +639,11 @@ impl QueryEngine {
             self.run_pre_tool_use_hooks(name, &input, &tool_call_id)
                 .await?;
 
-            // Execute the tool
+            // Execute the tool with timing
+            let tool_start = std::time::Instant::now();
             let result = executor(input.clone(), &context).await;
+            let tool_duration_ms = tool_start.elapsed().as_millis() as u64;
+            crate::services::model_cost::record_turn_tool_duration(tool_duration_ms);
 
             // Emit ToolComplete or ToolError event with render hooks
             if let Some(ref cb) = self.config.on_event {
@@ -751,6 +757,7 @@ impl QueryEngine {
             session_id: None,
             cwd: Some(self.config.cwd.clone()),
             error: None,
+            ..HookInput::default()
         };
 
         // Execute hooks (registry is Clone and Arc-wrapped, so we can clone the reference)
@@ -809,6 +816,7 @@ impl QueryEngine {
             session_id: None,
             cwd: Some(self.config.cwd.clone()),
             error: None,
+            ..HookInput::default()
         };
 
         let registry = {
@@ -849,6 +857,7 @@ impl QueryEngine {
             session_id: None,
             cwd: Some(self.config.cwd.clone()),
             error: Some(error.to_string()),
+            ..HookInput::default()
         };
 
         let registry = {
@@ -982,6 +991,24 @@ impl QueryEngine {
             "[compact] compaction_usage: input={} output={}",
             compaction_usage.input_tokens,
             compaction_usage.output_tokens
+        );
+
+        // Feed compaction API cost into session total
+        let compact_cost = crate::services::model_cost::calculate_cost_for_tokens(
+            &self.config.model,
+            compaction_usage.input_tokens as u32,
+            compaction_usage.output_tokens as u32,
+            compaction_usage.cache_read_input_tokens.unwrap_or(0) as u32,
+            compaction_usage.cache_creation_input_tokens.unwrap_or(0) as u32,
+        );
+        let _ = crate::services::model_cost::add_to_total_session_cost(
+            compact_cost,
+            compaction_usage.input_tokens as u32,
+            compaction_usage.output_tokens as u32,
+            compaction_usage.cache_read_input_tokens.unwrap_or(0) as u32,
+            compaction_usage.cache_creation_input_tokens.unwrap_or(0) as u32,
+            0,
+            &self.config.model,
         );
 
         // Parse and format the summary
@@ -1321,6 +1348,7 @@ impl QueryEngine {
             session_id: None,
             cwd: Some(self.config.cwd.clone()),
             error: None,
+            ..HookInput::default()
         };
 
         let results = registry.execute("PreCompact", input).await;
@@ -1381,6 +1409,7 @@ impl QueryEngine {
             session_id: None,
             cwd: Some(self.config.cwd.clone()),
             error: None,
+            ..HookInput::default()
         };
 
         let _results = registry.execute("PostCompact", input).await;
@@ -1409,6 +1438,10 @@ impl QueryEngine {
         prompt: &str,
     ) -> Result<(String, crate::types::ExitReason), AgentError> {
         self.start_time = Some(std::time::Instant::now());
+        // Transition session state to running
+        if let Some(ref state) = self.config.session_state {
+            state.start_running();
+        }
         // Add user message to history
         self.messages.push(crate::types::Message {
             role: crate::types::MessageRole::User,
@@ -1842,6 +1875,58 @@ impl QueryEngine {
                 cb(AgentEvent::StreamRequestEnd);
             }
 
+            // Execute post-sampling hooks after model response is complete
+            // (matches TypeScript executePostSamplingHooks in query.ts:999-1008)
+            if !streaming_result.content.is_empty() || !streaming_result.tool_calls.is_empty() {
+                let hook_messages = self.messages.clone();
+                let hook_system_prompt = self
+                    .config
+                    .system_prompt
+                    .as_deref()
+                    .unwrap_or("")
+                    .lines()
+                    .map(|s| s.to_string())
+                    .collect::<Vec<_>>();
+                let hook_user_context = self.config.user_context.clone();
+                let hook_system_context = self.config.system_context.clone();
+                let hook_tool_use_context = Arc::new(
+                    crate::utils::hooks::can_use_tool::ToolUseContext {
+                        session_id: self
+                            .config
+                            .session_state
+                            .as_ref()
+                            .map(|_| "query_engine".to_string())
+                            .unwrap_or_else(|| "query_engine".to_string()),
+                        cwd: Some(self.config.cwd.clone()),
+                        is_non_interactive_session: false,
+                        options: None,
+                    },
+                );
+                let hook_query_source = self.config.agent_id.as_ref().map(|_| "agent".to_string());
+                let has_hook_count = {
+                    crate::utils::hooks::get_post_sampling_hook_count() > 0
+                };
+                if has_hook_count {
+                    let messages_clone = hook_messages;
+                    let system_prompt_clone = hook_system_prompt;
+                    let user_context_clone = hook_user_context;
+                    let system_context_clone = hook_system_context;
+                    let tool_use_context_clone = hook_tool_use_context;
+                    let query_source_clone = hook_query_source;
+                    tokio::spawn(async move {
+                        crate::utils::hooks::execute_post_sampling_hooks(
+                            messages_clone,
+                            system_prompt_clone,
+                            user_context_clone,
+                            system_context_clone,
+                            tool_use_context_clone,
+                            query_source_clone,
+                        )
+                        .await;
+                    });
+                }
+            }
+
             // Check for tool calls in the streaming result
             if streaming_result.tool_calls.is_empty() {
                 // Check for max_output_tokens error and handle recovery
@@ -1975,10 +2060,61 @@ impl QueryEngine {
                 // Update total usage (matching TypeScript usage tracking)
                 self.total_usage.input_tokens += streaming_result.usage.input_tokens;
                 self.total_usage.output_tokens += streaming_result.usage.output_tokens;
-                self.turn_tokens += streaming_result.usage.output_tokens;
+                self.total_usage.cache_creation_input_tokens = Some(
+                    self.total_usage.cache_creation_input_tokens.unwrap_or(0)
+                        + streaming_result.usage.cache_creation_input_tokens.unwrap_or(0),
+                );
+                self.total_usage.cache_read_input_tokens = Some(
+                    self.total_usage.cache_read_input_tokens.unwrap_or(0)
+                        + streaming_result.usage.cache_read_input_tokens.unwrap_or(0),
+                );
+                self.turn_tokens += streaming_result.usage.output_tokens as u64;
 
                 // Update total cost (matching TypeScript cost tracking)
                 self.total_cost += streaming_result.cost;
+
+                // Check if USD budget has been exceeded
+                if let Some(max_budget) = self.config.max_budget_usd {
+                    if self.total_cost >= max_budget {
+                        let final_text = self.messages.iter()
+                            .rev()
+                            .find(|m| matches!(m.role, crate::types::MessageRole::Assistant))
+                            .map(|m| m.content.clone())
+                            .unwrap_or_default();
+                        if let Some(ref cb) = self.config.on_event {
+                            cb(AgentEvent::Done {
+                                result: crate::types::QueryResult {
+                                    text: final_text.clone(),
+                                    usage: self.total_usage.clone(),
+                                    num_turns: self.turn_count,
+                                    duration_ms: self.query_duration_ms(),
+                                    exit_reason: crate::types::ExitReason::MaxBudgetExceeded {
+                                        max_budget_usd: max_budget,
+                                    },
+                                },
+                            });
+                        }
+                        return Ok((
+                            final_text,
+                            crate::types::ExitReason::MaxBudgetExceeded {
+                                max_budget_usd: max_budget,
+                            },
+                        ));
+
+                    }
+                }
+
+                // Update global cost state for session-level reporting
+                let model = self.config.model.clone();
+                let _ = crate::services::model_cost::add_to_total_session_cost(
+                    streaming_result.cost,
+                    streaming_result.usage.input_tokens as u32,
+                    streaming_result.usage.output_tokens as u32,
+                    streaming_result.usage.cache_read_input_tokens.unwrap_or(0) as u32,
+                    streaming_result.usage.cache_creation_input_tokens.unwrap_or(0) as u32,
+                    0,
+                    &model,
+                );
 
                 // Add assistant response to message history
                 self.messages.push(crate::types::Message {
@@ -2038,6 +2174,39 @@ impl QueryEngine {
                             crate::hooks::StopHookResult::default()
                         }
                     };
+
+                    // Memory extraction (fire-and-forget, matches TypeScript EXTRACT_MEMORIES feature)
+                    // Only for main agent (no agent_id), not subagents
+                    if self.config.agent_id.is_none() {
+                        let messages: Vec<crate::types::message::Message> = self.messages
+                            .iter()
+                            .filter_map(|m| match serde_json::to_value(m) {
+                                Ok(v) => serde_json::from_value(v).ok(),
+                                Err(_) => None,
+                            })
+                            .collect();
+                        let extract_ctx = crate::services::extract_memories::ExtractMemoryContext {
+                            messages,
+                            system_prompt: self.config
+                                .system_prompt
+                                .as_deref()
+                                .unwrap_or("")
+                                .to_string(),
+                            user_context: self.config.user_context.clone(),
+                            system_context: self.config.system_context.clone(),
+                            tool_use_context: None,
+                            agent_id: self.config.agent_id.clone(),
+                        };
+                        let ctx_clone = extract_ctx.clone();
+                        tokio::spawn(async move {
+                            crate::services::extract_memories::execute_extract_memories(
+                                ctx_clone,
+                                None,
+                            )
+                            .await;
+                        });
+                    }
+
                     if !stop_result.blocking_errors.is_empty() {
                         // Inject blocking errors as system messages and re-query
                         for err_msg in stop_result.blocking_errors {

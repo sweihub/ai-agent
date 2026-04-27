@@ -20,8 +20,8 @@ pub const CUSTOM_AGENT_DISALLOWED_TOOLS: &[&str] = &["Skill"];
 /// Tools that async (background) agents are allowed to use.
 pub const ASYNC_AGENT_ALLOWED_TOOLS: &[&str] = &[
     "Bash",
-    "FileRead",
-    "FileWrite",
+    "Read",
+    "Write",
     "FileEdit",
     "Glob",
     "Grep",
@@ -41,7 +41,7 @@ pub const FORK_BOILERPLATE_TAG: &str = "fork_boilerplate";
 pub const FORK_DIRECTIVE_PREFIX: &str = "fork_directive:";
 
 /// Tool name constants referenced in the agent prompt
-pub const FILE_READ_TOOL_NAME: &str = "FileRead";
-pub const FILE_WRITE_TOOL_NAME: &str = "FileWrite";
+pub const FILE_READ_TOOL_NAME: &str = "Read";
+pub const FILE_WRITE_TOOL_NAME: &str = "Write";
 pub const GLOB_TOOL_NAME: &str = "Glob";
 pub const SEND_MESSAGE_TOOL_NAME: &str = "SendMessage";

@@ -87,9 +87,10 @@ pub use hooks_config_snapshot::{
 pub use hooks_settings::{
     DEFAULT_HOOK_SHELL, EditableSettingSource, HOOK_EVENTS as HOOK_EVENTS_SETTINGS,
     HookCommand as HooksSettingsHookCommand, HookEvent as HooksSettingsEvent,
-    HookSource as HooksSettingsSource, IndividualHookConfig as HooksSettingsIndividualHookConfig,
-    SOURCES, get_all_hooks, get_hook_display_text as get_hook_display_text_settings,
-    get_hooks_for_event,
+    HookMatcher as HooksSettingsMatcher, HookSource as HooksSettingsSource,
+    IndividualHookConfig as HooksSettingsIndividualHookConfig, ParsedHooksSettings, SOURCES,
+    get_all_hooks, get_hooks_for_event, get_hooks_for_source,
+    get_hook_display_text as get_hook_display_text_settings, parse_hook_event,
     hook_source_description_display_string as hook_source_description_display_string_settings,
     hook_source_header_display_string as hook_source_header_display_string_settings,
     hook_source_inline_display_string as hook_source_inline_display_string_settings, is_hook_equal,
@@ -97,7 +98,7 @@ pub use hooks_settings::{
 };
 pub use post_sampling_hooks::{
     PostSamplingHook, ReplHookContext as PostSamplingReplHookContext, clear_post_sampling_hooks,
-    execute_post_sampling_hooks, register_post_sampling_hook,
+    execute_post_sampling_hooks, get_post_sampling_hook_count, register_post_sampling_hook,
 };
 pub use register_frontmatter_hooks::{
     HookMatcher as FrontmatterHookMatcher, HooksSettings as FrontmatterHooksSettings,

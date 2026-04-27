@@ -269,6 +269,100 @@ async fn download_mcpb(
     Ok(data)
 }
 
+/// Extract an MCPB ZIP archive to the target directory.
+fn extract_mcpb_zip(
+    data: &[u8],
+    target_dir: &Path,
+) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    let cursor = std::io::Cursor::new(data);
+    let mut archive = zip::ZipArchive::new(cursor)?;
+
+    for i in 0..archive.len() {
+        let mut file = archive.by_index(i)?;
+        let out_path = target_dir.join(file.mangled_name());
+
+        if file.is_dir() {
+            std::fs::create_dir_all(&out_path)?;
+        } else {
+            if let Some(parent) = out_path.parent() {
+                std::fs::create_dir_all(parent)?;
+            }
+            let mut outfile = std::fs::File::create(&out_path)?;
+            std::io::copy(&mut file, &mut outfile)?;
+        }
+    }
+    Ok(())
+}
+
+/// Load a cached MCPB from the extracted path.
+async fn load_cached_mcpb(
+    source: &str,
+    plugin_path: &Path,
+) -> Result<McpbLoadResult, Box<dyn std::error::Error + Send + Sync>> {
+    let cache_dir = get_mcpb_cache_dir(plugin_path);
+    let metadata_path = get_metadata_path(&cache_dir, source);
+
+    let metadata: McpbCacheMetadata =
+        serde_json::from_str(&tokio::fs::read_to_string(&metadata_path).await?)?;
+    let extracted_path = Path::new(&metadata.extracted_path);
+
+    // Load manifest from extracted files
+    let manifest_path = extracted_path.join("manifest.json");
+    let manifest: McpbManifest =
+        serde_json::from_str(&tokio::fs::read_to_string(&manifest_path).await?).unwrap_or(
+            McpbManifest {
+                name: metadata
+                    .source
+                    .rsplit('/')
+                    .next()
+                    .unwrap_or("unknown")
+                    .to_string(),
+                version: None,
+                description: None,
+                user_config: None,
+            },
+        );
+
+    // Load MCP config from extracted files if present
+    let mcp_config_path = extracted_path.join("mcp-config.json");
+    let mcp_config: HashMap<String, McpServerConfig> = if mcp_config_path.exists() {
+        serde_json::from_str(&tokio::fs::read_to_string(&mcp_config_path).await?)?
+    } else {
+        HashMap::new()
+    };
+
+    Ok(McpbLoadResult {
+        manifest,
+        mcp_config,
+        extracted_path: metadata.extracted_path,
+        content_hash: metadata.content_hash,
+    })
+}
+
+/// Save MCPB cache metadata.
+async fn save_mcpb_cache(
+    source: &str,
+    plugin_path: &Path,
+    extracted_path: &str,
+    content_hash: &str,
+) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    let cache_dir = get_mcpb_cache_dir(plugin_path);
+    let metadata = McpbCacheMetadata {
+        source: source.to_string(),
+        content_hash: content_hash.to_string(),
+        extracted_path: extracted_path.to_string(),
+        cached_at: chrono::Utc::now().to_rfc3339(),
+        last_checked: chrono::Utc::now().to_rfc3339(),
+    };
+    let metadata_path = get_metadata_path(&cache_dir, source);
+    tokio::fs::write(
+        &metadata_path,
+        serde_json::to_string_pretty(&metadata)?,
+    )
+    .await?;
+    Ok(())
+}
+
 /// Load and extract an MCPB file.
 pub async fn load_mcpb_file(
     source: &str,
@@ -283,8 +377,12 @@ pub async fn load_mcpb_file(
 
     // Check cache first
     if !check_mcpb_changed(source, plugin_path).await {
-        // Use cached version - simplified
-        return Err(format!("Cache handling not fully implemented").into());
+        // Load cached manifest from extracted path
+        if let Ok(cached) = load_cached_mcpb(source, plugin_path).await {
+            return Ok(Ok(cached));
+        }
+        // Fall through to re-extract if cache load fails
+        log::debug!("Failed to load cached MCPB for {}", source);
     }
 
     // Download or read the MCPB file
@@ -297,20 +395,81 @@ pub async fn load_mcpb_file(
 
     // Extract ZIP contents
     let content_hash = generate_content_hash(&data);
+    let extracted_path = cache_dir.join(&content_hash);
+    tokio::fs::create_dir_all(&extracted_path).await?;
 
-    // Parse manifest from extracted files
-    // In production, would use a ZIP library to extract manifest.json
-    let manifest = McpbManifest {
-        name: "unknown".to_string(),
-        version: None,
-        description: None,
-        user_config: None,
-    };
+    // Extract ZIP archive
+    match extract_mcpb_zip(&data, &extracted_path) {
+        Ok(()) => {
+            // Load manifest from extracted files
+            let manifest_path = extracted_path.join("manifest.json");
+            let manifest: McpbManifest =
+                serde_json::from_str(&tokio::fs::read_to_string(&manifest_path).await.unwrap_or_default()).unwrap_or(McpbManifest {
+                    name: source.rsplit('/').next().unwrap_or("unknown").to_string(),
+                    version: None,
+                    description: None,
+                    user_config: None,
+                });
 
-    Ok(Ok(McpbLoadResult {
-        manifest,
-        mcp_config: HashMap::new(),
-        extracted_path: cache_dir.join(&content_hash).to_string_lossy().to_string(),
-        content_hash,
-    }))
+            // Load MCP config from extracted files if present
+            let mcp_config_path = extracted_path.join("mcp-config.json");
+            let mcp_config: HashMap<String, McpServerConfig> = if mcp_config_path.exists() {
+                serde_json::from_str(&tokio::fs::read_to_string(&mcp_config_path).await.unwrap_or_default()).unwrap_or_default()
+            } else {
+                HashMap::new()
+            };
+
+            // Check if user config is required
+            let mut manifest = manifest;
+
+            if let Some(schema) = &manifest.user_config {
+                // Load existing user config if available
+                let user_config_path = extracted_path.join("user-config.json");
+                let existing_config: UserConfigValues = if user_config_path.exists() {
+                    serde_json::from_str(&tokio::fs::read_to_string(&user_config_path).await.unwrap_or_default()).unwrap_or_default()
+                } else {
+                    HashMap::new()
+                };
+
+                let (valid, errors) = validate_user_config(&existing_config, schema);
+                if !valid {
+                    let config_schema = manifest.user_config.take().unwrap();
+                    return Ok(Err(McpbNeedsConfigResult {
+                        manifest,
+                        extracted_path: extracted_path.to_string_lossy().to_string(),
+                        content_hash,
+                        config_schema,
+                        existing_config,
+                        validation_errors: errors,
+                    }));
+                }
+            }
+
+            // Save cache metadata
+            let extracted_str = extracted_path.to_string_lossy().to_string();
+            let _ = save_mcpb_cache(source, plugin_path, &extracted_str, &content_hash).await;
+
+            Ok(Ok(McpbLoadResult {
+                manifest,
+                mcp_config,
+                extracted_path: extracted_str,
+                content_hash,
+            }))
+        }
+        Err(e) => {
+            log::warn!("Failed to extract MCPB ZIP for {}: {}", source, e);
+            // Fallback: return a basic result so the plugin can still be used
+            Ok(Ok(McpbLoadResult {
+                manifest: McpbManifest {
+                    name: source.rsplit('/').next().unwrap_or("unknown").to_string(),
+                    version: None,
+                    description: None,
+                    user_config: None,
+                },
+                mcp_config: HashMap::new(),
+                extracted_path: extracted_path.to_string_lossy().to_string(),
+                content_hash,
+            }))
+        }
+    }
 }

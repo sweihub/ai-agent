@@ -6,7 +6,7 @@
 
 [English](README.md) | [中文](READCN.md)
 
-idiomatic Rust SDK — Claude Code 的 1:1 翻译。**进程内**运行完整 agent 循环，内置 37+ 工具。可部署到任意环境：云、无服务器、Docker、CI/CD。
+idiomatic Rust SDK — Claude Code 的 1:1 翻译。**进程内**运行完整 agent 循环，内置 50 个工具。可部署到任意环境：云、无服务器、Docker、CI/CD。
 
 AI Coding CLI: [ai-code](https://github.com/sweihub/ai-code)
 
@@ -41,8 +41,8 @@ let result = agent.query("列出10个文件").await?;
 | **Session** | 在磁盘上持久化、恢复、分叉对话 |
 | **Context Compact** | 接近上下文限制时自动对话摘要 |
 | **Skills** | 加载外部技能或使用 15+ 内置技能 |
-| **Hooks** | 20+ 生命周期事件 (PreToolUse, PostToolUse, SessionStart 等) |
-| **Tools** | 37 内置工具，10 大类别（文件操作、Shell、Web、LSP、多 Agent、任务管理、规划、调度、Git、MCP 等） |
+| **Hooks** | 29 个生命周期事件，4 种钩子类型（shell、HTTP、prompt、agent），并行执行，支持 if 条件 |
+| **Tools** | 50 内置工具，15 大类别（文件操作、发现、Shell、Web、LSP、多 Agent、任务管理、规划、用户交互、调度、Git、技能、MCP、远程、通信） |
 | **Memory** | 通过 MEMORY.md 进行基于文件的持久化上下文 |
 | **Permissions** | 工具访问控制，支持允许/拒绝规则 |
 | **Plugins** | 加载包含命令、技能、MCP 服务器的插件 |
@@ -51,103 +51,127 @@ let result = agent.query("列出10个文件").await?;
 
 ## 内置工具
 
-SDK 内置 **37 个工具**，分为 10 大类别。所有工具开箱即用，带有完整的参数验证和类型安全 Schema。
+SDK 内置 **50 个工具**，分为 15 大类别。所有工具开箱即用，带有完整的参数验证和类型安全 Schema。
 
-### 文件操作
-| 工具 | 描述 |
-|------|------|
-| `Read` | 读取文件——支持文本、图片（PNG/JPG/GIF/WebP）、PDF、Jupyter 笔记本 |
-| `Write` | 向文件写入内容，精确控制路径 |
-| `Edit` | 在文件中执行精确字符串替换（单次或全部匹配） |
-| `NotebookEdit` | 编辑 Jupyter 笔记本单元格——替换、插入或删除 |
+### 文件操作 (4)
+| # | 工具 | 描述 |
+|---|------|------|
+| 1 | `Read` | 读取文件——支持文本、图片（PNG、JPG、GIF、WebP）、PDF、Jupyter 笔记本，大文件支持 offset 和 limit |
+| 2 | `Write` | 向文件写入内容，精确控制路径 |
+| 3 | `FileEdit` | 在文件中执行精确字符串替换（单次或全部匹配） |
+| 4 | `NotebookEdit` | 编辑 Jupyter 笔记本 (.ipynb) 单元格——替换、插入或删除 |
 
-### 文件发现与搜索
-| 工具 | 描述 |
-|------|------|
-| `Glob` | 按 glob 模式查找文件（如 `**/*.ts`） |
-| `Grep` | 通过 ripgrep 搜索文件内容，支持正则表达式——支持上下文行号、文件过滤 |
+### 文件发现 (2)
+| # | 工具 | 描述 |
+|---|------|------|
+| 5 | `Glob` | 按 glob 模式查找文件（如 `**/*.ts`） |
+| 6 | `Grep` | 通过正则表达式搜索文件内容——优先使用 ripgrep (rg)，回退到 grep |
 
-### Shell 与命令执行
-| 工具 | 描述 |
-|------|------|
-| `Bash` | 执行 Shell 命令，内置沙箱、超时控制和破坏性命令安全检查 |
-| `PowerShell` | 执行 PowerShell 命令（Windows，含 Git 安全和安全检查） |
+### Shell 执行 (3)
+| # | 工具 | 描述 |
+|---|------|------|
+| 7 | `Bash` | 执行 Shell 命令，内置沙箱、超时控制和破坏性命令安全检查 |
+| 8 | `PowerShell` | 执行 PowerShell 命令——Windows 专用，支持 cmdlet 和本地可执行文件 |
+| 9 | `Sleep` | 等待指定时长——用户可随时中断，不占用 Shell 进程 |
 
-### Web
-| 工具 | 描述 |
-|------|------|
-| `WebFetch` | 从任意 URL 获取并提取内容（HTML → Markdown、JSON、纯文本） |
-| `WebSearch` | 搜索网络获取最新信息 |
-| `WebBrowser` | 无头浏览器自动化——导航、截图、点击、填写、执行 JS、管理标签页 |
+### Web (3)
+| # | 工具 | 描述 |
+|---|------|------|
+| 10 | `WebFetch` | 从 URL 获取并提取内容——支持 HTML（去除标签）、JSON API、纯文本 |
+| 11 | `WebSearch` | 搜索网络获取信息——返回标题、URL 和摘要 |
+| 12 | `WebBrowser` | 控制浏览器自动化（导航、截图、点击、填写、执行 JS） |
 
-### 代码智能
-| 工具 | 描述 |
-|------|------|
-| `LSP` | 语言服务器协议操作——跳转定义、查找引用、悬停提示、文档/工作空间符号、调用层次、实现查找 |
+### 代码智能 (1)
+| # | 工具 | 描述 |
+|---|------|------|
+| 13 | `LSP` | 语言服务器协议操作——跳转定义、查找引用、悬停文档、文档/工作空间符号、调用层次、实现查找 |
 
-### 多 Agent 编排
-| 工具 | 描述 |
-|------|------|
-| `Agent` | 启动具有专业能力的子 Agent（Explore、Plan、code-review、verification 等） |
-| `TeamCreate` / `TeamDelete` | 创建和删除并行工作的 Agent 团队 |
-| `SendMessage` | 在团队内的 Agent 之间发送消息 |
+### 多 Agent 编排 (4)
+| # | 工具 | 描述 |
+|---|------|------|
+| 14 | `Agent` | 启动子 Agent 自主处理复杂多步任务（Explore、Plan、code-reviewer、general-purpose 等类型） |
+| 15 | `TeamCreate` | 创建可并行工作的 Agent 团队 |
+| 16 | `TeamDelete` | 删除已创建的 Agent 团队 |
+| 17 | `SendMessage` | 向团队内的其他 Agent 发送消息 |
 
-### 任务管理
-| 工具 | 描述 |
-|------|------|
-| `TaskCreate` | 创建新任务，包含主题、描述和活跃形式 |
-| `TaskList` | 列出所有任务的状态和依赖关系 |
-| `TaskUpdate` | 更新任务状态、详情或依赖关系（pending → in_progress → completed） |
-| `TaskGet` | 获取指定任务的完整详情 |
-| `TaskStop` | 按 ID 停止运行中的后台任务 |
-| `TaskOutput` | 获取已完成或运行中后台任务的输出 |
+### 任务管理 (6)
+| # | 工具 | 描述 |
+|---|------|------|
+| 18 | `TaskCreate` | 创建新的结构化任务，包含主题、描述和活跃形式 |
+| 19 | `TaskList` | 列出所有任务的状态、负责人和依赖关系 |
+| 20 | `TaskUpdate` | 更新任务状态、详情或依赖关系（pending → in_progress → completed） |
+| 21 | `TaskGet` | 获取指定任务的完整详情 |
+| 22 | `TaskStop` | 按 ID 停止运行中的后台任务（兼容 KillShell 的 shell_id 参数） |
+| 23 | `TaskOutput` | 获取运行中或已完成后台任务的输出，支持可配置超时 |
 
-### 规划与用户交互
-| 工具 | 描述 |
-|------|------|
-| `EnterPlanMode` | 进入规划模式，用于多步骤实现方案设计 |
-| `ExitPlanMode` | 提交方案供用户审批并开始执行 |
-| `AskUserQuestion` | 向用户发起多选提问，支持预览和多选 |
+### 规划模式 (2)
+| # | 工具 | 描述 |
+|---|------|------|
+| 24 | `EnterPlanMode` | 进入规划模式，探索代码库并设计方案 |
+| 25 | `ExitPlanMode` | 退出规划模式，提交方案供用户审批 |
 
-### 调度
-| 工具 | 描述 |
-|------|------|
-| `CronCreate` | 使用 cron 表达式创建周期性或一次性定时任务 |
-| `CronDelete` | 取消已创建的定时任务 |
-| `CronList` | 列出所有定时任务 |
+### 用户交互 (2)
+| # | 工具 | 描述 |
+|---|------|------|
+| 26 | `AskUserQuestion` | 向用户发起选择题提问，支持预览和多选 |
+| 27 | `SendUserMessage` | 向用户发送实际可见的消息——简报、摘要风格输出 |
 
-### Git 与 Worktree
-| 工具 | 描述 |
-|------|------|
-| `EnterWorktree` | 创建隔离的 git worktree 用于功能开发 |
-| `ExitWorktree` | 退出并清理 worktree |
+### 调度 (3)
+| # | 工具 | 描述 |
+|---|------|------|
+| 28 | `CronCreate` | 使用标准 5 位 cron 表达式定时任务——支持周期性（最长 7 天）和一次性模式 |
+| 29 | `CronDelete` | 取消已创建的定时任务 |
+| 30 | `CronList` | 列出所有定时任务（持久化和会话级） |
 
-### 技能与配置
-| 工具 | 描述 |
-|------|------|
-| `Skill` | 按名称调用技能（如 brainstorming、TDD、debugging、security-review） |
-| `Config` | 读取或更新工作区配置（权限、Hooks、环境变量） |
+### Git Worktree (2)
+| # | 工具 | 描述 |
+|---|------|------|
+| 31 | `EnterWorktree` | 创建并进入隔离的 git worktree 用于功能开发 |
+| 32 | `ExitWorktree` | 退出 worktree 会话——可选择保留或删除 worktree 目录 |
 
-### 系统
-| 工具 | 描述 |
-|------|------|
-| `Monitor` | 监控系统资源和性能 |
-| `ToolSearch` | 获取延迟加载工具的完整 Schema（懒加载工具发现） |
+### 技能与配置 (4)
+| # | 工具 | 描述 |
+|---|------|------|
+| 33 | `Skill` | 按名称调用技能——预构建工作流如 brainstorming、TDD、debugging、security-review |
+| 34 | `Config` | 读取或更新工作区配置（权限、Hooks、环境变量） |
+| 35 | `ToolSearch` | 按名称或描述搜索可用工具 |
+| 36 | `TodoWrite` | 更新会话待办列表——跟踪进度和组织多步工作 |
 
-### MCP（Model Context Protocol）
-| 工具 | 描述 |
-|------|------|
-| `ListMcpResourcesTool` | 列出已配置 MCP 服务器的可用资源 |
-| `ReadMcpResourceTool` | 通过 URI 从 MCP 服务器读取指定资源 |
+### MCP（Model Context Protocol）(4)
+| # | 工具 | 描述 |
+|---|------|------|
+| 37 | `MCPTool` | 在 MCP 服务器上执行工具——动态注册，`mcp__serverName_toolName` 分发 |
+| 38 | `McpAuth` | 认证需要 OAuth 的 MCP 服务器——返回授权 URL |
+| 39 | `ListMcpResourcesTool` | 列出已配置 MCP 服务器的可用资源 |
+| 40 | `ReadMcpResourceTool` | 通过 URI 从 MCP 服务器读取指定资源 |
 
-### 远程 / 云端
-| 工具 | 描述 |
-|------|------|
-| `RemoteTrigger` | 通过 CCR API 管理定时远程 Claude Code Agent——列表、创建、更新、运行 |
+### 远程 / 云端 (1)
+| # | 工具 | 描述 |
+|---|------|------|
+| 41 | `RemoteTrigger` | 通过 claude.ai CCR API 管理定时远程 Claude Code Agent（triggers）——列表、创建、更新、运行 |
+
+### 通信与数据 (3)
+| # | 工具 | 描述 |
+|---|------|------|
+| 42 | `StructuredOutput` | 以请求的格式返回结构化输出——响应结束时精确调用一次 |
+| 43 | `send_user_file` | 将用户文件发送给 Agent |
+| 44 | `Monitor` | 监控系统资源和性能 |
+
+### 内部 / 未实现 (6)
+以下工具在 Schema 中已定义但未激活注册，为未来功能预留。
+
+| # | 工具 | 描述 |
+|---|------|------|
+| 45 | `DiscoverSkills` | 按需技能发现（尚未实现） |
+| 46 | `OverflowTest` | 测试溢出行为（内部测试工具） |
+| 47 | `ReviewArtifact` | 审查制品（尚未实现） |
+| 48 | `Snip` | 模型可调用的压缩工具（尚未实现） |
+| 49 | `TerminalCapture` | 终端屏幕捕获（尚未实现） |
+| 50 | `Workflow` | 管理工作流（尚未实现） |
 
 ## 使用示例
 
-> Agent 自动使用 37+ 内置工具，覆盖 10 大类别，来完成任务。
+> Agent 自动使用 50 个内置工具，覆盖 15 大类别，来完成任务。
 
 ### 多轮对话
 ```rust
@@ -316,7 +340,7 @@ let _ = tokio::time::timeout(Duration::from_secs(10), interrupt_task).await;
     ┌──────────┼──────────┐
     │          │          │
 ┌───▼───┐  ┌───▼────┐  ┌──▼────┐
-│  LLM  │  │ 37+    │  │  MCP  │
+│  LLM  │  │ 50     │  │  MCP  │
 │  API  │  │Tools   │  │Server │
 └───────┘  └───────┘  └───────┘
 ```

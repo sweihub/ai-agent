@@ -296,10 +296,41 @@ const TRUSTING_RECALL_SECTION: &[&str] = &[
 ];
 
 /// Build the "Searching past context" section
+/// Translated from buildSearchingPastContextSection in memdir.ts
+/// Feature gate tengu_coral_fern is always enabled in Rust per SDK policy.
 pub fn build_searching_past_context_section(auto_mem_dir: &str) -> Vec<String> {
-    // Simplified version - would integrate with growthbook feature flags
-    // In full implementation, this would check getFeatureValue_CACHED_MAY_BE_STALE('tengu_coral_fern', false)
-    vec![]
+    let cwd = crate::utils::get_original_cwd();
+    let project_dir = cwd.to_string_lossy();
+
+    let embedded = crate::tools::agent::prompt::has_embedded_search_tools()
+        || crate::tools::config_tools::is_repl_mode_enabled();
+
+    let mem_search = if embedded {
+        format!("grep -rn \"<search term>\" {auto_mem_dir} --include=\"*.md\"")
+    } else {
+        format!("Grep with pattern=\"<search term>\" path=\"{auto_mem_dir}\" glob=\"*.md\"")
+    };
+    let transcript_search = if embedded {
+        format!("grep -rn \"<search term>\" {project_dir}/ --include=\"*.jsonl\"")
+    } else {
+        format!("Grep with pattern=\"<search term>\" path=\"{project_dir}/\" glob=\"*.jsonl\"")
+    };
+
+    vec![
+        "## Searching past context".to_string(),
+        String::new(),
+        "When looking for past context:".to_string(),
+        "1. Search topic files in your memory directory:".to_string(),
+        "```".to_string(),
+        mem_search,
+        "```".to_string(),
+        "2. Session transcript logs (last resort — large files, slow):".to_string(),
+        "```".to_string(),
+        transcript_search,
+        "```".to_string(),
+        "Use narrow search terms (error messages, file paths, function names) rather than broad keywords.".to_string(),
+        String::new(),
+    ]
 }
 
 /// Build the memory prompt with MEMORY.md content included.
@@ -416,5 +447,29 @@ mod tests {
         });
         assert!(prompt.contains("auto memory"));
         assert!(prompt.contains("MEMORY.md"));
+    }
+
+    #[test]
+    fn test_build_searching_past_context_section() {
+        let lines = build_searching_past_context_section("/tmp/.ai/memory");
+        assert!(!lines.is_empty());
+        // Should contain the section header
+        assert!(lines.iter().any(|l| l == "## Searching past context"));
+        // Should contain search instructions
+        assert!(lines.iter().any(|l| l.contains("Search topic files")));
+        assert!(lines.iter().any(|l| l.contains("Session transcript logs")));
+        // Should contain search examples with the memory directory
+        assert!(lines.iter().any(|l| l.contains("/tmp/.ai/memory")));
+        // Should contain search hint
+        assert!(lines.iter().any(|l| l.contains("narrow search terms")));
+    }
+
+    #[test]
+    fn test_build_searching_past_context_section_uses_grep_tool() {
+        // In non-embedded, non-repl mode, should use Grep tool syntax
+        let lines = build_searching_past_context_section("/tmp/.ai/memory");
+        let has_grep_tool = lines.iter().any(|l| l.contains("Grep with pattern="));
+        // Should use either Grep tool or shell grep depending on environment
+        assert!(has_grep_tool || lines.iter().any(|l| l.contains("grep -rn")));
     }
 }

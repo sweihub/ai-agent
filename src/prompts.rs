@@ -11,8 +11,8 @@ use crate::constants::env::system;
 use std::collections::HashSet;
 
 // Tool name constants
-pub const FILE_READ_TOOL_NAME: &str = "FileRead";
-pub const FILE_WRITE_TOOL_NAME: &str = "FileWrite";
+pub const FILE_READ_TOOL_NAME: &str = "Read";
+pub const FILE_WRITE_TOOL_NAME: &str = "Write";
 pub const FILE_EDIT_TOOL_NAME: &str = "FileEdit";
 pub const BASH_TOOL_NAME: &str = "Bash";
 pub const GLOB_TOOL_NAME: &str = "Glob";
@@ -610,8 +610,8 @@ pub fn build_system_prompt() -> String {
     // Tools section
     let mut tools = HashSet::new();
     tools.insert("Bash".to_string());
-    tools.insert("FileRead".to_string());
-    tools.insert("FileWrite".to_string());
+    tools.insert("Read".to_string());
+    tools.insert("Write".to_string());
     tools.insert("FileEdit".to_string());
     tools.insert("Glob".to_string());
     tools.insert("Grep".to_string());
@@ -755,10 +755,10 @@ mod tests {
     fn test_using_your_tools_section() {
         let mut tools = HashSet::new();
         tools.insert("Bash".to_string());
-        tools.insert("FileRead".to_string());
+        tools.insert("Read".to_string());
         let section = get_using_your_tools_section(&tools);
         assert!(section.contains("# Using your tools"));
-        assert!(section.contains("FileRead"));
+        assert!(section.contains("Read"));
     }
 
     #[test]
@@ -820,8 +820,8 @@ mod tests {
 
     #[test]
     fn test_tool_names() {
-        assert_eq!(FILE_READ_TOOL_NAME, "FileRead");
-        assert_eq!(FILE_WRITE_TOOL_NAME, "FileWrite");
+        assert_eq!(FILE_READ_TOOL_NAME, "Read");
+        assert_eq!(FILE_WRITE_TOOL_NAME, "Write");
         assert_eq!(FILE_EDIT_TOOL_NAME, "FileEdit");
         assert_eq!(BASH_TOOL_NAME, "Bash");
         assert_eq!(GLOB_TOOL_NAME, "Glob");

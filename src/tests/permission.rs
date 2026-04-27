@@ -305,7 +305,7 @@ fn test_permission_mode_auto() {
 #[test]
 fn test_permission_mode_auto_allows_file_read() {
     let ctx = PermissionContext::new().with_mode(PermissionMode::Auto);
-    let result = ctx.check_tool("FileRead", None);
+    let result = ctx.check_tool("Read", None);
     assert!(result.is_allowed(), "FileRead should be allowed in auto mode");
 }
 
@@ -380,7 +380,7 @@ fn test_permission_mode_auto_denial_tracking_resets_on_allow() {
         .with_denial_tracking(dt);
 
     // Check an allowlisted tool (resets consecutive denials)
-    let _ = ctx.check_tool("FileRead", None);
+    let _ = ctx.check_tool("Read", None);
 
     let dt = ctx.denial_tracking.read().unwrap();
     assert_eq!(dt.consecutive_denials, 0, "consecutive denials should be reset");
@@ -429,9 +429,9 @@ fn test_permission_mode_auto_deny_rules_override_allowlist() {
     // Deny rules take precedence over auto mode allowlist
     let ctx = PermissionContext::new()
         .with_mode(PermissionMode::Auto)
-        .with_deny_rule(PermissionRule::deny("FileRead"));
+        .with_deny_rule(PermissionRule::deny("Read"));
 
-    let result = ctx.check_tool("FileRead", None);
+    let result = ctx.check_tool("Read", None);
     assert!(
         result.is_denied(),
         "Deny rule should override auto mode allowlist"

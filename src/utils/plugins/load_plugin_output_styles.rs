@@ -7,17 +7,9 @@ use std::sync::Mutex;
 
 use once_cell::sync::Lazy;
 
+use super::frontmatter_parser::parse_frontmatter;
 use super::loader::load_all_plugins_cache_only;
 use super::walk_plugin_markdown::{WalkPluginMarkdownOpts, walk_plugin_markdown};
-
-/// Stub for frontmatter parsing - requires frontmatter_parser module.
-fn parse_frontmatter_stub<'a>(
-    content: &'a str,
-    _path: &str,
-) -> (serde_json::Map<String, serde_json::Value>, &'a str) {
-    // Simple stub: returns empty frontmatter and full content as markdown
-    (serde_json::Map::new(), content)
-}
 
 static OUTPUT_STYLE_CACHE: Lazy<Mutex<Option<Vec<OutputStyleConfig>>>> =
     Lazy::new(|| Mutex::new(None));
@@ -83,7 +75,7 @@ async fn load_output_style_from_file(
     let content = tokio::fs::read_to_string(file_path)
         .await
         .map_err(|e| format!("Failed to read {}: {}", file_path, e))?;
-    let (frontmatter, markdown_content) = parse_frontmatter_stub(&content, file_path);
+    let (frontmatter, markdown_content) = parse_frontmatter(&content, file_path);
 
     let file_name = std::path::Path::new(file_path)
         .file_stem()

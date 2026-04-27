@@ -7,21 +7,13 @@ use std::sync::Mutex;
 
 use once_cell::sync::Lazy;
 
+use super::frontmatter_parser::parse_frontmatter;
 use super::loader::load_all_plugins_cache_only;
 use super::plugin_options_storage::{
     load_plugin_options, substitute_plugin_variables, substitute_user_config_in_content,
 };
 use super::walk_plugin_markdown::{WalkPluginMarkdownOpts, walk_plugin_markdown};
 use crate::plugin::types::PluginManifest;
-
-/// Stub for frontmatter parsing - requires frontmatter_parser module.
-fn parse_frontmatter_stub<'a>(
-    content: &'a str,
-    _path: &str,
-) -> (serde_json::Map<String, serde_json::Value>, &'a str) {
-    // Simple stub: returns empty frontmatter and full content as markdown
-    (serde_json::Map::new(), content)
-}
 
 static PLUGIN_COMMAND_CACHE: Lazy<Mutex<Option<Vec<Command>>>> = Lazy::new(|| Mutex::new(None));
 
@@ -224,7 +216,7 @@ async fn create_plugin_command(
     is_skill: bool,
     is_skill_mode: bool,
 ) -> Result<Option<Command>, Box<dyn std::error::Error + Send + Sync>> {
-    let (frontmatter, markdown_content) = parse_frontmatter_stub(content, file_path);
+    let (frontmatter, markdown_content) = parse_frontmatter(content, file_path);
 
     let description = frontmatter
         .get("description")

@@ -15,6 +15,8 @@ use crate::tools::grep::GrepTool;
 use crate::tools::lsp::LSPTool;
 use crate::tools::mcp_resource_reader::ReadMcpResourceTool;
 use crate::tools::mcp_resources::ListMcpResourcesTool;
+use crate::tools::mcp_tool::McpTool;
+use crate::tools::mcp_auth::McpAuthTool;
 use crate::tools::monitor::MonitorTool;
 use crate::tools::notebook_edit::NotebookEditTool;
 use crate::tools::plan::{EnterPlanModeTool, ExitPlanModeTool};
@@ -27,6 +29,7 @@ use crate::tools::skill::register_skills_from_dir;
 use crate::skills::loader::load_all_skills;
 use crate::utils::hooks::register_hooks_from_skills;
 use crate::tools::sleep_tool::SleepTool;
+use crate::tools::powershell::powershell_tool::PowerShellTool;
 use crate::tools::task_output::TaskOutputTool;
 use crate::tools::tasks::{TaskCreateTool, TaskGetTool, TaskListTool, TaskUpdateTool};
 use crate::tools::team::{SendMessageTool, TeamCreateTool, TeamDeleteTool};
@@ -407,6 +410,17 @@ impl ToolRender for SleepTool {
         <SleepTool>::render_tool_result_message(self, content)
     }
 }
+impl ToolRender for PowerShellTool {
+    fn user_facing_name(&self, input: Option<&serde_json::Value>) -> String {
+        <PowerShellTool>::user_facing_name(self, input)
+    }
+    fn get_tool_use_summary(&self, input: Option<&serde_json::Value>) -> Option<String> {
+        <PowerShellTool>::get_tool_use_summary(self, input)
+    }
+    fn render_tool_result_message(&self, content: &serde_json::Value) -> Option<String> {
+        <PowerShellTool>::render_tool_result_message(self, content)
+    }
+}
 impl ToolRender for LSPTool {
     fn user_facing_name(&self, input: Option<&serde_json::Value>) -> String {
         <LSPTool>::user_facing_name(self, input)
@@ -449,6 +463,28 @@ impl ToolRender for ReadMcpResourceTool {
     }
     fn render_tool_result_message(&self, content: &serde_json::Value) -> Option<String> {
         <ReadMcpResourceTool>::render_tool_result_message(self, content)
+    }
+}
+impl ToolRender for McpTool {
+    fn user_facing_name(&self, input: Option<&serde_json::Value>) -> String {
+        <McpTool>::user_facing_name(self, input)
+    }
+    fn get_tool_use_summary(&self, input: Option<&serde_json::Value>) -> Option<String> {
+        <McpTool>::get_tool_use_summary(self, input)
+    }
+    fn render_tool_result_message(&self, content: &serde_json::Value) -> Option<String> {
+        <McpTool>::render_tool_result_message(self, content)
+    }
+}
+impl ToolRender for McpAuthTool {
+    fn user_facing_name(&self, input: Option<&serde_json::Value>) -> String {
+        <McpAuthTool>::user_facing_name(self, input)
+    }
+    fn get_tool_use_summary(&self, input: Option<&serde_json::Value>) -> Option<String> {
+        <McpAuthTool>::get_tool_use_summary(self, input)
+    }
+    fn render_tool_result_message(&self, content: &serde_json::Value) -> Option<String> {
+        <McpAuthTool>::render_tool_result_message(self, content)
     }
 }
 impl ToolRender for BriefTool {
@@ -513,9 +549,9 @@ pub(crate) fn register_all_tool_executors(engine: &mut QueryEngine) {
     let bash_rf = self::make_render_fns(bash_tool);
     engine.register_tool_with_render("Bash".to_string(), bash_executor, bash_rf);
 
-    // FileRead tool - register backfill function (expand file_path for observers)
+    // Read tool - register backfill function (expand file_path for observers)
     engine.register_tool_backfill(
-        "FileRead".to_string(),
+        "Read".to_string(),
         |input: &mut serde_json::Value| {
             if let Some(fp) = input.get("file_path").and_then(|v| v.as_str()) {
                 let expanded = crate::utils::path::expand_path(fp);
@@ -543,7 +579,7 @@ pub(crate) fn register_all_tool_executors(engine: &mut QueryEngine) {
     };
     let read_tool = ReadTool::new();
     let read_rf = self::make_render_fns(read_tool);
-    engine.register_tool_with_render("FileRead".to_string(), read_executor, read_rf);
+    engine.register_tool_with_render("Read".to_string(), read_executor, read_rf);
 
     // FileWrite tool
     let write_executor = move |input: serde_json::Value,
@@ -562,10 +598,10 @@ pub(crate) fn register_all_tool_executors(engine: &mut QueryEngine) {
     };
     let write_tool = WriteTool::new();
     let write_rf = self::make_render_fns(write_tool);
-    engine.register_tool_with_render("FileWrite".to_string(), write_executor, write_rf);
-    // FileWrite tool - register backfill function (expand file_path for observers)
+    engine.register_tool_with_render("Write".to_string(), write_executor, write_rf);
+    // Write tool - register backfill function (expand file_path for observers)
     engine.register_tool_backfill(
-        "FileWrite".to_string(),
+        "Write".to_string(),
         |input: &mut serde_json::Value| {
             if let Some(fp) = input.get("file_path").and_then(|v| v.as_str()) {
                 let expanded = crate::utils::path::expand_path(fp);
@@ -1160,6 +1196,25 @@ pub(crate) fn register_all_tool_executors(engine: &mut QueryEngine) {
     let sleep_rf = self::make_render_fns(sleep_tool);
     engine.register_tool_with_render("Sleep".to_string(), sleep_executor, sleep_rf);
 
+    // PowerShell tool - execute PowerShell commands
+    let powershell_executor = move |input: serde_json::Value,
+                                    ctx: &ToolContext|
+          -> BoxFuture<Result<ToolResult, AgentError>> {
+        let tool_clone = PowerShellTool::new();
+        let cwd = ctx.cwd.clone();
+        let abort_signal = ctx.abort_signal.clone();
+        Box::pin(async move {
+            let ctx2 = ToolContext {
+                cwd,
+                abort_signal: abort_signal.clone(),
+            };
+            tool_clone.execute(input, &ctx2).await
+        })
+    };
+    let powershell_tool = PowerShellTool::new();
+    let powershell_rf = self::make_render_fns(powershell_tool);
+    engine.register_tool_with_render("PowerShell".to_string(), powershell_executor, powershell_rf);
+
     // LSP tool - code intelligence via Language Server Protocol
     let lsp_executor = move |input: serde_json::Value,
                              ctx: &ToolContext|
@@ -1281,6 +1336,44 @@ pub(crate) fn register_all_tool_executors(engine: &mut QueryEngine) {
     let synthetic_output_tool = SyntheticOutputTool::new();
     let synthetic_output_rf = self::make_render_fns(synthetic_output_tool);
     engine.register_tool_with_render("StructuredOutput".to_string(), synthetic_output_executor, synthetic_output_rf);
+
+    // MCPTool — generic MCP tool execution dispatcher
+    let mcp_tool_executor =
+        move |input: serde_json::Value, ctx: &ToolContext|
+          -> BoxFuture<Result<ToolResult, AgentError>> {
+            let tool_clone = McpTool::new();
+            let cwd = ctx.cwd.clone();
+            let abort_signal = ctx.abort_signal.clone();
+            Box::pin(async move {
+                let ctx2 = ToolContext {
+                    cwd,
+                    abort_signal: abort_signal.clone(),
+                };
+                tool_clone.execute(input, &ctx2).await
+            })
+        };
+    let mcp_tool = McpTool::new();
+    let mcp_tool_rf = self::make_render_fns(mcp_tool);
+    engine.register_tool_with_render("MCPTool".to_string(), mcp_tool_executor, mcp_tool_rf);
+
+    // McpAuthTool — authenticate MCP server via OAuth
+    let mcp_auth_executor =
+        move |input: serde_json::Value, ctx: &ToolContext|
+          -> BoxFuture<Result<ToolResult, AgentError>> {
+            let tool_clone = McpAuthTool::new();
+            let cwd = ctx.cwd.clone();
+            let abort_signal = ctx.abort_signal.clone();
+            Box::pin(async move {
+                let ctx2 = ToolContext {
+                    cwd,
+                    abort_signal: abort_signal.clone(),
+                };
+                tool_clone.execute(input, &ctx2).await
+            })
+        };
+    let mcp_auth_tool = McpAuthTool::new();
+    let mcp_auth_rf = self::make_render_fns(mcp_auth_tool);
+    engine.register_tool_with_render("McpAuth".to_string(), mcp_auth_executor, mcp_auth_rf);
 }
 
 /// Subscriber info for fan-out event delivery
@@ -1564,6 +1657,7 @@ impl Agent {
                 abort_controller: Some(inner.abort_controller.clone()),
                 token_budget: None,
                 agent_id: None,
+                session_state: None,
                 loaded_nested_memory_paths: std::collections::HashSet::new(),
                 task_budget: None,
             };
@@ -1573,8 +1667,9 @@ impl Agent {
             // Register hooks from loaded skills
             let session_id = inner.session_id.clone();
             if let Ok(skills) = load_all_skills(&cwd) {
-                let _set_app_state = |_: &dyn Fn(&mut serde_json::Value)| {};
-                register_hooks_from_skills(&_set_app_state, &session_id, &skills);
+                let _set_app_state = Arc::new(|_: &dyn Fn(&mut serde_json::Value)| {})
+                    as Arc<dyn Fn(&dyn Fn(&mut serde_json::Value)) + Send + Sync>;
+                register_hooks_from_skills(_set_app_state, &session_id, &skills);
             }
 
             inner.engine = Some(Arc::new(parking_lot::RwLock::new(engine)));
@@ -1695,6 +1790,7 @@ impl Agent {
             abort_controller: Some(abort_controller.clone()),
             token_budget: None,
             agent_id: None,
+            session_state: None,
             loaded_nested_memory_paths: std::collections::HashSet::new(),
             task_budget: None,
         });

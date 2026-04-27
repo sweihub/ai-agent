@@ -45,6 +45,7 @@ pub mod which;
 pub mod words;
 pub mod xdg;
 pub mod yaml;
+pub mod xml;
 pub mod zod_to_json_schema;
 
 pub use abort_controller::{
@@ -365,3 +366,4 @@ pub use subprocess_env::{GHA_SUBPROCESS_SCRUB, register_upstream_proxy_env_fn, s
 pub mod token_budget;
 pub mod tokens;
 pub mod analyze_context;
+pub mod collapse_read_search;

@@ -16,8 +16,8 @@
 #[allow(dead_code)]
 pub fn get_repl_primitive_tools() -> Vec<&'static str> {
     vec![
-        "FileRead",
-        "FileWrite",
+        "Read",
+        "Write",
         "FileEdit",
         "Glob",
         "Grep",
@@ -40,7 +40,7 @@ mod tests {
     #[test]
     fn test_repl_primitive_tools_contains_expected() {
         let tools = get_repl_primitive_tools();
-        assert!(tools.contains(&"FileRead"));
+        assert!(tools.contains(&"Read"));
         assert!(tools.contains(&"Bash"));
         assert!(tools.contains(&"Glob"));
     }

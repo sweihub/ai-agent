@@ -301,15 +301,20 @@ mod tests {
 
     #[test]
     fn test_get_last_cleanup_summary_empty() {
+        // Reset global state to isolate from parallel tests
+        reset_cleanup_state_for_testing();
         // After a sub-agent cleanup, summary should indicate no main caches cleared
         run_post_compact_cleanup(Some("subagent"));
+
         let summary = get_last_cleanup_summary();
-        assert!(summary.contains("No caches cleared"));
+        assert!(summary.contains("No caches cleared"), "Expected 'No caches cleared', got: {}", summary);
     }
 
     #[test]
     fn test_get_last_cleanup_summary_populated() {
+        reset_cleanup_state_for_testing();
         run_post_compact_cleanup(Some("repl_main_thread"));
+
         let summary = get_last_cleanup_summary();
         assert!(summary.contains("context_collapse"));
         assert!(summary.contains("user_context"));

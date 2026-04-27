@@ -8,13 +8,18 @@ pub struct McpInfo {
 
 pub fn mcp_info_from_string(tool_string: &str) -> Option<McpInfo> {
     let parts: Vec<&str> = tool_string.split("__").collect();
-    if parts.len() < 3 || parts[0] != "mcp" || parts[1].is_empty() {
+    if parts.is_empty() || parts[0] != "mcp" || parts.get(1)?.is_empty() {
         return None;
     }
 
     let server_name = parts[1].to_string();
     let tool_name = if parts.len() > 2 {
-        Some(parts[2..].join("__"))
+        let tool = parts[2..].join("__");
+        if tool.is_empty() {
+            None
+        } else {
+            Some(tool)
+        }
     } else {
         None
     };

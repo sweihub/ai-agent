@@ -474,6 +474,10 @@ mod tests {
             shell: None,
             if_condition: None,
             timeout: None,
+            status_message: None,
+            once: None,
+            r#async: None,
+            async_rewake: None,
         };
 
         // Use the internal state directly for testing
@@ -531,6 +535,10 @@ mod tests {
                             shell: None,
                             if_condition: None,
                             timeout: None,
+                            status_message: None,
+                            once: None,
+                            r#async: None,
+                            async_rewake: None,
                         }),
                         on_hook_success: None,
                     }],

@@ -367,6 +367,7 @@ mod tests {
             tool_calls: None,
             is_error: None,
             is_meta: None,
+            uuid: None,
         }
     }
 
@@ -379,6 +380,7 @@ mod tests {
             tool_calls: None,
             is_error: None,
             is_meta: None,
+            uuid: None,
         }
     }
 
@@ -391,6 +393,7 @@ mod tests {
             tool_calls: None,
             is_error: None,
             is_meta: None,
+            uuid: None,
         }
     }
 

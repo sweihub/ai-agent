@@ -321,6 +321,7 @@ fn sdk_message_from_json(msg: &serde_json::Value) -> crate::types::Message {
         tool_calls: if tool_calls.is_empty() { None } else { Some(tool_calls) },
         is_error: None,
         is_meta: None,
+            uuid: None,
     }
 }
 
@@ -369,6 +370,7 @@ mod tests {
                 tool_calls: None,
                 is_error: None,
                 is_meta: None,
+            uuid: None,
             },
             crate::types::Message {
                 role: crate::types::MessageRole::Assistant,
@@ -383,6 +385,7 @@ mod tests {
                 }]),
                 is_error: None,
                 is_meta: None,
+            uuid: None,
             },
         ];
         let forked = build_forked_messages_from_sdk(&parent_msgs, "research the codebase");
@@ -404,6 +407,7 @@ mod tests {
             tool_calls: None,
             is_error: None,
             is_meta: None,
+            uuid: None,
         }];
         let forked = build_forked_messages_from_sdk(&parent_msgs, "do work");
         // Should have: user (parent) + fork user message
@@ -476,6 +480,7 @@ mod tests {
                 tool_calls: None,
                 is_error: None,
                 is_meta: None,
+            uuid: None,
             },
             crate::types::Message {
                 role: crate::types::MessageRole::Assistant,
@@ -498,6 +503,7 @@ mod tests {
                 ]),
                 is_error: None,
                 is_meta: None,
+            uuid: None,
             },
         ];
         let forked = build_forked_messages_from_sdk(&parent_msgs, "directive");

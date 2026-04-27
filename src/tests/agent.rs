@@ -277,7 +277,7 @@ async fn test_tool_executors_registered() {
     let tool_names: Vec<&str> = tools.iter().map(|t| t.name.as_str()).collect();
     assert!(tool_names.contains(&"Bash"), "Should have Bash tool");
     assert!(
-        tool_names.contains(&"FileRead"),
+        tool_names.contains(&"Read"),
         "Should have FileRead tool"
     );
     assert!(tool_names.contains(&"Glob"), "Should have Glob tool");
@@ -1214,12 +1214,12 @@ async fn test_subagent_inherits_parent_context() {
 #[test]
 fn test_agent_disallowed_tools_config() {
     let agent = Agent::new("claude-sonnet-4-6")
-        .disallowed_tools(vec!["Bash".to_string(), "FileWrite".to_string()]);
+        .disallowed_tools(vec!["Bash".to_string(), "Write".to_string()]);
 
     let inner = agent.inner_for_test().lock();
     assert_eq!(
         inner.disallowed_tools,
-        vec!["Bash".to_string(), "FileWrite".to_string()]
+        vec!["Bash".to_string(), "Write".to_string()]
     );
     assert!(inner.allowed_tools.is_empty());
 }

@@ -19,6 +19,8 @@ pub mod mcp;
 pub mod message_queue_types;
 pub(crate) mod query_engine;
 pub mod session;
+pub mod session_restore;
+pub mod session_state;
 pub mod state;
 pub mod stream;
 pub mod streaming_tool_executor;
@@ -120,11 +122,14 @@ pub use permission::{
     PermissionMetadata, PermissionMode, PermissionResult, PermissionRule, PermissionRuleSource,
 };
 pub use plugin::{
-    CommandAvailability, CommandMetadata, CommandRegistry, CommandResult, CommandResultDisplay,
-    CommandSource, LoadedPlugin, PluginAuthor, PluginCommand, PluginComponent, PluginConfig,
-    PluginError, PluginLoadResult, PluginManifest, PluginMcpServer, PluginMcpServerManager,
-    PluginRepository, PluginSkill, get_plugin_error_message, load_plugin, load_plugin_skills,
-    load_plugins_from_dir, load_plugins_from_sources, register_plugin_skills,
+    BUILTIN_MARKETPLACE_NAME_CONST, clear_builtin_plugins, get_builtin_plugin_definition,
+    get_builtin_plugin_skill_definitions, get_builtin_plugins, is_builtin_plugin_id,
+    register_builtin_plugin, BuiltinPluginResult, CommandAvailability, CommandMetadata,
+    CommandRegistry, CommandResult, CommandResultDisplay, CommandSource, LoadedPlugin,
+    PluginAuthor, PluginCommand, PluginComponent, PluginConfig, PluginError, PluginLoadResult,
+    PluginManifest, PluginMcpServer, PluginMcpServerManager, PluginRepository, PluginSkill,
+    get_plugin_error_message, load_plugin, load_plugin_skills, load_plugins_from_dir,
+    load_plugins_from_sources, register_plugin_skills,
 };
 pub use services::compact::auto_compact::{
     AutoCompactResult, AutoCompactTrackingState, RecompactionInfo, is_auto_compact_enabled,
@@ -190,9 +195,9 @@ pub use session_history::{
     get_bridge_token_override, get_oauth_headers, prepare_api_request,
 };
 pub use session_memory::{
-    DEFAULT_SESSION_MEMORY_CONFIG, ManualExtractionResult, SessionMemoryConfig, SessionMemoryState,
+    DEFAULT_SESSION_MEMORY_CONFIG, ManualExtractionResult, SessionMemoryConfig,
     get_last_summarized_message_id, get_session_memory_config, get_session_memory_content,
-    get_session_memory_dir, get_session_memory_path, get_session_memory_state,
+    get_session_memory_dir, get_session_memory_path,
     get_tool_calls_between_updates, has_met_initialization_threshold, has_met_update_threshold,
     init_session_memory_file, is_session_memory_initialized, mark_session_memory_initialized,
     record_extraction_token_count, reset_session_memory_state, set_last_summarized_message_id,

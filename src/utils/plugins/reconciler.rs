@@ -40,12 +40,15 @@ pub fn diff_marketplaces(
             Some(state_entry) => {
                 if intent.source_is_fallback.unwrap_or(false) {
                     up_to_date.push(name.clone());
+                } else if sources_equal_serialized(&intent.source, &state_entry.source) {
+                    up_to_date.push(name.clone());
                 } else {
-                    // Simplified comparison - stub
+                    let materialized_source =
+                        plugin_source_to_marketplace_source(&state_entry.source);
                     source_changed.push(SourceChangedEntry {
                         name: name.clone(),
                         declared_source: intent.source.clone(),
-                        materialized_source: MarketplaceSource::Url { url: String::new() },
+                        materialized_source,
                     });
                 }
             }
@@ -56,6 +59,57 @@ pub fn diff_marketplaces(
         missing,
         source_changed,
         up_to_date,
+    }
+}
+
+/// Compare two sources by serializing to JSON for deep equality.
+fn sources_equal_serialized(a: &MarketplaceSource, b: &super::types::PluginSource) -> bool {
+    let a_json = serde_json::to_value(a).unwrap_or_default();
+    let b_json = serde_json::to_value(b).unwrap_or_default();
+    a_json == b_json
+}
+
+/// Convert a PluginSource to a MarketplaceSource for diff reporting.
+fn plugin_source_to_marketplace_source(source: &super::types::PluginSource) -> MarketplaceSource {
+    match source {
+        super::types::PluginSource::Relative(path) => MarketplaceSource::Directory {
+            path: path.clone(),
+        },
+        super::types::PluginSource::Github {
+            repo,
+            ref_,
+            path,
+            ..
+        } => MarketplaceSource::Github {
+            repo: repo.clone(),
+            ref_: ref_.clone(),
+            path: path.clone(),
+        },
+        super::types::PluginSource::Git { url, ref_, .. } => MarketplaceSource::Git {
+            url: url.clone(),
+            ref_: ref_.clone(),
+            path: None,
+        },
+        super::types::PluginSource::GitSubdir {
+            repo, subdir, ref_, ..
+        } => MarketplaceSource::GitSubdir {
+            url: repo.clone(),
+            path: subdir.clone(),
+            ref_: ref_.clone(),
+        },
+        super::types::PluginSource::Url { url, .. } => MarketplaceSource::Url {
+            url: url.clone(),
+        },
+        super::types::PluginSource::Npm { package, .. } => MarketplaceSource::Url {
+            url: format!("npm:{}", package),
+        },
+        super::types::PluginSource::Pip { package, .. } => MarketplaceSource::Url {
+            url: format!("pip:{}", package),
+        },
+        super::types::PluginSource::Settings { .. } => MarketplaceSource::Settings {
+            name: String::new(),
+            plugins: Vec::new(),
+        },
     }
 }
 

@@ -197,7 +197,7 @@ pub struct ServerCapabilities {
 }
 
 /// Connected MCP server
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ConnectedMcpServer {
     pub name: String,
@@ -209,6 +209,37 @@ pub struct ConnectedMcpServer {
     #[serde(default)]
     pub instructions: Option<String>,
     pub config: ScopedMcpServerConfig,
+    /// Live MCP client runtime. Not serialized, must be set after deserialization.
+    #[serde(skip, default)]
+    pub runtime: Option<std::sync::Arc<rust_mcp_sdk::mcp_client::ClientRuntime>>,
+}
+
+impl std::fmt::Debug for ConnectedMcpServer {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("ConnectedMcpServer")
+            .field("name", &self.name)
+            .field("server_type", &self.server_type)
+            .field("capabilities", &self.capabilities)
+            .field("server_info", &self.server_info)
+            .field("instructions", &self.instructions)
+            .field("config", &self.config)
+            .field("runtime", &self.runtime.is_some())
+            .finish()
+    }
+}
+
+impl Clone for ConnectedMcpServer {
+    fn clone(&self) -> Self {
+        Self {
+            name: self.name.clone(),
+            server_type: self.server_type.clone(),
+            capabilities: self.capabilities.clone(),
+            server_info: self.server_info.clone(),
+            instructions: self.instructions.clone(),
+            config: self.config.clone(),
+            runtime: self.runtime.clone(),
+        }
+    }
 }
 
 /// MCP server info

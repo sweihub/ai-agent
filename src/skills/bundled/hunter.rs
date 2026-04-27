@@ -37,9 +37,10 @@ pub fn register_hunter_skill() {
         disable_model_invocation: None,
         user_invocable: Some(true),
         is_enabled: None,
+        hooks: None,
         context: None,
         agent: None,
         files: None,
-        get_prompt_for_command,
+        get_prompt_for_command: std::sync::Arc::new(get_prompt_for_command),
     });
 }

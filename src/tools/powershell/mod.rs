@@ -8,6 +8,7 @@ pub mod git_safety;
 pub mod mode_validation;
 pub mod path_validation;
 pub mod powershell_security;
+pub mod powershell_tool;
 pub mod prompt;
 pub mod read_only_validation;
 pub mod tool_name;
@@ -26,6 +27,7 @@ pub use path_validation::{
 pub use powershell_security::{
     PowerShellSecurityResult, SecurityBehavior, powershell_command_is_safe,
 };
+pub use powershell_tool::PowerShellTool;
 pub use prompt::{get_default_timeout_ms, get_max_timeout_ms};
 pub use read_only_validation::{
     has_sync_security_concerns, is_cwd_changing_cmdlet, is_external_command_safe,

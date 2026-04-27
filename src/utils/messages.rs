@@ -425,6 +425,115 @@ pub fn create_tool_result_stop_message(tool_use_id: &str) -> serde_json::Value {
     })
 }
 
+/// XML tags for command input/output
+pub const COMMAND_MESSAGE_TAG: &str = "command-message";
+pub const COMMAND_NAME_TAG: &str = "command-name";
+
+/// Create a synthetic user caveat message (informs the model the user typed something)
+pub fn create_synthetic_user_caveat_message() -> Message {
+    let content = "The user didn't say anything. Continue working.".to_string();
+    Message::User(UserMessage {
+        message: MessageContent::String(content),
+        is_meta: Some(true),
+        is_visible_in_transcript_only: None,
+        is_virtual: None,
+        is_compact_summary: None,
+        summarize_metadata: None,
+        tool_use_result: None,
+        mcp_meta: None,
+        uuid: uuid::Uuid::new_v4().to_string(),
+        timestamp: chrono::Utc::now().to_rfc3339(),
+        image_paste_ids: None,
+        source_tool_assistant_uuid: None,
+        permission_mode: None,
+        origin: None,
+    })
+}
+
+/// Create a system message
+pub fn create_system_message(content: impl Into<String>, level: SystemMessageLevel) -> Message {
+    Message::System(SystemMessage {
+        message: SystemMessageContent {
+            message_type: "system".to_string(),
+            subtype: None,
+            content: content.into(),
+            level: Some(level),
+        },
+        uuid: uuid::Uuid::new_v4().to_string(),
+        timestamp: chrono::Utc::now().to_rfc3339(),
+        parent_uuid: None,
+    })
+}
+
+/// Create a system local command message (for command output that's visible but not sent to model)
+pub fn create_system_local_command_message(content: impl Into<String>) -> Message {
+    Message::System(SystemMessage {
+        message: SystemMessageContent {
+            message_type: "system".to_string(),
+            subtype: Some("local_command".to_string()),
+            content: content.into(),
+            level: None,
+        },
+        uuid: uuid::Uuid::new_v4().to_string(),
+        timestamp: chrono::Utc::now().to_rfc3339(),
+        parent_uuid: None,
+    })
+}
+
+/// Create a user interruption message
+pub fn create_user_interruption_message(tool_use: bool) -> Message {
+    let content = if tool_use {
+        INTERRUPT_MESSAGE_FOR_TOOL_USE.to_string()
+    } else {
+        INTERRUPT_MESSAGE.to_string()
+    };
+    Message::User(UserMessage {
+        message: MessageContent::String(content),
+        is_meta: None,
+        is_visible_in_transcript_only: None,
+        is_virtual: None,
+        is_compact_summary: None,
+        summarize_metadata: None,
+        tool_use_result: None,
+        mcp_meta: None,
+        uuid: uuid::Uuid::new_v4().to_string(),
+        timestamp: chrono::Utc::now().to_rfc3339(),
+        image_paste_ids: None,
+        source_tool_assistant_uuid: None,
+        permission_mode: None,
+        origin: None,
+    })
+}
+
+/// Format command input with XML tags: `<command-message>name</command-message>\n<command-name>/name</command-name>`
+pub fn format_command_input_tags(command_name: &str, args: &str) -> String {
+    let mut parts = vec![
+        format!("<{COMMAND_MESSAGE_TAG}>{command_name}</{COMMAND_MESSAGE_TAG}>"),
+        format!("<{COMMAND_NAME_TAG}>/{command_name}</{COMMAND_NAME_TAG}>"),
+    ];
+    if !args.trim().is_empty() {
+        parts.push(format!("<command-args>{args}</command-args>"));
+    }
+    parts.join("\n")
+}
+
+/// Check if a message is a system local command message
+pub fn is_system_local_command_message(message: &Message) -> bool {
+    match message {
+        Message::System(sys) => sys.message.subtype.as_deref() == Some("local_command"),
+        _ => false,
+    }
+}
+
+/// Check if a message is a compact boundary message (used by /compact)
+pub fn is_compact_boundary_message(message: &Message) -> bool {
+    match message {
+        Message::User(user) => user.is_compact_summary == Some(true),
+        Message::System(sys) => sys.message.subtype.as_deref() == Some("compact"),
+        _ => false,
+    }
+}
+
 /// Extract tag from HTML-like content
 pub fn extract_tag(html: &str, tag_name: &str) -> Option<String> {
     use regex::Regex;

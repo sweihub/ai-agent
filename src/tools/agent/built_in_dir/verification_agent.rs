@@ -7,7 +7,7 @@ use super::super::AgentDefinition;
 const BASH_TOOL_NAME: &str = "Bash";
 const EXIT_PLAN_MODE_TOOL_NAME: &str = "ExitPlanMode";
 const FILE_EDIT_TOOL_NAME: &str = "FileEdit";
-const FILE_WRITE_TOOL_NAME: &str = "FileWrite";
+const FILE_WRITE_TOOL_NAME: &str = "Write";
 const NOTEBOOK_EDIT_TOOL_NAME: &str = "NotebookEdit";
 const WEB_FETCH_TOOL_NAME: &str = "WebFetch";
 const AGENT_TOOL_NAME: &str = "Agent";
@@ -194,7 +194,7 @@ mod tests {
     #[test]
     fn test_verification_disallows_write_edit() {
         let agent = verification_agent();
-        assert!(agent.disallowed_tools.contains(&"FileWrite".to_string()));
+        assert!(agent.disallowed_tools.contains(&"Write".to_string()));
         assert!(agent.disallowed_tools.contains(&"FileEdit".to_string()));
     }
 }

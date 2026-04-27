@@ -4,6 +4,7 @@
 
 pub mod add_dir_plugin_settings;
 pub mod cache_utils;
+pub mod frontmatter_parser;
 pub mod dependency_resolver;
 pub mod fetch_telemetry;
 pub mod git_availability;

@@ -116,6 +116,6 @@ fn test_scan_entries_for_secrets_empty() {
 
 #[test]
 fn test_scan_for_secrets_returns_none() {
-    // Placeholder implementation returns None
-    assert!(scan_for_secrets("safe content", "safe.txt").is_none());
+    // Safe content should produce no secret matches
+    assert!(scan_for_secrets("safe content", "safe.txt").is_empty());
 }

@@ -1018,12 +1018,134 @@ pub async fn sync_team_memory(
 }
 
 // ─── Secret Scanning ───────────────────────────────────────────
+// Curated high-confidence patterns from gitleaks with distinctive prefixes.
+// Ported from openclaudecode/src/services/teamMemorySync/secretScanner.ts
 
-/// Scan content for potential secrets (placeholder implementation)
-pub fn scan_for_secrets(_content: &str, _path: &str) -> Option<SkippedSecretFile> {
-    // Real implementation would use gitleaks or similar
-    // For now, return None (no secrets detected)
-    None
+/// A secret match from scanning content
+struct SecretMatch {
+    rule_id: String,
+    label: String,
+}
+
+/// Words where canonical capitalization differs from title case
+fn rule_id_to_label(rule_id: &str) -> String {
+    let special = [
+        ("aws", "AWS"), ("gcp", "GCP"), ("api", "API"), ("pat", "PAT"),
+        ("ad", "AD"), ("tf", "TF"), ("oauth", "OAuth"), ("npm", "NPM"),
+        ("pypi", "PyPI"), ("jwt", "JWT"), ("github", "GitHub"),
+        ("gitlab", "GitLab"), ("openai", "OpenAI"), ("digitalocean", "DigitalOcean"),
+        ("huggingface", "HuggingFace"), ("hashicorp", "HashiCorp"),
+        ("sendgrid", "SendGrid"),
+    ];
+    rule_id.split('-')
+        .map(|part| {
+            if let Some(&(_, canonical)) = special.iter().find(|&&(k, _)| k == part) {
+                canonical.to_string()
+            } else {
+                let mut s = String::new();
+                let mut chars = part.chars();
+                if let Some(c) = chars.next() {
+                    s.push(c.to_ascii_uppercase());
+                    for ch in chars {
+                        s.push(ch);
+                    }
+                }
+                s
+            }
+        })
+        .collect()
+}
+
+fn scan_content_for_secrets(content: &str) -> Vec<SecretMatch> {
+    // Token delimiter characters: single quote, double quote, backtick
+    // Used as boundary markers in secret patterns
+    let qt = chr(39);  // '
+    let dq = chr(34);  // "
+    let bt = chr(96);  // `
+    let q = format!("{}{}{}", qt, dq, bt);
+
+    let rules: Vec<(&str, String)> = vec![
+        // Cloud providers
+        ("aws-access-token", r"\b((?:A3T[A-Z0-9]|AKIA|ASIA|ABIA|ACCA)[A-Z2-7]{16})\b".to_string()),
+        ("gcp-api-key", r"\b(AIza[\w-]{35})(?:[__Q__]\s;]|\\[nr]|$)".replace("__Q__", &q)),
+        ("azure-ad-client-secret", r"(?:^|[__Q__]\s>=:(,)])([a-zA-Z0-9_~.]{3}\dQ~[a-zA-Z0-9_~.-]{31,34})(?:$|[__Q__]\s<),])".replace("__Q__", &q)),
+        ("digitalocean-pat", r"\b(dop_v1_[a-f0-9]{64})(?:[__Q__]\s;]|\\[nr]|$)".replace("__Q__", &q)),
+        ("digitalocean-access-token", r"\b(doo_v1_[a-f0-9]{64})(?:[__Q__]\s;]|\\[nr]|$)".replace("__Q__", &q)),
+        // AI APIs
+        ("anthropic-api-key", r"\b(sk-ant-api03-[a-zA-Z0-9_\-]{93}AA)(?:[__Q__]\s;]|\\[nr]|$)".replace("__Q__", &q)),
+        ("anthropic-admin-api-key", r"\b(sk-ant-admin01-[a-zA-Z0-9_\-]{93}AA)(?:[__Q__]\s;]|\\[nr]|$)".replace("__Q__", &q)),
+        ("openai-api-key", r"\b(sk-(?:proj|svcacct|admin)-(?:[A-Za-z0-9_-]{74}|[A-Za-z0-9_-]{58})T3BlbkFJ(?:[A-Za-z0-9_-]{74}|[A-Za-z0-9_-]{58})\b|sk-[a-zA-Z0-9]{20}T3BlbkFJ[a-zA-Z0-9]{20})(?:[__Q__]\s;]|\\[nr]|$)".replace("__Q__", &q)),
+        ("huggingface-access-token", r"\b(hf_[a-zA-Z]{34})(?:[__Q__]\s;]|\\[nr]|$)".replace("__Q__", &q)),
+        // Version control
+        ("github-pat", r"ghp_[0-9a-zA-Z]{36}".to_string()),
+        ("github-fine-grained-pat", r"github_pat_\w{82}".to_string()),
+        ("github-app-token", r"(?:ghu|ghs)_[0-9a-zA-Z]{36}".to_string()),
+        ("github-oauth", r"gho_[0-9a-zA-Z]{36}".to_string()),
+        ("github-refresh-token", r"ghr_[0-9a-zA-Z]{36}".to_string()),
+        ("gitlab-pat", r"glpat-[\w-]{20}".to_string()),
+        ("gitlab-deploy-token", r"gldt-[0-9a-zA-Z_\-]{20}".to_string()),
+        // Communication
+        ("slack-bot-token", r"xoxb-[0-9]{10,13}-[0-9]{10,13}[a-zA-Z0-9-]*".to_string()),
+        ("slack-user-token", r"xox[pe](?:-[0-9]{10,13}){3}-[a-zA-Z0-9-]{28,34}".to_string()),
+        ("slack-app-token", r"(?i)xapp-\d-[A-Z0-9]+-\d+-[a-z0-9]+".to_string()),
+        ("twilio-api-key", r"SK[0-9a-fA-F]{32}".to_string()),
+        ("sendgrid-api-token", r"\b(SG\.[a-zA-Z0-9=_\-.]{66})(?:[__Q__]\s;]|\\[nr]|$)".replace("__Q__", &q)),
+        // Dev tooling
+        ("npm-access-token", r"\b(npm_[a-zA-Z0-9]{36})(?:[__Q__]\s;]|\\[nr]|$)".replace("__Q__", &q)),
+        ("pypi-upload-token", r"pypi-AgEIcHlwaS5vcmc[\w-]{50,1000}".to_string()),
+        ("databricks-api-token", r"\b(dapi[a-f0-9]{32}(?:-\d)?)(?:[__Q__]\s;]|\\[nr]|$)".replace("__Q__", &q)),
+        ("hashicorp-tf-api-token", r"[a-zA-Z0-9]{14}\.atlasv1\.[a-zA-Z0-9\-_=]{60,70}".to_string()),
+        ("pulumi-api-token", r"\b(pul-[a-f0-9]{40})(?:[__Q__]\s;]|\\[nr]|$)".replace("__Q__", &q)),
+        ("postman-api-token", r"\b(PMAK-[a-fA-F0-9]{24}-[a-fA-F0-9]{34})(?:[__Q__]\s;]|\\[nr]|$)".replace("__Q__", &q)),
+        // Observability
+        ("grafana-api-key", r"\b(eyJrIjoi[A-Za-z0-9+/]{70,400}={0,3})(?:[__Q__]\s;]|\\[nr]|$)".replace("__Q__", &q)),
+        ("grafana-cloud-api-token", r"\b(glc_[A-Za-z0-9+/]{32,400}={0,3})(?:[__Q__]\s;]|\\[nr]|$)".replace("__Q__", &q)),
+        ("grafana-service-account-token", r"\b(glsa_[A-Za-z0-9]{32}_[A-Fa-f0-9]{8})(?:[__Q__]\s;]|\\[nr]|$)".replace("__Q__", &q)),
+        ("sentry-user-token", r"\b(sntryu_[a-f0-9]{64})(?:[__Q__]\s;]|\\[nr]|$)".replace("__Q__", &q)),
+        ("sentry-org-token", r"\bsntrys_eyJpYXQiO[a-zA-Z0-9+/]{10,200}(?:LCJyZWdpb25fdXJs|InJlZ2lvbl91cmwi|cmVnaW9uX3VybCI6)[a-zA-Z0-9+/]{10,200}={0,2}_[a-zA-Z0-9+/]{43}".to_string()),
+        // Payment / commerce
+        ("stripe-access-token", r"\b((?:sk|rk)_(?:test|live|prod)_[a-zA-Z0-9]{10,99})(?:[__Q__]\s;]|\\[nr]|$)".replace("__Q__", &q)),
+        ("shopify-access-token", r"shpat_[a-fA-F0-9]{32}".to_string()),
+        ("shopify-shared-secret", r"shpss_[a-fA-F0-9]{32}".to_string()),
+        // Crypto
+        ("private-key", r"(?i)-----BEGIN[ A-Z0-9_-]{0,100}PRIVATE KEY(?: BLOCK)?-----[\s\S-]{64,}?-----END[ A-Z0-9_-]{0,100}PRIVATE KEY(?: BLOCK)?-----".to_string()),
+    ];
+
+    let mut matches = Vec::new();
+    let mut seen = std::collections::HashSet::new();
+
+    for (rule_id, pattern) in &rules {
+        if seen.contains(*rule_id) {
+            continue;
+        }
+        if let Ok(re) = regex::Regex::new(pattern) {
+            if re.is_match(content) {
+                seen.insert(*rule_id);
+                matches.push(SecretMatch {
+                    rule_id: (*rule_id).to_string(),
+                    label: rule_id_to_label(rule_id),
+                });
+            }
+        }
+    }
+
+    matches
+}
+
+fn chr(code: u32) -> String {
+    std::char::from_u32(code).map(|c| c.to_string()).unwrap_or_default()
+}
+
+/// Scan content for potential secrets. Returns one entry per rule that matched.
+pub fn scan_for_secrets(content: &str, path: &str) -> Vec<SkippedSecretFile> {
+    scan_content_for_secrets(content)
+        .into_iter()
+        .map(|m| SkippedSecretFile {
+            path: path.to_string(),
+            rule_id: m.rule_id,
+            label: m.label,
+        })
+        .collect()
 }
 
 /// Scan entries for secrets
@@ -1031,9 +1153,7 @@ pub fn scan_entries_for_secrets(entries: &HashMap<String, String>) -> Vec<Skippe
     let mut skipped = Vec::new();
 
     for (path, content) in entries {
-        if let Some(secret) = scan_for_secrets(content, path) {
-            skipped.push(secret);
-        }
+        skipped.extend(scan_for_secrets(content, path));
     }
 
     skipped

@@ -188,6 +188,7 @@ impl Tool for AgentTool {
             abort_controller: Some(config.abort_controller.clone()),
             token_budget: None,
             agent_id: agent_name.clone().or_else(|| Some(description.to_string())),
+            session_state: None,
             loaded_nested_memory_paths: std::collections::HashSet::new(),
             task_budget: None,
         });

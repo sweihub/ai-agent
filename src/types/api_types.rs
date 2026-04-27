@@ -8,6 +8,9 @@ use serde::{Deserialize, Serialize};
 pub struct Message {
     pub role: MessageRole,
     pub content: String,
+    /// Unique identifier for this message (used by session memory to track extraction boundary)
+    #[serde(skip_serializing_if = "Option::is_none", default)]
+    pub uuid: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none", default)]
     pub attachments: Option<Vec<Attachment>>,
     /// Tool call ID for tool role messages (required by OpenAI API)
@@ -29,6 +32,7 @@ impl Default for Message {
         Self {
             role: MessageRole::User,
             content: String::new(),
+            uuid: None,
             attachments: None,
             tool_call_id: None,
             tool_calls: None,
@@ -572,6 +576,8 @@ pub enum ExitReason {
     TokenBudgetExhausted { reason: String },
     /// Max output tokens reached (during generation)
     MaxTokens,
+    /// USD budget exceeded
+    MaxBudgetExceeded { max_budget_usd: f64 },
 }
 
 impl Default for ExitReason {

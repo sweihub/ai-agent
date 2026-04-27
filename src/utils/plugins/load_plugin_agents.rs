@@ -7,21 +7,13 @@ use std::sync::Mutex;
 
 use once_cell::sync::Lazy;
 
+use super::frontmatter_parser::parse_frontmatter;
 use super::loader::load_all_plugins_cache_only;
 use super::plugin_options_storage::{
     load_plugin_options, substitute_plugin_variables, substitute_user_config_in_content,
 };
 use super::walk_plugin_markdown::{WalkPluginMarkdownOpts, walk_plugin_markdown};
 use crate::plugin::types::PluginManifest;
-
-/// Stub for frontmatter parsing - requires frontmatter_parser module.
-fn parse_frontmatter_stub<'a>(
-    content: &'a str,
-    _path: &str,
-) -> (serde_json::Map<String, serde_json::Value>, &'a str) {
-    // Simple stub: returns empty frontmatter and full content as markdown
-    (serde_json::Map::new(), content)
-}
 
 static PLUGIN_AGENT_CACHE: Lazy<Mutex<Option<Vec<AgentDefinition>>>> =
     Lazy::new(|| Mutex::new(None));
@@ -203,7 +195,7 @@ async fn load_agent_from_file(
     let content = tokio::fs::read_to_string(file_path)
         .await
         .map_err(|e| format!("Failed to read {}: {}", file_path, e))?;
-    let (frontmatter, markdown_content) = parse_frontmatter_stub(&content, file_path);
+    let (frontmatter, markdown_content) = parse_frontmatter(&content, file_path);
 
     let base_agent_name = match frontmatter.get("name").and_then(|v| v.as_str()) {
         Some(name) => name.to_string(),

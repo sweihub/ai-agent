@@ -630,7 +630,7 @@ impl PermissionContext {
                     || tool_name == "Edit"
                     || tool_name == "Bash"
                     || tool_name == "FileEdit"
-                    || tool_name == "FileWrite"
+                    || tool_name == "Write"
                 {
                     return PermissionResult::Allow(PermissionAllowDecision::new().with_reason(
                         PermissionDecisionReason::Mode {

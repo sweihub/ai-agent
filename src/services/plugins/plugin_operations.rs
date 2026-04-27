@@ -389,10 +389,284 @@ async fn mark_plugin_version_orphaned(_install_path: &str) {
 
 /// Cache a plugin (download to temp)
 async fn cache_plugin(
-    _source: &PluginSource,
-    _options: CachePluginOptions,
+    source: &PluginSource,
+    options: CachePluginOptions,
 ) -> Result<CachePluginResult, String> {
-    Err("cache_plugin not implemented".to_string())
+    use crate::utils::plugins::plugin_directories::get_plugins_directory;
+    use std::time::SystemTime;
+
+    let cache_path = format!("{}/cache", get_plugins_directory());
+    std::fs::create_dir_all(&cache_path).map_err(|e| format!("Failed to create cache dir: {}", e))?;
+
+    let temp_name = format!(
+        "temp_{}_{}",
+        plugin_source_prefix(source),
+        SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_millis()
+    );
+    let temp_path = format!("{}/{}", cache_path, temp_name);
+
+    // Install source into temp path
+    let git_commit_sha = install_plugin_source(source, &temp_path).await?;
+
+    // Load manifest from .claude-plugin/plugin.json or plugin.json
+    let manifest_path = format!("{}/.claude-plugin/plugin.json", temp_path);
+    let legacy_manifest_path = format!("{}/plugin.json", temp_path);
+    let manifest = if Path::new(&manifest_path).exists() {
+        load_plugin_manifest(&manifest_path, &temp_name, "cached").await?
+    } else if Path::new(&legacy_manifest_path).exists() {
+        load_plugin_manifest(&legacy_manifest_path, &temp_name, "cached").await?
+    } else {
+        options.manifest.clone().unwrap_or_else(|| {
+            serde_json::json!({
+                "name": temp_name,
+                "description": format!("Plugin cached from {}", plugin_source_type(source)),
+            })
+        })
+    };
+
+    let final_name = manifest["name"]
+        .as_str()
+        .map(|n| n.replace(|c: char| !c.is_alphanumeric() && c != '-' && c != '_', "-"))
+        .unwrap_or_else(|| temp_name.clone());
+    let final_path = format!("{}/{}", cache_path, final_name);
+
+    // Remove old cached version if exists
+    if Path::new(&final_path).exists() {
+        let _ = std::fs::remove_dir_all(&final_path);
+    }
+
+    std::fs::rename(&temp_path, &final_path)
+        .map_err(|e| format!("Failed to move cached plugin: {}", e))?;
+
+    Ok(CachePluginResult {
+        path: final_path,
+        manifest,
+        git_commit_sha,
+    })
+}
+
+/// Generate a temp name prefix from a plugin source.
+fn plugin_source_prefix(source: &PluginSource) -> &str {
+    match source {
+        PluginSource::Relative(p) => p.as_str(),
+        PluginSource::Npm { package, .. } => package.as_str(),
+        PluginSource::Pip { package, .. } => package.as_str(),
+        PluginSource::Github { repo, .. } => repo.as_str(),
+        PluginSource::GitSubdir { repo, .. } => repo.as_str(),
+        PluginSource::Git { url, .. } => url.as_str(),
+        PluginSource::Url { url, .. } => url.as_str(),
+        PluginSource::Settings { .. } => "settings",
+    }
+}
+
+/// Return the source type string for a plugin source.
+fn plugin_source_type(source: &PluginSource) -> &str {
+    match source {
+        PluginSource::Relative(_) => "local path",
+        PluginSource::Npm { .. } => "npm",
+        PluginSource::Pip { .. } => "pip",
+        PluginSource::Github { .. } => "github",
+        PluginSource::GitSubdir { .. } => "git-subdir",
+        PluginSource::Git { .. } => "git",
+        PluginSource::Url { .. } => "url",
+        PluginSource::Settings { .. } => "settings",
+    }
+}
+
+/// Install a plugin source into a target directory.
+/// Returns optional git commit SHA for git-based sources.
+async fn install_plugin_source(
+    source: &PluginSource,
+    target: &str,
+) -> Result<Option<String>, String> {
+    match source {
+        PluginSource::Relative(p) => {
+            // Copy local directory
+            let src = Path::new(p);
+            if !src.exists() {
+                return Err(format!("Local plugin path does not exist: {}", p));
+            }
+            copy_directory(src, Path::new(target))?;
+            Ok(None)
+        }
+        PluginSource::Git { url, ref_, .. }
+        | PluginSource::Github {
+            repo: url,
+            ref_,
+            ..
+        } => {
+            run_git_clone(url, target, ref_)?;
+            let sha = get_git_head_sha(target)?;
+            Ok(Some(sha))
+        }
+        PluginSource::GitSubdir {
+            repo: url,
+            ref_,
+            subdir,
+            ..
+        } => {
+            run_git_sparse_clone(url, target, ref_, subdir)?;
+            let sha = get_git_head_sha(target)?;
+            Ok(Some(sha))
+        }
+        PluginSource::Npm { package, .. } => {
+            // Install from npm: run `npm pack` + extract
+            std::process::Command::new("npm")
+                .args(["pack", package])
+                .output()
+                .map_err(|e| format!("npm pack failed: {}", e))?;
+            // Find the .tgz and extract
+            let dir = std::fs::read_dir(".")
+                .map_err(|e| format!("Failed to read cwd: {}", e))?
+                .filter_map(|e| e.ok())
+                .find(|e| e.path().extension().map_or(false, |ext| ext == "tgz"))
+                .map(|e| e.path())
+                .ok_or_else(|| "npm pack did not produce a .tgz file".to_string())?;
+            // Extract using tar
+            let output = std::process::Command::new("tar")
+                .args(["-xzf", dir.to_str().unwrap_or("package.tgz")])
+                .current_dir(target)
+                .output()
+                .map_err(|e| format!("tar extraction failed: {}", e))?;
+            if !output.status.success() {
+                return Err(format!("tar extraction failed"));
+            }
+            // Remove the .tgz
+            let _ = std::fs::remove_file(&dir);
+            Ok(None)
+        }
+        PluginSource::Url { url, .. } => {
+            // Download from URL - expected to be a .zip or .tgz
+            let output = std::process::Command::new("curl")
+                .args(["-fsSL", "-o", "/tmp/plugin_download.tgz", url])
+                .output()
+                .map_err(|e| format!("curl failed: {}", e))?;
+            if !output.status.success() {
+                return Err(format!("Failed to download plugin from {}", url));
+            }
+            std::fs::create_dir_all(target)
+                .map_err(|e| format!("Failed to create target dir: {}", e))?;
+            let extract_output = std::process::Command::new("tar")
+                .args(["-xzf", "/tmp/plugin_download.tgz"])
+                .current_dir(target)
+                .output()
+                .map_err(|e| format!("Failed to extract: {}", e))?;
+            if !extract_output.status.success() {
+                // Try zip as fallback
+                let zip_output = std::process::Command::new("unzip")
+                    .args(["-o", "/tmp/plugin_download.tgz", "-d", target])
+                    .output()
+                    .map_err(|e| format!("Failed to unzip: {}", e))?;
+                if !zip_output.status.success() {
+                    return Err("Failed to extract downloaded plugin (tried tar and zip)".to_string());
+                }
+            }
+            let _ = std::fs::remove_file("/tmp/plugin_download.tgz");
+            Ok(None)
+        }
+        PluginSource::Pip { .. } => Err("Python package plugins are not yet supported".to_string()),
+        PluginSource::Settings { .. } => {
+            // Settings source has no filesystem to install
+            Err("Settings plugins cannot be cached".to_string())
+        }
+    }
+}
+
+/// Copy a directory recursively
+fn copy_directory(src: &Path, dst: &Path) -> Result<(), String> {
+    std::fs::create_dir_all(dst).map_err(|e| format!("Failed to create dir: {}", e))?;
+    for entry in std::fs::read_dir(src).map_err(|e| format!("Failed to read dir: {}", e))? {
+        let entry = entry.map_err(|e| format!("Failed to read entry: {}", e))?;
+        let src_entry = entry.path();
+        let dst_entry = dst.join(entry.file_name());
+        if src_entry.is_dir() {
+            copy_directory(&src_entry, &dst_entry)?;
+        } else {
+            std::fs::copy(&src_entry, &dst_entry)
+                .map_err(|e| format!("Failed to copy {}: {}", src_entry.display(), e))?;
+        }
+    }
+    Ok(())
+}
+
+/// Run git clone into target directory
+fn run_git_clone(url: &str, target: &str, ref_: &Option<String>) -> Result<(), String> {
+    let mut cmd = std::process::Command::new("git");
+    cmd.args(["clone", url, target]);
+    if let Some(r) = ref_ {
+        cmd.args(["--branch", r]);
+    }
+    let output = cmd.output().map_err(|e| format!("git clone failed: {}", e))?;
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        return Err(format!("git clone failed: {}", stderr));
+    }
+    Ok(())
+}
+
+/// Run git sparse clone into target directory
+fn run_git_sparse_clone(url: &str, target: &str, ref_: &Option<String>, subdir: &str) -> Result<(), String> {
+    std::process::Command::new("git")
+        .args([
+            "clone", "--no-checkout", "--filter=blob:none",
+            url, target,
+        ])
+        .output()
+        .map_err(|e| format!("git clone failed: {}", e))?;
+
+    if let Some(r) = ref_ {
+        std::process::Command::new("git")
+            .args(["checkout", r])
+            .current_dir(target)
+            .output()
+            .map_err(|e| format!("git checkout failed: {}", e))?;
+    }
+
+    // Use sparse checkout to extract only the subdir
+    let normalized_subdir = subdir.strip_prefix("./").unwrap_or(subdir);
+    std::process::Command::new("git")
+        .args(["sparse-checkout", "init"])
+        .current_dir(target)
+        .output()
+        .map_err(|e| format!("git sparse-checkout init failed: {}", e))?;
+
+    std::process::Command::new("git")
+        .args(["sparse-checkout", "set", normalized_subdir])
+        .current_dir(target)
+        .output()
+        .map_err(|e| format!("git sparse-checkout set failed: {}", e))?;
+
+    // Move subdir contents to target root
+    let subdir_path = Path::new(target).join(normalized_subdir);
+    if subdir_path.exists() {
+        for entry in std::fs::read_dir(&subdir_path)
+            .map_err(|e| format!("Failed to read subdir: {}", e))?
+        {
+            let entry = entry.map_err(|e| format!("Failed to read entry: {}", e))?;
+            let dst = Path::new(target).join(entry.file_name());
+            std::fs::rename(entry.path(), &dst)
+                .map_err(|e| format!("Failed to move file: {}", e))?;
+        }
+        let _ = std::fs::remove_dir_all(&subdir_path);
+    }
+
+    Ok(())
+}
+
+/// Get the git HEAD commit SHA from a directory
+fn get_git_head_sha(dir: &str) -> Result<String, String> {
+    let output = std::process::Command::new("git")
+        .args(["rev-parse", "HEAD"])
+        .current_dir(dir)
+        .output()
+        .map_err(|e| format!("git rev-parse failed: {}", e))?;
+    if !output.status.success() {
+        return Err("Failed to get git SHA".to_string());
+    }
+    Ok(String::from_utf8_lossy(&output.stdout).trim().to_string())
 }
 
 /// Cache plugin options
@@ -411,12 +685,153 @@ pub struct CachePluginResult {
 
 /// Copy plugin to versioned cache directory
 async fn copy_plugin_to_versioned_cache(
-    _source_path: &str,
-    _plugin_id: &str,
-    _new_version: &str,
-    _entry: &PluginMarketplaceEntry,
+    source_path: &str,
+    plugin_id: &str,
+    new_version: &str,
+    entry: &PluginMarketplaceEntry,
 ) -> Result<String, String> {
-    Err("copy_plugin_to_versioned_cache not implemented".to_string())
+    use std::path::Path;
+
+    let zip_cache_mode = crate::utils::plugins::zip_cache::is_plugin_zip_cache_enabled();
+    let cache_path = get_versioned_cache_path(plugin_id, new_version);
+    let zip_path = get_versioned_zip_cache_path(plugin_id, new_version);
+
+    // If cache already exists, return it
+    if zip_cache_mode {
+        if Path::new(&zip_path).exists() {
+            return Ok(zip_path);
+        }
+    } else if Path::new(&cache_path).exists() {
+        match std::fs::read_dir(&cache_path) {
+            Ok(entries) => {
+                if entries.count() > 0 {
+                    return Ok(cache_path);
+                }
+                // Empty dir - remove it so we can recreate
+                let _ = std::fs::remove_dir_all(&cache_path);
+            }
+            Err(_) => { /* can't read dir, will try to create */ }
+        }
+    }
+
+    // Seed cache hit — return seed path in place (read-only, no copy)
+    if let Some(seed_path) = probe_seed_cache(plugin_id, new_version).await {
+        return Ok(seed_path);
+    }
+
+    // Create parent directories
+    if let Some(parent) = Path::new(&cache_path).parent() {
+        std::fs::create_dir_all(parent)
+            .map_err(|e| format!("Failed to create cache parent dir: {}", e))?;
+    }
+
+    // Copy source directory to cache
+    let src_path = Path::new(source_path);
+    if !src_path.exists() {
+        return Err(format!(
+            "Plugin source directory not found: {}",
+            source_path
+        ));
+    }
+    copy_directory(src_path, Path::new(&cache_path))?;
+
+    // Remove .git directory from cache if present
+    let git_path = format!("{}/.git", cache_path);
+    let _ = std::fs::remove_dir_all(&git_path);
+
+    // Validate that cache has content
+    match std::fs::read_dir(&cache_path) {
+        Ok(entries) => {
+            if entries.count() == 0 {
+                return Err(format!(
+                    "Failed to copy plugin {} to versioned cache: destination is empty after copy",
+                    plugin_id
+                ));
+            }
+        }
+        Err(_) => {
+            return Err(format!("Failed to read cache directory after copy: {}", cache_path));
+        }
+    }
+
+    // Zip cache mode: convert directory to ZIP and remove the directory
+    if zip_cache_mode {
+        // Use zip crate to create archive
+        return create_plugin_zip(&cache_path, &zip_path);
+    }
+
+    Ok(cache_path)
+}
+
+/// Probe seed directories for a populated cache at this plugin version.
+async fn probe_seed_cache(plugin_id: &str, version: &str) -> Option<String> {
+    let seed_dirs = crate::utils::plugins::plugin_directories::get_plugin_seed_dirs();
+    for seed_dir in &seed_dirs {
+        let (name, marketplace) = crate::utils::plugins::loader::parse_plugin_identifier(plugin_id);
+        let marketplace = marketplace.unwrap_or_else(|| "unknown".to_string());
+        let name = name.unwrap_or_else(|| plugin_id.to_string());
+        let seed_path = seed_dir
+            .join("cache")
+            .join(&marketplace)
+            .join(&name)
+            .join(version);
+        match std::fs::read_dir(&seed_path) {
+            Ok(entries) => {
+                if entries.count() > 0 {
+                    return Some(seed_path.to_string_lossy().to_string());
+                }
+            }
+            Err(_) => continue,
+        }
+    }
+    None
+}
+
+/// Create a ZIP archive of the plugin directory.
+fn create_plugin_zip(dir_path: &str, zip_path: &str) -> Result<String, String> {
+    use std::io::Write;
+
+    let dir = Path::new(dir_path);
+    if let Some(parent) = Path::new(zip_path).parent() {
+        std::fs::create_dir_all(parent)
+            .map_err(|e| format!("Failed to create zip parent dir: {}", e))?;
+    }
+
+    let file = std::fs::File::create(zip_path)
+        .map_err(|e| format!("Failed to create zip file: {}", e))?;
+
+    let mut encoder = zip::ZipWriter::new(file);
+
+    let mut queue = vec![dir.to_path_buf()];
+
+    while let Some(current) = queue.pop() {
+        for entry in std::fs::read_dir(&current).map_err(|e| format!("Failed to read dir {}: {}", current.display(), e))? {
+            let entry = entry.map_err(|e| format!("Failed to read entry: {}", e))?;
+            let path = entry.path();
+            let stripped = path.strip_prefix(dir).unwrap_or(&path);
+
+            if path.is_dir() {
+                queue.push(path);
+            } else if path.is_file() {
+                let options: zip::write::FileOptions<()> = zip::write::FileOptions::default()
+                    .compression_method(zip::CompressionMethod::Deflated);
+                encoder.start_file(stripped.to_string_lossy(), options)
+                    .map_err(|e| format!("Failed to add file to zip: {}", e))?;
+                let data = std::fs::read(&path)
+                    .map_err(|e| format!("Failed to read file {}: {}", path.display(), e))?;
+                encoder.write_all(&data)
+                    .map_err(|e| format!("Failed to write file to zip: {}", e))?;
+            }
+        }
+    }
+
+    encoder.finish()
+        .map_err(|e| format!("Failed to finish zip: {}", e))?;
+
+    // Remove the directory after successful zip creation
+    let _ = std::fs::remove_dir_all(dir_path);
+
+    Ok(zip_path.to_string())
 }
 
 /// Get versioned cache path for a plugin.
@@ -435,23 +850,84 @@ fn get_versioned_zip_cache_path(plugin_id: &str, version: &str) -> String {
 
 /// Load plugin manifest from path
 async fn load_plugin_manifest(
-    _manifest_path: &str,
-    _name: &str,
-    _source: &str,
+    manifest_path: &str,
+    name: &str,
+    source: &str,
 ) -> Result<serde_json::Value, String> {
-    Err("load_plugin_manifest not implemented".to_string())
+    let content = match tokio::fs::read_to_string(manifest_path).await {
+        Ok(c) => c,
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
+            return Ok(serde_json::json!({
+                "name": name,
+                "description": format!("Plugin from {}", source),
+            }));
+        }
+        Err(e) => return Err(format!("Failed to read manifest: {}", e)),
+    };
+
+    let parsed: serde_json::Value = serde_json::from_str(&content)
+        .map_err(|e| format!("Plugin {} has a corrupt manifest file at {}.\n\nJSON parse error: {}", name, manifest_path, e))?;
+
+    // Basic validation: must have a "name" field that is a string
+    if parsed.get("name").and_then(|v| v.as_str()).is_none() {
+        return Err(format!(
+            "Plugin {} has an invalid manifest file at {}.\n\nValidation errors: missing 'name' field",
+            name, manifest_path
+        ));
+    }
+
+    Ok(parsed)
 }
 
 /// Calculate plugin version
 async fn calculate_plugin_version(
-    _plugin_id: &str,
-    _source: &PluginSource,
-    _manifest: Option<serde_json::Value>,
-    _source_path: &str,
-    _entry_version: Option<&str>,
-    _git_commit_sha: Option<&str>,
+    plugin_id: &str,
+    source: &PluginSource,
+    manifest: Option<serde_json::Value>,
+    source_path: &str,
+    entry_version: Option<&str>,
+    git_commit_sha: Option<&str>,
 ) -> Result<String, String> {
-    Err("calculate_plugin_version not implemented".to_string())
+    // 1. Use explicit version from plugin.json if available
+    if let Some(ref m) = manifest {
+        if let Some(version) = m.get("version").and_then(|v| v.as_str()) {
+            return Ok(version.to_string());
+        }
+    }
+
+    // 2. Use provided version (typically from marketplace entry)
+    if let Some(v) = entry_version {
+        return Ok(v.to_string());
+    }
+
+    // 3. Use pre-resolved git SHA
+    if let Some(sha) = git_commit_sha {
+        let short_sha = &sha[..sha.len().min(12)];
+        // For git-subdir sources, encode the subdir path in the version
+        if let PluginSource::GitSubdir { subdir, .. } = source {
+            let normalized = subdir.replace('\\', "/");
+            let norm_path = normalized.strip_prefix("./").unwrap_or(&normalized).trim_end_matches('/').to_string();
+            let path_hash = sha256_hash_subdir(&norm_path);
+            return Ok(format!("{}-{}", short_sha, path_hash));
+        }
+        return Ok(short_sha.to_string());
+    }
+
+    // 4. Try to get git SHA from source path
+    if let Ok(sha) = get_git_head_sha(source_path) {
+        let short_sha = &sha[..sha.len().min(12)];
+        return Ok(short_sha.to_string());
+    }
+
+    // 5. Return 'unknown' as last resort
+    Ok("unknown".to_string())
+}
+
+/// Hash a subdir path for version calculation (SHA-256, first 8 hex chars).
+fn sha256_hash_subdir(path: &str) -> String {
+    use sha2::{Digest, Sha256};
+    let hash = Sha256::digest(path.as_bytes());
+    hex::encode(&hash[..]).chars().take(8).collect()
 }
 
 // ============================================================================

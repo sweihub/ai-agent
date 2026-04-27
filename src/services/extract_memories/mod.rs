@@ -385,7 +385,7 @@ pub struct ExtractMemoryContext {
     pub system_prompt: String,
     pub user_context: HashMap<String, String>,
     pub system_context: HashMap<String, String>,
-    pub tool_use_context: Arc<ToolUseContext>,
+    pub tool_use_context: Option<Arc<ToolUseContext>>,
     pub agent_id: Option<String>,
 }
 
@@ -523,7 +523,12 @@ async fn run_extraction(
             context.system_prompt.clone(),
             context.user_context.clone(),
             context.system_context.clone(),
-            context.tool_use_context.clone(),
+            context.tool_use_context
+                .clone()
+                .unwrap_or_else(|| {
+                    // Minimal stub ToolUseContext for query engine callers that don't have one
+                    Arc::new(ToolUseContext::stub())
+                }),
             messages.clone(),
         );
 

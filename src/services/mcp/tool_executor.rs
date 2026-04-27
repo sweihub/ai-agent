@@ -8,8 +8,9 @@
 
 use crate::error::AgentError;
 use crate::types::{ToolContext, ToolResult};
+use once_cell::sync::Lazy;
 use std::collections::HashMap;
-use std::sync::Arc;
+use std::sync::{Arc, RwLock};
 
 /// Parses an MCP tool name `mcp__serverName_toolName` into (server_name, tool_name).
 pub fn parse_mcp_tool_name(full_name: &str) -> Option<(String, String)> {
@@ -89,6 +90,54 @@ impl McpToolRegistry {
 
         callback(server_name, tool_name, arguments).await
     }
+}
+
+/// Global MCP tool registry for use by McpTool::execute().
+/// SDK users call `register_mcp_server_callback()` to register handlers.
+static GLOBAL_MCP_REGISTRY: Lazy<RwLock<McpToolRegistry>> = Lazy::new(|| {
+    RwLock::new(McpToolRegistry::new())
+});
+
+/// Register an MCP server callback with the global registry.
+///
+/// This is the primary API for SDK users to connect MCP servers:
+/// ```ignore
+/// register_mcp_server_callback(
+///     "my_server".to_string(),
+///     |server, tool, args| async move {
+///         // Dispatch to your MCP client
+///         Ok(ToolResult { content: "result".to_string(), ..Default::default() })
+///     },
+/// );
+/// ```
+pub fn register_mcp_server_callback<F, Fut>(server_name: String, callback: F)
+where
+    F: Fn(String, String, serde_json::Value) -> Fut + Send + Sync + 'static,
+    Fut: std::future::Future<Output = Result<ToolResult, AgentError>> + Send + Sync + 'static,
+{
+    let mut registry = GLOBAL_MCP_REGISTRY.write().unwrap();
+    registry.register(server_name, callback);
+}
+
+/// Execute an MCP tool through the global registry.
+/// Called by `McpTool::execute()` as a convenience dispatcher.
+pub fn execute_mcp_tool(
+    server_name: &str,
+    tool_name: &str,
+    arguments: serde_json::Value,
+) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<ToolResult, AgentError>> + Send>> {
+    let registry = GLOBAL_MCP_REGISTRY.read().unwrap().clone();
+    let server = server_name.to_string();
+    let tool = tool_name.to_string();
+    Box::pin(async move {
+        let full_name = format!("mcp__{}_{}", server, tool);
+        registry.execute(&full_name, arguments).await
+    })
+}
+
+/// Check if an MCP server is registered in the global registry.
+pub fn is_mcp_server_registered(server_name: &str) -> bool {
+    GLOBAL_MCP_REGISTRY.read().unwrap().has_server(server_name)
 }
 
 /// Create a tool executor closure for a specific MCP tool name.

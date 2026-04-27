@@ -2,10 +2,11 @@
 #![allow(dead_code)]
 
 use std::collections::HashMap;
+use std::sync::Arc;
 
 use crate::utils::hooks::hooks_settings::HookCommand;
 use crate::utils::hooks::hooks_settings::HookEvent;
-use crate::utils::hooks::session_hooks::{add_session_hook, remove_session_hook};
+use crate::utils::hooks::session_hooks::{add_session_hook, remove_session_hook, OnHookSuccess};
 
 /// Hooks settings structure
 #[derive(Debug, Clone, Default, serde::Serialize, serde::Deserialize)]
@@ -101,6 +102,15 @@ fn parse_hook_command(value: &serde_json::Value) -> Result<HookCommand, String> 
                 .and_then(|v| v.as_str())
                 .map(|s| s.to_string()),
             timeout: value.get("timeout").and_then(|v| v.as_u64()),
+            status_message: value
+                .get("statusMessage")
+                .and_then(|v| v.as_str())
+                .map(|s| s.to_string()),
+            once: value.get("once").and_then(|v| v.as_bool()),
+            r#async: value.get("async").and_then(|v| v.as_bool()),
+            async_rewake: value
+                .get("asyncRewake")
+                .and_then(|v| v.as_bool()),
         });
     }
 
@@ -117,6 +127,11 @@ fn parse_hook_command(value: &serde_json::Value) -> Result<HookCommand, String> 
                     .and_then(|v| v.as_str())
                     .map(|s| s.to_string()),
                 timeout: value.get("timeout").and_then(|v| v.as_u64()),
+                status_message: value
+                    .get("statusMessage")
+                    .and_then(|v| v.as_str())
+                    .map(|s| s.to_string()),
+                once: value.get("once").and_then(|v| v.as_bool()),
             });
         }
 
@@ -127,6 +142,15 @@ fn parse_hook_command(value: &serde_json::Value) -> Result<HookCommand, String> 
                 .and_then(|v| v.as_str())
                 .map(|s| s.to_string()),
             timeout: value.get("timeout").and_then(|v| v.as_u64()),
+            model: value
+                .get("model")
+                .and_then(|v| v.as_str())
+                .map(|s| s.to_string()),
+            status_message: value
+                .get("statusMessage")
+                .and_then(|v| v.as_str())
+                .map(|s| s.to_string()),
+            once: value.get("once").and_then(|v| v.as_bool()),
         });
     }
 
@@ -138,6 +162,27 @@ fn parse_hook_command(value: &serde_json::Value) -> Result<HookCommand, String> 
                 .and_then(|v| v.as_str())
                 .map(|s| s.to_string()),
             timeout: value.get("timeout").and_then(|v| v.as_u64()),
+            headers: value
+                .get("headers")
+                .and_then(|v| v.as_object())
+                .map(|m| {
+                    m.iter()
+                        .map(|(k, v)| (k.clone(), v.as_str().unwrap_or("").to_string()))
+                        .collect()
+                }),
+            allowed_env_vars: value
+                .get("allowedEnvVars")
+                .and_then(|v| v.as_array())
+                .map(|arr| {
+                    arr.iter()
+                        .filter_map(|v| v.as_str().map(|s| s.to_string()))
+                        .collect()
+                }),
+            status_message: value
+                .get("statusMessage")
+                .and_then(|v| v.as_str())
+                .map(|s| s.to_string()),
+            once: value.get("once").and_then(|v| v.as_bool()),
         });
     }
 
@@ -164,13 +209,13 @@ fn parse_hook_with_once(value: &serde_json::Value) -> Result<ParsedHookWithOnce,
 /// after its first successful execution.
 ///
 /// # Arguments
-/// * `set_app_state` - Function to update the app state
+/// * `set_app_state` - Function to update the app state (wrapped in Arc for cloning)
 /// * `session_id` - The current session ID
 /// * `hooks` - The hooks settings from the skill's frontmatter
 /// * `skill_name` - The name of the skill (for logging)
 /// * `skill_root` - The base directory of the skill (for CLAUDE_PLUGIN_ROOT env var)
 pub fn register_skill_hooks(
-    set_app_state: &dyn Fn(&dyn Fn(&mut serde_json::Value)),
+    set_app_state: Arc<dyn Fn(&dyn Fn(&mut serde_json::Value)) + Send + Sync>,
     session_id: &str,
     hooks: &HooksSettings,
     skill_name: &str,
@@ -198,14 +243,33 @@ pub fn register_skill_hooks(
                     Err(_) => continue,
                 };
 
-                // For once: true hooks, the on_hook_success callback would remove the hook
-                // after first successful execution. In a full implementation, we'd use
-                // the session hook removal mechanism. For now, pass None.
-                let on_hook_success: Option<crate::utils::hooks::session_hooks::OnHookSuccess> =
-                    None;
+                // For once: true hooks, use on_hook_success callback to remove after execution
+                let on_hook_success: Option<OnHookSuccess> = if parsed.once {
+                    let set_app_state_inner = Arc::clone(&set_app_state);
+                    let session_id_inner = session_id.to_string();
+                    let event_inner = event.clone();
+                    let hook_inner = parsed.hook.clone();
+                    let skill_name_inner = skill_name.to_string();
+                    Some(Arc::new(move |_: &crate::utils::hooks::session_hooks::SessionHookCommand, _: &crate::utils::hooks::session_hooks::AggregatedHookResult| {
+                        let sn = skill_name_inner.as_str();
+                        log_for_debugging(&format!(
+                            "Removing one-shot hook for event {} in skill '{}'",
+                            event_inner.as_str(),
+                            sn,
+                        ));
+                        remove_session_hook(
+                            &*set_app_state_inner,
+                            &session_id_inner,
+                            &event_inner,
+                            &hook_inner,
+                        );
+                    }) as OnHookSuccess)
+                } else {
+                    None
+                };
 
                 add_session_hook(
-                    set_app_state,
+                    &*set_app_state,
                     session_id,
                     &event,
                     &matcher,
@@ -242,7 +306,7 @@ fn log_for_debugging(msg: &str) {
 /// * `skills` - Slice of loaded skills with parsed hooks
 /// * `skill_roots` - Optional base directories for each skill (same length as skills, or None)
 pub fn register_hooks_from_skills(
-    set_app_state: &dyn Fn(&dyn Fn(&mut serde_json::Value)),
+    set_app_state: Arc<dyn Fn(&dyn Fn(&mut serde_json::Value)) + Send + Sync>,
     session_id: &str,
     skills: &[crate::skills::loader::UnifiedSkill],
 ) {
@@ -251,7 +315,7 @@ pub fn register_hooks_from_skills(
     for skill in skills {
         if let Some(ref hooks) = skill.hooks {
             register_skill_hooks(
-                set_app_state,
+                Arc::clone(&set_app_state),
                 session_id,
                 hooks,
                 &skill.name,
@@ -272,6 +336,7 @@ pub fn register_hooks_from_skills(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::sync::atomic::{AtomicUsize, Ordering};
 
     #[test]
     fn test_parse_hook_with_once() {
@@ -304,14 +369,21 @@ mod tests {
     #[test]
     fn test_register_skill_hooks_empty() {
         let hooks = HooksSettings::default();
-        let call_count = std::cell::Cell::new(0usize);
-        let set_app_state = |_: &dyn Fn(&mut serde_json::Value)| {
-            call_count.set(call_count.get() + 1);
+        let call_count = Arc::new(AtomicUsize::new(0));
+        let call_count_clone = Arc::clone(&call_count);
+        let set_app_state = move |_: &dyn Fn(&mut serde_json::Value)| {
+            call_count_clone.fetch_add(1, Ordering::SeqCst);
         };
 
-        register_skill_hooks(&set_app_state, "test-session", &hooks, "test-skill", None);
+        register_skill_hooks(
+            Arc::new(set_app_state),
+            "test-session",
+            &hooks,
+            "test-skill",
+            None,
+        );
 
-        assert_eq!(call_count.get(), 0);
+        assert_eq!(call_count.load(Ordering::SeqCst), 0);
     }
 
     #[test]
@@ -327,13 +399,14 @@ mod tests {
             }],
         );
 
-        let call_count = std::cell::Cell::new(0usize);
-        let set_app_state = |_: &dyn Fn(&mut serde_json::Value)| {
-            call_count.set(call_count.get() + 1);
+        let call_count = Arc::new(AtomicUsize::new(0));
+        let call_count_clone = Arc::clone(&call_count);
+        let set_app_state = move |_: &dyn Fn(&mut serde_json::Value)| {
+            call_count_clone.fetch_add(1, Ordering::SeqCst);
         };
 
         register_skill_hooks(
-            &set_app_state,
+            Arc::new(set_app_state),
             "test-session",
             &hooks_settings,
             "test-skill",
@@ -341,21 +414,22 @@ mod tests {
         );
 
         // Should have called add_session_hook once
-        assert_eq!(call_count.get(), 1);
+        assert_eq!(call_count.load(Ordering::SeqCst), 1);
     }
 
     #[test]
     fn test_register_hooks_from_skills_empty() {
         let skills: Vec<crate::skills::loader::UnifiedSkill> = vec![];
-        let call_count = std::cell::Cell::new(0usize);
-        let set_app_state = |_: &dyn Fn(&mut serde_json::Value)| {
-            call_count.set(call_count.get() + 1);
+        let call_count = Arc::new(AtomicUsize::new(0));
+        let call_count_clone = Arc::clone(&call_count);
+        let set_app_state = move |_: &dyn Fn(&mut serde_json::Value)| {
+            call_count_clone.fetch_add(1, Ordering::SeqCst);
         };
 
-        register_hooks_from_skills(&set_app_state, "test-session", &skills);
+        register_hooks_from_skills(Arc::new(set_app_state), "test-session", &skills);
 
         // No hooks registered, but state should be untouched
-        assert_eq!(call_count.get(), 0);
+        assert_eq!(call_count.load(Ordering::SeqCst), 0);
     }
 
     #[test]
@@ -386,15 +460,16 @@ mod tests {
             hooks: Some(hooks),
         }];
 
-        let call_count = std::cell::Cell::new(0usize);
-        let set_app_state = |_: &dyn Fn(&mut serde_json::Value)| {
-            call_count.set(call_count.get() + 1);
+        let call_count = Arc::new(AtomicUsize::new(0));
+        let call_count_clone = Arc::clone(&call_count);
+        let set_app_state = move |_: &dyn Fn(&mut serde_json::Value)| {
+            call_count_clone.fetch_add(1, Ordering::SeqCst);
         };
 
-        register_hooks_from_skills(&set_app_state, "test-session", &skills);
+        register_hooks_from_skills(Arc::new(set_app_state), "test-session", &skills);
 
         // Should have called add_session_hook once (for the Stop hook)
-        assert_eq!(call_count.get(), 1);
+        assert_eq!(call_count.load(Ordering::SeqCst), 1);
     }
 
     #[test]
@@ -420,14 +495,15 @@ mod tests {
             },
         ];
 
-        let call_count = std::cell::Cell::new(0usize);
-        let set_app_state = |_: &dyn Fn(&mut serde_json::Value)| {
-            call_count.set(call_count.get() + 1);
+        let call_count = Arc::new(AtomicUsize::new(0));
+        let call_count_clone = Arc::clone(&call_count);
+        let set_app_state = move |_: &dyn Fn(&mut serde_json::Value)| {
+            call_count_clone.fetch_add(1, Ordering::SeqCst);
         };
 
-        register_hooks_from_skills(&set_app_state, "test-session", &skills);
+        register_hooks_from_skills(Arc::new(set_app_state), "test-session", &skills);
 
         // No hooks registered
-        assert_eq!(call_count.get(), 0);
+        assert_eq!(call_count.load(Ordering::SeqCst), 0);
     }
 }

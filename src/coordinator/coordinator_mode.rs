@@ -437,7 +437,7 @@ mod tests {
             "TaskStop",
             "SendMessage",
             "SyntheticOutput",
-            "FileRead",
+            "Read",
             "github_subscribe_pr_activity",
         ];
 
@@ -448,6 +448,6 @@ mod tests {
         assert!(filtered.contains(&"SyntheticOutput"));
         assert!(filtered.contains(&"github_subscribe_pr_activity"));
         // FileRead should be filtered out
-        assert!(!filtered.iter().any(|&s| s == "FileRead"));
+        assert!(!filtered.iter().any(|&s| s == "Read"));
     }
 }

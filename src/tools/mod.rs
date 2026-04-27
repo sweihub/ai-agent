@@ -12,8 +12,11 @@ pub mod glob;
 pub mod discover_skills;
 pub mod grep;
 pub mod lsp;
+pub mod mcp;
 pub mod mcp_resource_reader;
 pub mod mcp_resources;
+pub mod mcp_tool;
+pub mod mcp_auth;
 pub mod monitor;
 pub mod notebook_edit;
 pub mod orchestration;
@@ -40,6 +43,9 @@ pub mod web_browser;
 pub mod web_fetch;
 pub mod web_search;
 pub mod worktree;
+pub mod overflow_test;
+pub mod review_artifact;
+pub mod workflow;
 pub mod write;
 
 pub use types::{
@@ -54,8 +60,8 @@ mod tests {
     #[test]
     fn test_get_all_base_tools_returns_all_tools() {
         let tools = get_all_base_tools();
-        // Should have 40 built-in tools (33 original + LSP, RemoteTrigger, ListMcpResourcesTool, ReadMcpResourceTool, TaskOutput, SendUserMessage, StructuredOutput)
-        assert_eq!(tools.len(), 40);
+        // Should have 50 built-in tools (42 + OverflowTest + ReviewArtifact + Workflow + Snip + DiscoverSkills + TerminalCapture + MCPTool + McpAuth)
+        assert_eq!(tools.len(), 50);
     }
 
     #[test]
@@ -69,14 +75,14 @@ mod tests {
     fn test_get_all_base_tools_contains_file_read_tool() {
         let tools = get_all_base_tools();
         let tool_names: Vec<&str> = tools.iter().map(|t| t.name.as_str()).collect();
-        assert!(tool_names.contains(&"FileRead"));
+        assert!(tool_names.contains(&"Read"));
     }
 
     #[test]
     fn test_get_all_base_tools_contains_file_write_tool() {
         let tools = get_all_base_tools();
         let tool_names: Vec<&str> = tools.iter().map(|t| t.name.as_str()).collect();
-        assert!(tool_names.contains(&"FileWrite"));
+        assert!(tool_names.contains(&"Write"));
     }
 
     #[test]
@@ -149,7 +155,7 @@ mod tests {
                 interrupt_behavior: None,
             },
             ToolDefinition {
-                name: "FileRead".to_string(),
+                name: "Read".to_string(),
                 description: "Read files".to_string(),
                 input_schema: ToolInputSchema {
                     schema_type: "object".to_string(),
@@ -192,7 +198,7 @@ mod tests {
                 interrupt_behavior: None,
             },
             ToolDefinition {
-                name: "FileRead".to_string(),
+                name: "Read".to_string(),
                 description: "Read files".to_string(),
                 input_schema: ToolInputSchema {
                     schema_type: "object".to_string(),
@@ -211,6 +217,6 @@ mod tests {
         ];
         let filtered = filter_tools(tools, None, Some(vec!["Bash".to_string()]));
         assert_eq!(filtered.len(), 1);
-        assert_eq!(filtered[0].name, "FileRead");
+        assert_eq!(filtered[0].name, "Read");
     }
 }

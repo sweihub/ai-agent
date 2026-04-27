@@ -7,8 +7,8 @@ use super::super::AgentDefinition;
 const BASH_TOOL_NAME: &str = "Bash";
 const EXIT_PLAN_MODE_TOOL_NAME: &str = "ExitPlanMode";
 const FILE_EDIT_TOOL_NAME: &str = "FileEdit";
-const FILE_READ_TOOL_NAME: &str = "FileRead";
-const FILE_WRITE_TOOL_NAME: &str = "FileWrite";
+const FILE_READ_TOOL_NAME: &str = "Read";
+const FILE_WRITE_TOOL_NAME: &str = "Write";
 const GLOB_TOOL_NAME: &str = "Glob";
 const GREP_TOOL_NAME: &str = "Grep";
 const NOTEBOOK_EDIT_TOOL_NAME: &str = "NotebookEdit";
@@ -144,7 +144,7 @@ mod tests {
     #[test]
     fn test_explore_agent_disallowed_tools() {
         let agent = explore_agent();
-        assert!(agent.disallowed_tools.contains(&"FileWrite".to_string()));
+        assert!(agent.disallowed_tools.contains(&"Write".to_string()));
         assert!(agent.disallowed_tools.contains(&"FileEdit".to_string()));
     }
 

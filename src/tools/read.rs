@@ -9,7 +9,7 @@ impl FileReadTool {
     }
 
     pub fn name(&self) -> &str {
-        "FileRead"
+        "Read"
     }
 
     pub fn description(&self) -> &str {
@@ -21,7 +21,7 @@ impl FileReadTool {
     }
 
     pub fn get_tool_use_summary(&self, input: Option<&serde_json::Value>) -> Option<String> {
-        input.and_then(|inp| inp["path"].as_str().map(String::from))
+        input.and_then(|inp| inp["file_path"].as_str().map(String::from))
     }
 
     pub fn render_tool_result_message(
@@ -37,12 +37,12 @@ impl FileReadTool {
         ToolInputSchema {
             schema_type: "object".to_string(),
             properties: serde_json::json!({
-                "path": {
+                "file_path": {
                     "type": "string",
-                    "description": "The file path to read"
+                    "description": "The absolute path to the file to read"
                 }
             }),
-            required: Some(vec!["path".to_string()]),
+            required: Some(vec!["file_path".to_string()]),
         }
     }
 
@@ -51,9 +51,9 @@ impl FileReadTool {
         input: serde_json::Value,
         context: &ToolContext,
     ) -> Result<ToolResult, crate::error::AgentError> {
-        let path = input["path"]
+        let path = input["file_path"]
             .as_str()
-            .ok_or_else(|| crate::error::AgentError::Tool("path is required".to_string()))?;
+            .ok_or_else(|| crate::error::AgentError::Tool("file_path is required".to_string()))?;
 
         // Resolve relative paths using cwd from context
         let path_buf = std::path::PathBuf::from(path);
@@ -93,7 +93,7 @@ mod tests {
     #[test]
     fn test_file_read_tool_name() {
         let tool = FileReadTool::new();
-        assert_eq!(tool.name(), "FileRead");
+        assert_eq!(tool.name(), "Read");
     }
 
     #[test]
@@ -106,7 +106,7 @@ mod tests {
     fn test_file_read_tool_has_path_in_schema() {
         let tool = FileReadTool::new();
         let schema = tool.input_schema();
-        assert!(schema.properties.get("path").is_some());
+        assert!(schema.properties.get("file_path").is_some());
     }
 
     #[tokio::test]
@@ -118,7 +118,7 @@ mod tests {
 
         let tool = FileReadTool::new();
         let input = serde_json::json!({
-            "path": temp_file.to_str().unwrap()
+            "file_path": temp_file.to_str().unwrap()
         });
         let context = ToolContext::default();
 
@@ -135,7 +135,7 @@ mod tests {
     async fn test_file_read_tool_returns_error_for_nonexistent_file() {
         let tool = FileReadTool::new();
         let input = serde_json::json!({
-            "path": "/nonexistent/file/that/does/not/exist.txt"
+            "file_path": "/nonexistent/file/that/does/not/exist.txt"
         });
         let context = ToolContext::default();
 

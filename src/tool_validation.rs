@@ -119,12 +119,8 @@ pub fn find_tool_by_name<'a>(
 ) -> Option<&'a ToolDefinition> {
     tools.iter().find(|t| t.name == name).or_else(|| {
         // Fallback: check if it's a deprecated alias
-        // Maps "Read" -> "FileRead", "Edit" -> "FileEdit", "Write" -> "FileWrite", "Glob" -> "Glob", etc.
         match name {
-            "Read" => tools.iter().find(|t| t.name == "FileRead"),
             "Edit" => tools.iter().find(|t| t.name == "FileEdit"),
-            "Write" => tools.iter().find(|t| t.name == "FileWrite"),
-            "G" => tools.iter().find(|t| t.name == "Glob"),
             _ => None,
         }
     })
@@ -216,9 +212,9 @@ mod tests {
 
     #[test]
     fn test_alias_resolution() {
-        let tool = make_tool("FileRead", serde_json::json!({}), None);
+        let tool = make_tool("Read", serde_json::json!({}), None);
         let tools = vec![tool];
-        assert!(find_tool_by_name(&tools, "FileRead").is_some());
+        assert!(find_tool_by_name(&tools, "Read").is_some());
         assert!(find_tool_by_name(&tools, "Read").is_some());
         assert!(find_tool_by_name(&tools, "NonExistent").is_none());
     }

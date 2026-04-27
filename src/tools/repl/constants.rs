@@ -40,8 +40,8 @@ fn is_env_truthy(key: &str) -> bool {
 pub fn repl_only_tools() -> &'static HashSet<&'static str> {
     static REPL_ONLY_TOOLS: LazyLock<HashSet<&'static str>> = LazyLock::new(|| {
         HashSet::from([
-            "FileRead",
-            "FileWrite",
+            "Read",
+            "Write",
             "FileEdit",
             "Glob",
             "Grep",
@@ -65,7 +65,7 @@ mod tests {
     #[test]
     fn test_repl_only_tools_contains_expected_tools() {
         let tools = repl_only_tools();
-        assert!(tools.contains("FileRead"));
+        assert!(tools.contains("Read"));
         assert!(tools.contains("Bash"));
         assert!(tools.contains("Grep"));
     }

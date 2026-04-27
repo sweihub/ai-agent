@@ -178,6 +178,15 @@ fn parse_hook_command(value: &serde_json::Value) -> Result<HookCommand, String> 
                 .and_then(|v| v.as_str())
                 .map(|s| s.to_string()),
             timeout: value.get("timeout").and_then(|v| v.as_u64()),
+            status_message: value
+                .get("statusMessage")
+                .and_then(|v| v.as_str())
+                .map(|s| s.to_string()),
+            once: value.get("once").and_then(|v| v.as_bool()),
+            r#async: value.get("async").and_then(|v| v.as_bool()),
+            async_rewake: value
+                .get("asyncRewake")
+                .and_then(|v| v.as_bool()),
         });
     }
 
@@ -195,6 +204,11 @@ fn parse_hook_command(value: &serde_json::Value) -> Result<HookCommand, String> 
                     .and_then(|v| v.as_str())
                     .map(|s| s.to_string()),
                 timeout: value.get("timeout").and_then(|v| v.as_u64()),
+                status_message: value
+                    .get("statusMessage")
+                    .and_then(|v| v.as_str())
+                    .map(|s| s.to_string()),
+                once: value.get("once").and_then(|v| v.as_bool()),
             });
         }
 
@@ -205,6 +219,15 @@ fn parse_hook_command(value: &serde_json::Value) -> Result<HookCommand, String> 
                 .and_then(|v| v.as_str())
                 .map(|s| s.to_string()),
             timeout: value.get("timeout").and_then(|v| v.as_u64()),
+            model: value
+                .get("model")
+                .and_then(|v| v.as_str())
+                .map(|s| s.to_string()),
+            status_message: value
+                .get("statusMessage")
+                .and_then(|v| v.as_str())
+                .map(|s| s.to_string()),
+            once: value.get("once").and_then(|v| v.as_bool()),
         });
     }
 
@@ -216,6 +239,27 @@ fn parse_hook_command(value: &serde_json::Value) -> Result<HookCommand, String> 
                 .and_then(|v| v.as_str())
                 .map(|s| s.to_string()),
             timeout: value.get("timeout").and_then(|v| v.as_u64()),
+            headers: value
+                .get("headers")
+                .and_then(|v| v.as_object())
+                .map(|m| {
+                    m.iter()
+                        .map(|(k, v)| (k.clone(), v.as_str().unwrap_or("").to_string()))
+                        .collect()
+                }),
+            allowed_env_vars: value
+                .get("allowedEnvVars")
+                .and_then(|v| v.as_array())
+                .map(|arr| {
+                    arr.iter()
+                        .filter_map(|v| v.as_str().map(|s| s.to_string()))
+                        .collect()
+                }),
+            status_message: value
+                .get("statusMessage")
+                .and_then(|v| v.as_str())
+                .map(|s| s.to_string()),
+            once: value.get("once").and_then(|v| v.as_bool()),
         });
     }
 
@@ -272,6 +316,7 @@ mod tests {
             shell,
             if_condition,
             timeout,
+            ..
         } = result.unwrap()
         {
             assert_eq!(command, "echo hello");

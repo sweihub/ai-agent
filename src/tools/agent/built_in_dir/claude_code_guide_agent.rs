@@ -6,7 +6,7 @@ use std::sync::Arc;
 use super::super::AgentDefinition;
 
 const BASH_TOOL_NAME: &str = "Bash";
-const FILE_READ_TOOL_NAME: &str = "FileRead";
+const FILE_READ_TOOL_NAME: &str = "Read";
 const GLOB_TOOL_NAME: &str = "Glob";
 const GREP_TOOL_NAME: &str = "Grep";
 const SEND_MESSAGE_TOOL_NAME: &str = "SendMessage";

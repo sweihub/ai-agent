@@ -28,6 +28,7 @@ async fn test_engine_creation() {
         abort_controller: None,
         token_budget: None,
         agent_id: None,
+        session_state: None,
         loaded_nested_memory_paths: std::collections::HashSet::new(),
             task_budget: None,
     });
@@ -55,6 +56,7 @@ async fn test_engine_submit_message() {
         abort_controller: None,
         token_budget: None,
         agent_id: None,
+        session_state: None,
         loaded_nested_memory_paths: std::collections::HashSet::new(),
             task_budget: None,
     });
@@ -340,13 +342,13 @@ fn test_base_tools_available() {
 
     // Must have Read tool
     assert!(
-        tool_names.contains(&"FileRead"),
+        tool_names.contains(&"Read"),
         "FileRead tool must be available"
     );
 
     // Must have Write tool
     assert!(
-        tool_names.contains(&"FileWrite"),
+        tool_names.contains(&"Write"),
         "FileWrite tool must be available"
     );
 
@@ -405,24 +407,24 @@ fn test_tool_schema_has_required_parameters() {
         "Bash tool must have 'command' parameter"
     );
 
-    // Find Read tool and verify it has path parameter
-    let read_tool = tools.iter().find(|t| t.name == "FileRead").unwrap();
+    // Find Read tool and verify it has file_path parameter
+    let read_tool = tools.iter().find(|t| t.name == "Read").unwrap();
     let read_props = &read_tool.input_schema.properties;
     assert!(
-        read_props.get("path").is_some(),
-        "FileRead tool must have 'path' parameter"
+        read_props.get("file_path").is_some(),
+        "Read tool must have 'file_path' parameter"
     );
 
-    // Find Write tool and verify it has path and content parameters
-    let write_tool = tools.iter().find(|t| t.name == "FileWrite").unwrap();
+    // Find Write tool and verify it has file_path and content parameters
+    let write_tool = tools.iter().find(|t| t.name == "Write").unwrap();
     let write_props = &write_tool.input_schema.properties;
     assert!(
-        write_props.get("path").is_some(),
-        "FileWrite tool must have 'path' parameter"
+        write_props.get("file_path").is_some(),
+        "Write tool must have 'file_path' parameter"
     );
     assert!(
         write_props.get("content").is_some(),
-        "FileWrite tool must have 'content' parameter"
+        "Write tool must have 'content' parameter"
     );
 
     // Verify required arrays are defined
@@ -455,6 +457,7 @@ async fn test_engine_with_tools_config() {
         abort_controller: None,
         token_budget: None,
         agent_id: None,
+        session_state: None,
         loaded_nested_memory_paths: std::collections::HashSet::new(),
             task_budget: None,
     });
@@ -485,6 +488,7 @@ async fn test_engine_system_prompt_includes_tool_guidance() {
         abort_controller: None,
         token_budget: None,
         agent_id: None,
+        session_state: None,
         loaded_nested_memory_paths: std::collections::HashSet::new(),
             task_budget: None,
     });
@@ -540,8 +544,8 @@ async fn test_query_engine_tool_registration() {
 
     // Verify key tools exist
     assert!(tool_names.contains(&"Bash".to_string()));
-    assert!(tool_names.contains(&"FileRead".to_string()));
-    assert!(tool_names.contains(&"FileWrite".to_string()));
+    assert!(tool_names.contains(&"Read".to_string()));
+    assert!(tool_names.contains(&"Write".to_string()));
     assert!(tool_names.contains(&"Glob".to_string()));
     assert!(tool_names.contains(&"Grep".to_string()));
     assert!(tool_names.contains(&"FileEdit".to_string()));
@@ -599,6 +603,7 @@ async fn test_engine_message_history_with_tool_calls() {
         abort_controller: None,
         token_budget: None,
         agent_id: None,
+        session_state: None,
         loaded_nested_memory_paths: std::collections::HashSet::new(),
             task_budget: None,
     });
@@ -691,7 +696,7 @@ fn test_separate_tools_upfront_vs_deferred() {
         model: "test-model".to_string(),
         tools: vec![
             make_deferred_tool("Bash", false, false),     // upfront
-            make_deferred_tool("FileRead", false, false), // upfront
+            make_deferred_tool("Read", false, false), // upfront
             make_deferred_tool("WebSearch", true, false), // deferred
             make_deferred_tool("WebFetch", true, false),  // deferred
             make_deferred_tool("mcp__slack__send", true, true), // deferred (MCP)
@@ -705,7 +710,7 @@ fn test_separate_tools_upfront_vs_deferred() {
     // 2 upfront tools
     assert_eq!(upfront.len(), 2);
     assert!(upfront.iter().any(|t| t.name == "Bash"));
-    assert!(upfront.iter().any(|t| t.name == "FileRead"));
+    assert!(upfront.iter().any(|t| t.name == "Read"));
 
     // 3 deferred tools
     assert_eq!(deferred.len(), 3);
@@ -775,7 +780,7 @@ fn test_full_deferred_tool_discovery_flow() {
     // Step 1: Initial state - WebSearch is deferred, not in upfront tools
     let tools = vec![
         make_deferred_tool("Bash", false, false),
-        make_deferred_tool("FileRead", false, false),
+        make_deferred_tool("Read", false, false),
         make_deferred_tool("WebSearch", true, false),
     ];
 
@@ -990,7 +995,7 @@ fn test_discovered_tools_excluded_from_available_block() {
 fn test_no_injection_when_no_deferred_tools() {
     let tools = vec![
         make_deferred_tool("Bash", false, false),
-        make_deferred_tool("FileRead", false, false),
+        make_deferred_tool("Read", false, false),
     ];
 
     let engine = QueryEngine::new(QueryEngineConfig {
@@ -1096,7 +1101,7 @@ fn test_mcp_tools_are_deferred() {
 #[test]
 fn test_parse_tool_name_for_search() {
     // Regular tool
-    let regular = parse_tool_name("FileRead");
+    let regular = parse_tool_name("Read");
     assert!(!regular.is_mcp);
 
     // MCP tool

@@ -163,6 +163,7 @@ Output <updates>[]</updates> if no updates are needed."#,
                 tool_calls: None,
                 is_error: None,
                 is_meta: None,
+            uuid: None,
             }]
         }),
         system_prompt: None,

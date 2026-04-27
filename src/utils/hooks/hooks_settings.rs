@@ -2,7 +2,13 @@
 #![allow(dead_code)]
 
 use std::collections::{HashMap, HashSet};
+use std::fmt;
 use std::path::Path;
+
+use serde::de;
+
+use crate::utils::hooks::session_hooks::get_session_hooks;
+use crate::utils::settings::{get_settings_file_path_for_source, read_settings_file};
 
 /// Hook event type
 #[derive(Debug, Clone, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
@@ -101,13 +107,8 @@ pub const HOOK_EVENTS: &[HookEvent] = &[
     HookEvent::FileChanged,
 ];
 
-/// Editable setting sources
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub enum EditableSettingSource {
-    UserSettings,
-    ProjectSettings,
-    LocalSettings,
-}
+/// Editable setting sources - re-export from settings module.
+pub use crate::utils::settings::EditableSettingSource;
 
 /// Setting source priority order (lower index = higher priority)
 pub const SOURCES: &[EditableSettingSource] = &[
@@ -153,30 +154,176 @@ pub struct IndividualHookConfig {
 }
 
 /// Hook command types
-#[derive(Debug, Clone)]
+///
+/// Serialized/deserialized with `#[serde(tag = "type")]` to match the
+/// TypeScript discriminated union: command | prompt | agent | http.
+#[derive(Debug, Clone, serde::Serialize)]
+#[serde(tag = "type")]
 pub enum HookCommand {
+    #[serde(rename = "command")]
     Command {
         command: String,
+        #[serde(skip_serializing_if = "Option::is_none")]
         shell: Option<String>,
+        #[serde(rename = "if", skip_serializing_if = "Option::is_none")]
         if_condition: Option<String>,
+        #[serde(skip_serializing_if = "Option::is_none")]
         timeout: Option<u64>,
+        #[serde(rename = "statusMessage", skip_serializing_if = "Option::is_none")]
+        status_message: Option<String>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        once: Option<bool>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        r#async: Option<bool>,
+        #[serde(rename = "asyncRewake", skip_serializing_if = "Option::is_none")]
+        async_rewake: Option<bool>,
     },
+    #[serde(rename = "prompt")]
     Prompt {
         prompt: String,
+        #[serde(rename = "if", skip_serializing_if = "Option::is_none")]
         if_condition: Option<String>,
+        #[serde(skip_serializing_if = "Option::is_none")]
         timeout: Option<u64>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        model: Option<String>,
+        #[serde(rename = "statusMessage", skip_serializing_if = "Option::is_none")]
+        status_message: Option<String>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        once: Option<bool>,
     },
+    #[serde(rename = "agent")]
     Agent {
         prompt: String,
-        model: Option<String>,
+        #[serde(rename = "if", skip_serializing_if = "Option::is_none")]
         if_condition: Option<String>,
+        #[serde(skip_serializing_if = "Option::is_none")]
         timeout: Option<u64>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        model: Option<String>,
+        #[serde(rename = "statusMessage", skip_serializing_if = "Option::is_none")]
+        status_message: Option<String>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        once: Option<bool>,
     },
+    #[serde(rename = "http")]
     Http {
         url: String,
+        #[serde(rename = "if", skip_serializing_if = "Option::is_none")]
         if_condition: Option<String>,
+        #[serde(skip_serializing_if = "Option::is_none")]
         timeout: Option<u64>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        headers: Option<HashMap<String, String>>,
+        #[serde(rename = "allowedEnvVars", skip_serializing_if = "Option::is_none")]
+        allowed_env_vars: Option<Vec<String>>,
+        #[serde(rename = "statusMessage", skip_serializing_if = "Option::is_none")]
+        status_message: Option<String>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        once: Option<bool>,
     },
+}
+
+impl<'de> de::Deserialize<'de> for HookCommand {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: de::Deserializer<'de>,
+    {
+        let map: serde_json::Map<String, serde_json::Value> =
+            serde_json::Map::deserialize(deserializer)?;
+
+        let type_str = map
+            .get("type")
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| de::Error::missing_field("type"))?;
+
+        // Helper to extract optional string from map
+        let opt_str = |m: &serde_json::Map<String, serde_json::Value>, key: &str| -> Option<String> {
+            m.get(key).and_then(|v| v.as_str()).map(|s| s.to_string())
+        };
+        let opt_u64 =
+            |m: &serde_json::Map<String, serde_json::Value>, key: &str| -> Option<u64> {
+                m.get(key).and_then(|v| v.as_u64())
+            };
+        let opt_bool =
+            |m: &serde_json::Map<String, serde_json::Value>, key: &str| -> Option<bool> {
+                m.get(key).and_then(|v| v.as_bool())
+            };
+
+        match type_str {
+            "command" => {
+                let command = opt_str(&map, "command")
+                    .ok_or_else(|| de::Error::missing_field("command"))?;
+                Ok(HookCommand::Command {
+                    command,
+                    shell: opt_str(&map, "shell"),
+                    if_condition: opt_str(&map, "if"),
+                    timeout: opt_u64(&map, "timeout"),
+                    status_message: opt_str(&map, "statusMessage"),
+                    once: opt_bool(&map, "once"),
+                    r#async: opt_bool(&map, "async"),
+                    async_rewake: opt_bool(&map, "asyncRewake"),
+                })
+            }
+            "prompt" => {
+                let prompt = opt_str(&map, "prompt")
+                    .ok_or_else(|| de::Error::missing_field("prompt"))?;
+                Ok(HookCommand::Prompt {
+                    prompt,
+                    if_condition: opt_str(&map, "if"),
+                    timeout: opt_u64(&map, "timeout"),
+                    model: opt_str(&map, "model"),
+                    status_message: opt_str(&map, "statusMessage"),
+                    once: opt_bool(&map, "once"),
+                })
+            }
+            "agent" => {
+                let prompt = opt_str(&map, "prompt")
+                    .ok_or_else(|| de::Error::missing_field("prompt"))?;
+                Ok(HookCommand::Agent {
+                    prompt,
+                    if_condition: opt_str(&map, "if"),
+                    timeout: opt_u64(&map, "timeout"),
+                    model: opt_str(&map, "model"),
+                    status_message: opt_str(&map, "statusMessage"),
+                    once: opt_bool(&map, "once"),
+                })
+            }
+            "http" => {
+                let url = opt_str(&map, "url")
+                    .ok_or_else(|| de::Error::missing_field("url"))?;
+                let headers = map
+                    .get("headers")
+                    .and_then(|v| v.as_object())
+                    .map(|m| {
+                        m.iter()
+                            .map(|(k, v)| (k.clone(), v.as_str().unwrap_or("").to_string()))
+                            .collect()
+                    });
+                let allowed_env_vars = map
+                    .get("allowedEnvVars")
+                    .and_then(|v| v.as_array())
+                    .map(|arr| {
+                        arr.iter()
+                            .filter_map(|v| v.as_str().map(|s| s.to_string()))
+                            .collect()
+                    });
+                Ok(HookCommand::Http {
+                    url,
+                    if_condition: opt_str(&map, "if"),
+                    timeout: opt_u64(&map, "timeout"),
+                    headers,
+                    allowed_env_vars,
+                    status_message: opt_str(&map, "statusMessage"),
+                    once: opt_bool(&map, "once"),
+                })
+            }
+            other => Err(de::Error::unknown_variant(
+                other,
+                &["command", "prompt", "agent", "http"],
+            )),
+        }
+    }
 }
 
 /// Default hook shell
@@ -258,77 +405,46 @@ pub fn get_hook_display_text(hook: &HookCommand) -> String {
     }
 }
 
-/// Get all hooks from all sources
-pub fn get_all_hooks() -> Vec<IndividualHookConfig> {
-    let mut hooks: Vec<IndividualHookConfig> = Vec::new();
+/// A hook matcher as it appears in settings JSON.
+///
+/// Matches TypeScript `HookMatcher` from `schemas/hooks.ts`:
+/// `{ matcher?: string, hooks: HookCommand[] }`
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub struct HookMatcher {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub matcher: Option<String>,
+    pub hooks: Vec<HookCommand>,
+}
 
-    // Check if restricted to managed hooks only
-    // (would check policy settings)
-    let restricted_to_managed_only = false;
+/// Hooks settings extracted from a settings.json `hooks` key.
+///
+/// Matches TypeScript `HooksSettings = Partial<Record<HookEvent, HookMatcher[]>>`.
+pub type ParsedHooksSettings = HashMap<String, Vec<HookMatcher>>;
 
-    if !restricted_to_managed_only {
-        // Get hooks from all editable sources
-        let sources = [
-            EditableSettingSource::UserSettings,
-            EditableSettingSource::ProjectSettings,
-            EditableSettingSource::LocalSettings,
-        ];
-
-        // Track which setting files we've already processed to avoid duplicates
-        let mut seen_files: HashSet<String> = HashSet::new();
-
-        for source in sources {
-            let file_path = get_settings_file_path_for_source(&source);
-
-            if let Some(ref path) = file_path {
-                let resolved_path = Path::new(path)
-                    .canonicalize()
-                    .map(|p| p.to_string_lossy().to_string())
-                    .unwrap_or_else(|_| path.clone());
-
-                if seen_files.contains(&resolved_path) {
-                    continue;
-                }
-                seen_files.insert(resolved_path);
-            }
-
-            // Get hooks from this source's settings
-            if let Some(source_hooks) = get_settings_for_source(&source) {
-                for (event_str, matchers) in source_hooks {
-                    if let Ok(event) = parse_hook_event(&event_str) {
-                        for matcher in matchers {
-                            for hook_command in matcher.hooks {
-                                hooks.push(IndividualHookConfig {
-                                    event: event.clone(),
-                                    config: hook_command,
-                                    matcher: matcher.matcher.clone(),
-                                    source: HookSource::Editable(source.clone()),
-                                    plugin_name: None,
-                                });
-                            }
-                        }
-                    }
-                }
+/// Parse hooks from a settings JSON value.
+/// Returns the `hooks` section as a map from event name to matchers.
+fn parse_hooks_from_settings(settings: &serde_json::Value) -> Option<ParsedHooksSettings> {
+    let hooks_obj = settings.get("hooks")?;
+    let hooks_map = hooks_obj.as_object()?;
+    let mut parsed = HashMap::new();
+    for (event_name, matchers_value) in hooks_map {
+        if let Ok(matchers) =
+            serde_json::from_value::<Vec<HookMatcher>>(matchers_value.clone())
+        {
+            if !matchers.is_empty() {
+                parsed.insert(event_name.clone(), matchers);
             }
         }
     }
-
-    // Get session hooks (would call get_session_hooks)
-    // Session hooks are handled separately
-
-    hooks
+    if parsed.is_empty() {
+        None
+    } else {
+        Some(parsed)
+    }
 }
 
-/// Get hooks for a specific event
-pub fn get_hooks_for_event(event: &HookEvent) -> Vec<IndividualHookConfig> {
-    get_all_hooks()
-        .into_iter()
-        .filter(|hook| &hook.event == event)
-        .collect()
-}
-
-/// Parse a hook event from a string
-fn parse_hook_event(s: &str) -> Result<HookEvent, String> {
+/// Parse a hook event from a string (matches TypeScript enum names).
+pub fn parse_hook_event(s: &str) -> Result<HookEvent, String> {
     match s {
         "PreToolUse" => Ok(HookEvent::PreToolUse),
         "PostToolUse" => Ok(HookEvent::PostToolUse),
@@ -361,54 +477,123 @@ fn parse_hook_event(s: &str) -> Result<HookEvent, String> {
     }
 }
 
-/// Matcher structure from settings
-pub struct HookMatcher {
-    pub matcher: Option<String>,
-    pub hooks: Vec<HookCommand>,
+/// Check if only managed hooks should run.
+/// Returns true when policy settings or env vars set allowManagedHooksOnly.
+fn is_restricted_to_managed_only() -> bool {
+    // Check environment variable (localized from CLAUDE_CODE_ to AI_)
+    if std::env::var("AI_CODE_ALLOW_MANAGED_HOOKS_ONLY")
+        .ok()
+        .map(|v| v == "true" || v == "1")
+        .unwrap_or(false)
+    {
+        return true;
+    }
+
+    // Check policy settings for allowManagedHooksOnly
+    // (would need policy settings integration)
+    false
 }
 
-/// Get settings file path for a source
-fn get_settings_file_path_for_source(source: &EditableSettingSource) -> Option<String> {
-    match source {
-        EditableSettingSource::UserSettings => {
-            // ~/.claude/settings.json
-            dirs::home_dir().map(|home| {
-                home.join(".claude")
-                    .join("settings.json")
-                    .to_string_lossy()
-                    .to_string()
-            })
-        }
-        EditableSettingSource::ProjectSettings => {
-            // .claude/settings.json in cwd
-            let cwd = std::env::current_dir().ok()?;
-            Some(
-                cwd.join(".claude")
-                    .join("settings.json")
-                    .to_string_lossy()
-                    .to_string(),
-            )
-        }
-        EditableSettingSource::LocalSettings => {
-            // .claude/settings.local.json in cwd
-            let cwd = std::env::current_dir().ok()?;
-            Some(
-                cwd.join(".claude")
-                    .join("settings.local.json")
-                    .to_string_lossy()
-                    .to_string(),
-            )
+/// Get all hooks from all sources in priority order.
+///
+/// Priority (highest first):
+/// 1. User settings (~/.ai/settings.json)
+/// 2. Project settings (.ai/settings.json in CWD)
+/// 3. Local settings (.ai/settings.local.json)
+/// 4. Session hooks (transient, in-memory)
+///
+/// Matches TypeScript `getAllHooks(appState)` from hooksSettings.ts lines 92-161.
+pub fn get_all_hooks(session_id: &str) -> Vec<IndividualHookConfig> {
+    let mut hooks: Vec<IndividualHookConfig> = Vec::new();
+
+    // Check if restricted to managed hooks only
+    // (would check policy settings and env vars)
+    let restricted_to_managed_only = is_restricted_to_managed_only();
+
+    if !restricted_to_managed_only {
+        // Get hooks from all editable sources in priority order
+        let sources = [
+            EditableSettingSource::UserSettings,
+            EditableSettingSource::ProjectSettings,
+            EditableSettingSource::LocalSettings,
+        ];
+
+        // Track which setting files we've already processed to avoid duplicates
+        // (e.g., when running from home directory, userSettings and projectSettings
+        // both resolve to ~/.ai/settings.json)
+        let mut seen_files: HashSet<String> = HashSet::new();
+
+        for source in &sources {
+            let file_path = get_settings_file_path_for_source(source);
+
+            if let Some(ref path) = file_path {
+                let resolved_path = path
+                    .canonicalize()
+                    .map(|p| p.to_string_lossy().to_string())
+                    .unwrap_or_else(|_| path.to_string_lossy().to_string());
+
+                if seen_files.contains(&resolved_path) {
+                    continue;
+                }
+                seen_files.insert(resolved_path);
+            }
+
+            // Get hooks from this source's settings file
+            if let Some(source_hooks) = get_hooks_for_source(source) {
+                for (event_str, matchers) in source_hooks {
+                    if let Ok(event) = parse_hook_event(&event_str) {
+                        for matcher in &matchers {
+                            for hook_command in &matcher.hooks {
+                                hooks.push(IndividualHookConfig {
+                                    event: event.clone(),
+                                    config: hook_command.clone(),
+                                    matcher: matcher.matcher.clone(),
+                                    source: HookSource::Editable(source.clone()),
+                                    plugin_name: None,
+                                });
+                            }
+                        }
+                    }
+                }
+            }
         }
     }
+
+    // Get session hooks and add them to the list
+    let session_hooks_map = get_session_hooks(session_id, None);
+    for (event, matchers) in session_hooks_map {
+        for matcher in matchers {
+            for hook_command in &matcher.hooks {
+                hooks.push(IndividualHookConfig {
+                    event: event.clone(),
+                    config: hook_command.clone(),
+                    matcher: Some(matcher.matcher.clone()),
+                    source: HookSource::SessionHook,
+                    plugin_name: None,
+                });
+            }
+        }
+    }
+
+    hooks
 }
 
-/// Get settings for a source (simplified - would read from files)
-fn get_settings_for_source(
-    _source: &EditableSettingSource,
-) -> Option<HashMap<String, Vec<HookMatcher>>> {
-    // This would read the settings JSON file for the given source
-    // and extract the hooks section
-    None
+/// Get hooks for a specific event
+pub fn get_hooks_for_event(session_id: &str, event: &HookEvent) -> Vec<IndividualHookConfig> {
+    get_all_hooks(session_id)
+        .into_iter()
+        .filter(|hook| &hook.event == event)
+        .collect()
+}
+
+/// Read hooks from a specific editable settings source.
+///
+/// Reads the settings file for the source, extracts the `hooks` section,
+/// and parses it into a map of event name -> matchers.
+pub fn get_hooks_for_source(source: &EditableSettingSource) -> Option<ParsedHooksSettings> {
+    let path = get_settings_file_path_for_source(source)?;
+    let settings = read_settings_file(&path)?;
+    parse_hooks_from_settings(&settings)
 }
 
 /// Hook source description display string
@@ -416,20 +601,20 @@ pub fn hook_source_description_display_string(source: &HookSource) -> String {
     match source {
         HookSource::Editable(s) => match s {
             EditableSettingSource::UserSettings => {
-                "User settings (~/.claude/settings.json)".to_string()
+                "User settings (~/.ai/settings.json)".to_string()
             }
             EditableSettingSource::ProjectSettings => {
-                "Project settings (.claude/settings.json)".to_string()
+                "Project settings (.ai/settings.json)".to_string()
             }
             EditableSettingSource::LocalSettings => {
-                "Local settings (.claude/settings.local.json)".to_string()
+                "Local settings (.ai/settings.local.json)".to_string()
             }
         },
         HookSource::PolicySettings => "Policy settings".to_string(),
-        HookSource::PluginHook => "Plugin hooks (~/.claude/plugins/*/hooks/hooks.json)".to_string(),
+        HookSource::PluginHook => "Plugin hooks (~/.ai/plugins/*/hooks/hooks.json)".to_string(),
         HookSource::SessionHook => "Session hooks (in-memory, temporary)".to_string(),
         HookSource::BuiltinHook => {
-            "Built-in hook (registered internally by Claude Code)".to_string()
+            "Built-in hook (registered internally by AI Code)".to_string()
         }
     }
 }
@@ -539,12 +724,20 @@ mod tests {
             shell: None,
             if_condition: None,
             timeout: None,
+            status_message: None,
+            once: None,
+            r#async: None,
+            async_rewake: None,
         };
         let b = HookCommand::Command {
             command: "echo hello".to_string(),
             shell: None,
             if_condition: None,
             timeout: Some(30), // Different timeout doesn't matter
+            status_message: None,
+            once: None,
+            r#async: None,
+            async_rewake: None,
         };
         assert!(is_hook_equal(&a, &b));
     }
@@ -556,12 +749,20 @@ mod tests {
             shell: None,
             if_condition: None,
             timeout: None,
+            status_message: None,
+            once: None,
+            r#async: None,
+            async_rewake: None,
         };
         let b = HookCommand::Command {
             command: "echo world".to_string(),
             shell: None,
             if_condition: None,
             timeout: None,
+            status_message: None,
+            once: None,
+            r#async: None,
+            async_rewake: None,
         };
         assert!(!is_hook_equal(&a, &b));
     }
@@ -573,11 +774,18 @@ mod tests {
             shell: None,
             if_condition: None,
             timeout: None,
+            status_message: None,
+            once: None,
+            r#async: None,
+            async_rewake: None,
         };
         let b = HookCommand::Prompt {
             prompt: "echo hello".to_string(),
             if_condition: None,
             timeout: None,
+            model: None,
+            status_message: None,
+            once: None,
         };
         assert!(!is_hook_equal(&a, &b));
     }
@@ -589,6 +797,10 @@ mod tests {
             shell: None,
             if_condition: None,
             timeout: None,
+            status_message: None,
+            once: None,
+            r#async: None,
+            async_rewake: None,
         };
         assert_eq!(get_hook_display_text(&hook), "echo hello");
     }
@@ -608,9 +820,167 @@ mod tests {
         let source = HookSource::Editable(EditableSettingSource::UserSettings);
         assert_eq!(
             hook_source_description_display_string(&source),
-            "User settings (~/.claude/settings.json)"
+            "User settings (~/.ai/settings.json)"
         );
         assert_eq!(hook_source_header_display_string(&source), "User Settings");
         assert_eq!(hook_source_inline_display_string(&source), "User");
+    }
+
+    #[test]
+    fn test_deserialize_hook_command_command() {
+        let json = serde_json::json!({
+            "type": "command",
+            "command": "echo hello",
+            "shell": "bash",
+            "if": "Bash(git *)"
+        });
+        let hook: HookCommand = serde_json::from_value(json).unwrap();
+        match hook {
+            HookCommand::Command {
+                command, shell, if_condition, ..
+            } => {
+                assert_eq!(command, "echo hello");
+                assert_eq!(shell, Some("bash".to_string()));
+                assert_eq!(if_condition, Some("Bash(git *)".to_string()));
+            }
+            _ => panic!("Expected Command variant"),
+        }
+    }
+
+    #[test]
+    fn test_deserialize_hook_command_prompt() {
+        let json = serde_json::json!({
+            "type": "prompt",
+            "prompt": "Review the code",
+            "model": "claude-sonnet-4-6"
+        });
+        let hook: HookCommand = serde_json::from_value(json).unwrap();
+        match hook {
+            HookCommand::Prompt { prompt, model, .. } => {
+                assert_eq!(prompt, "Review the code");
+                assert_eq!(model, Some("claude-sonnet-4-6".to_string()));
+            }
+            _ => panic!("Expected Prompt variant"),
+        }
+    }
+
+    #[test]
+    fn test_deserialize_hook_command_agent() {
+        let json = serde_json::json!({
+            "type": "agent",
+            "prompt": "Verify tests pass"
+        });
+        let hook: HookCommand = serde_json::from_value(json).unwrap();
+        match hook {
+            HookCommand::Agent { prompt, .. } => {
+                assert_eq!(prompt, "Verify tests pass");
+            }
+            _ => panic!("Expected Agent variant"),
+        }
+    }
+
+    #[test]
+    fn test_deserialize_hook_command_http() {
+        let json = serde_json::json!({
+            "type": "http",
+            "url": "https://example.com/hook",
+            "if": "Bash(npm *)"
+        });
+        let hook: HookCommand = serde_json::from_value(json).unwrap();
+        match hook {
+            HookCommand::Http { url, if_condition, .. } => {
+                assert_eq!(url, "https://example.com/hook");
+                assert_eq!(if_condition, Some("Bash(npm *)".to_string()));
+            }
+            _ => panic!("Expected Http variant"),
+        }
+    }
+
+    #[test]
+    fn test_deserialize_hook_matcher() {
+        let json = serde_json::json!({
+            "matcher": "Bash(git *)",
+            "hooks": [
+                {"type": "command", "command": "git status"},
+                {"type": "prompt", "prompt": "Check git state"}
+            ]
+        });
+        let matcher: HookMatcher = serde_json::from_value(json).unwrap();
+        assert_eq!(matcher.matcher, Some("Bash(git *)".to_string()));
+        assert_eq!(matcher.hooks.len(), 2);
+    }
+
+    #[test]
+    fn test_deserialize_hook_matcher_no_matcher() {
+        let json = serde_json::json!({
+            "hooks": [
+                {"type": "command", "command": "echo hi"}
+            ]
+        });
+        let matcher: HookMatcher = serde_json::from_value(json).unwrap();
+        assert_eq!(matcher.matcher, None);
+        assert_eq!(matcher.hooks.len(), 1);
+    }
+
+    #[test]
+    fn test_parse_hooks_from_settings() {
+        let settings = serde_json::json!({
+            "hooks": {
+                "Stop": [
+                    {
+                        "hooks": [
+                            {"type": "command", "command": "echo stopped"}
+                        ]
+                    }
+                ],
+                "PreToolUse": [
+                    {
+                        "matcher": "Bash(git *)",
+                        "hooks": [
+                            {"type": "command", "command": "git status"}
+                        ]
+                    }
+                ]
+            },
+            "model": "claude-sonnet-4-6"
+        });
+        let parsed = parse_hooks_from_settings(&settings).unwrap();
+        assert_eq!(parsed.len(), 2);
+        assert!(parsed.contains_key("Stop"));
+        assert!(parsed.contains_key("PreToolUse"));
+        assert_eq!(parsed["Stop"].len(), 1);
+        assert_eq!(parsed["PreToolUse"][0].matcher, Some("Bash(git *)".to_string()));
+    }
+
+    #[test]
+    fn test_parse_hooks_from_settings_no_hooks() {
+        let settings = serde_json::json!({
+            "model": "claude-sonnet-4-6"
+        });
+        let parsed = parse_hooks_from_settings(&settings);
+        assert!(parsed.is_none());
+    }
+
+    #[test]
+    fn test_hook_command_serialization() {
+        let hook = HookCommand::Command {
+            command: "echo hello".to_string(),
+            shell: Some("bash".to_string()),
+            if_condition: Some("Bash(git *)".to_string()),
+            timeout: Some(30),
+            status_message: Some("Running git check".to_string()),
+            once: Some(false),
+            r#async: Some(true),
+            async_rewake: Some(false),
+        };
+        let json = serde_json::to_value(&hook).unwrap();
+        assert_eq!(json["type"], "command");
+        assert_eq!(json["command"], "echo hello");
+        assert_eq!(json["shell"], "bash");
+        assert_eq!(json["if"], "Bash(git *)");
+        assert_eq!(json["timeout"], 30);
+        assert_eq!(json["statusMessage"], "Running git check");
+        assert_eq!(json["async"], true);
+        assert_eq!(json["asyncRewake"], false);
     }
 }

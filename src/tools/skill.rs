@@ -4,7 +4,7 @@
 //! Provides a tool for the agent to invoke external skills with inline or forked execution.
 
 use crate::error::AgentError;
-use crate::skills::loader::{LoadedSkill, load_skills_from_dir};
+use crate::skills::loader::{LoadedSkill, load_skills_from_dir, substitute_env_vars_in_skill};
 use crate::types::*;
 use crate::utils::cwd::get_cwd;
 use crate::utils::prompt_shell_execution::{
@@ -263,6 +263,13 @@ impl SkillTool {
         // Try local skills first
         if let Some(skill) = self.get_skill(skill_name) {
             let substituted_content = substitute_arguments(&skill.content, &args_map);
+
+            // Substitute ${CLAUDE_SKILL_DIR} and ${CLAUDE_SESSION_ID} environment
+            // variables in the skill content (matches loadSkillsDir.ts lines 362-368).
+            let substituted_content = substitute_env_vars_in_skill(
+                &substituted_content,
+                &skill.base_dir,
+            );
 
             // Execute any embedded shell commands in the skill prompt
             let shell = skill
@@ -596,6 +603,8 @@ mod tests {
             metadata: SkillMetadata {
                 name: "test_arg_skill".to_string(),
                 description: "A skill with args".to_string(),
+                display_name: None,
+                version: None,
                 allowed_tools: None,
                 argument_hint: None,
                 arg_names: None,
@@ -641,6 +650,8 @@ mod tests {
             metadata: SkillMetadata {
                 name: "test_partial_args".to_string(),
                 description: "Partial args test".to_string(),
+                display_name: None,
+                version: None,
                 allowed_tools: None,
                 argument_hint: None,
                 arg_names: None,

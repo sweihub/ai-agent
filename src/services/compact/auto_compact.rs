@@ -215,22 +215,105 @@ pub async fn auto_compact_if_needed(
     // In full implementation: trySessionMemoryCompaction(messages, agentId, recompactionInfo.autoCompactThreshold)
     // For now, skip session memory compaction
 
-    // Note: The actual compaction call to compactConversation would go here
-    // For now, return that compaction was not performed (simplified implementation)
-    let prev_failures = tracking.map(|t| t.consecutive_failures).unwrap_or(0);
-    let next_failures = prev_failures + 1;
+    // Call the actual compaction logic
+    let token_count = estimate_token_count(messages);
+    let effective_window = get_effective_context_window_size(model);
 
-    if next_failures >= MAX_CONSECUTIVE_AUTOCOMPACT_FAILURES as usize {
-        log::warn!(
-            "autocompact: circuit breaker tripped after {} consecutive failures — skipping future attempts this session",
-            next_failures
-        );
-    }
+    // Target: compact down to about 60% of the effective window to leave room
+    let target_tokens = (effective_window as f64 * 0.6) as u64;
 
-    AutoCompactResult {
-        was_compacted: false,
-        compaction_result: None,
-        consecutive_failures: Some(next_failures),
+    let options = crate::services::compact::compact::CompactOptions {
+        max_tokens: Some(target_tokens),
+        direction: crate::services::compact::compact::CompactDirection::Smart,
+        create_boundary: true,
+        system_prompt: None,
+    };
+
+    match crate::services::compact::compact::compact_messages(messages, options).await {
+        Ok(compact_result) => {
+            if compact_result.success {
+                log::info!(
+                    "autocompact: compacted {} messages ({} -> {} tokens, removed {} messages)",
+                    messages.len(),
+                    compact_result.tokens_before,
+                    compact_result.tokens_after,
+                    compact_result.messages_removed
+                );
+                // Build a boundary marker message for the compaction result
+                let boundary_marker = crate::types::Message {
+                    role: crate::types::MessageRole::User,
+                    content: format!("[Conversation was compacted. {} messages summarized to free up context space.]", compact_result.messages_removed),
+                    attachments: None,
+                    tool_call_id: None,
+                    tool_calls: None,
+                    is_error: None,
+                    is_meta: Some(true),
+            uuid: None,
+                };
+                let summary_messages = if !compact_result.summary.is_empty() {
+                    vec![crate::types::Message {
+                        role: crate::types::MessageRole::Assistant,
+                        content: compact_result.summary,
+                        attachments: None,
+                        tool_call_id: None,
+                        tool_calls: None,
+                        is_error: None,
+                        is_meta: None,
+            uuid: None,
+                    }]
+                } else {
+                    vec![]
+                };
+                AutoCompactResult {
+                    was_compacted: true,
+                    compaction_result: Some(CompactionResult {
+                        boundary_marker,
+                        summary_messages,
+                        messages_to_keep: Some(compact_result.messages_to_keep),
+                        attachments: vec![],
+                        pre_compact_token_count: compact_result.tokens_before as u32,
+                        post_compact_token_count: compact_result.tokens_after as u32,
+                        true_post_compact_token_count: None,
+                        compaction_usage: None,
+                    }),
+                    consecutive_failures: Some(0), // Reset on success
+                }
+            } else {
+                log::warn!(
+                    "autocompact: compaction failed: {:?}",
+                    compact_result.error
+                );
+                let prev_failures = tracking.map(|t| t.consecutive_failures).unwrap_or(0);
+                let next_failures = prev_failures + 1;
+                if next_failures >= MAX_CONSECUTIVE_AUTOCOMPACT_FAILURES as usize {
+                    log::warn!(
+                        "autocompact: circuit breaker tripped after {} consecutive failures — skipping future attempts this session",
+                        next_failures
+                    );
+                }
+                AutoCompactResult {
+                    was_compacted: false,
+                    compaction_result: None,
+                    consecutive_failures: Some(next_failures),
+                }
+            }
+        }
+        Err(e) => {
+            log::error!("autocompact: compaction error: {}", e);
+            let prev_failures = tracking.map(|t| t.consecutive_failures).unwrap_or(0);
+            let next_failures = prev_failures + 1;
+            if next_failures >= MAX_CONSECUTIVE_AUTOCOMPACT_FAILURES as usize {
+                log::warn!(
+                    "autocompact: circuit breaker tripped after {} consecutive failures — skipping future attempts this session",
+                    next_failures
+                );
+            }
+            AutoCompactResult {
+                was_compacted: false,
+                compaction_result: None,
+                consecutive_failures: Some(next_failures),
+            }
+        }
     }
 }
 

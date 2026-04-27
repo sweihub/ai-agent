@@ -15,7 +15,7 @@ lazy_static! {
         let mut set = HashSet::new();
 
         // Read-only file operations
-        set.insert("FileRead");
+        set.insert("Read");
 
         // Search / read-only
         set.insert("Grep");

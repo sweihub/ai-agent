@@ -26,6 +26,10 @@ pub struct PluginSkillMetadata {
     pub skill_name: String,
     /// Human-readable description
     pub description: Option<String>,
+    /// Display name parsed from frontmatter `name` field
+    pub display_name: Option<String>,
+    /// Version parsed from frontmatter `version` field
+    pub version: Option<String>,
     /// Allowed tools for this skill
     pub allowed_tools: Option<Vec<String>>,
     /// Argument hint
@@ -101,6 +105,8 @@ impl PluginSkills {
                         .description
                         .clone()
                         .unwrap_or_default(),
+                    display_name: plugin_skill.metadata.display_name.clone(),
+                    version: plugin_skill.metadata.version.clone(),
                     allowed_tools: plugin_skill.metadata.allowed_tools.clone(),
                     argument_hint: plugin_skill.metadata.argument_hint.clone(),
                     arg_names: None,
@@ -183,6 +189,8 @@ fn load_skill_from_file(
         plugin_name: plugin_name.to_string(),
         skill_name: skill_name.to_string(),
         description,
+        display_name: None,
+        version: None,
         allowed_tools,
         argument_hint,
         when_to_use,
@@ -482,6 +490,8 @@ Test skill content here.
                 plugin_name: "my-plugin".to_string(),
                 skill_name: "my-skill".to_string(),
                 description: Some("A plugin skill".to_string()),
+                display_name: None,
+                version: None,
                 allowed_tools: Some(vec!["tool1".to_string()]),
                 argument_hint: None,
                 when_to_use: None,
@@ -516,6 +526,8 @@ Test skill content here.
                 plugin_name: "test".to_string(),
                 skill_name: "skill".to_string(),
                 description: None,
+                display_name: None,
+                version: None,
                 allowed_tools: None,
                 argument_hint: None,
                 when_to_use: None,

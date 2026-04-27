@@ -226,6 +226,78 @@ pub struct ToolUseContext {
     pub rendered_system_prompt: Option<Arc<dyn std::any::Any + Send + Sync>>,
 }
 
+impl ToolUseContext {
+    /// Create a minimal stub ToolUseContext for callers (like query engine)
+    /// that don't have a real one but need one for memory extraction.
+    pub fn stub() -> Self {
+        use std::collections::HashSet;
+        use crate::types::message::Message;
+        Self {
+            options: ToolUseContextOptions {
+                commands: Vec::new(),
+                debug: false,
+                main_loop_model: String::new(),
+                tools: Vec::new(),
+                verbose: false,
+                thinking_config: None,
+                mcp_clients: Vec::new(),
+                mcp_resources: HashMap::new(),
+                is_non_interactive_session: false,
+                agent_definitions: AgentDefinitionsResult {
+                    active_agents: Vec::new(),
+                    all_agents: Vec::new(),
+                },
+                max_budget_usd: None,
+                custom_system_prompt: None,
+                append_system_prompt: None,
+                query_source: None,
+                refresh_tools: None,
+            },
+            abort_signal: None,
+            read_file_state: None,
+            get_app_state: Box::new(|| Box::new(()) as Box<dyn std::any::Any>),
+            set_app_state: Box::new(|_| {}),
+            set_app_state_for_tasks: None,
+            handle_elicitation: None,
+            set_tool_jsx: None,
+            add_notification: None,
+            append_system_message: None,
+            send_os_notification: None,
+            nested_memory_attachment_triggers: None,
+            loaded_nested_memory_paths: None,
+            dynamic_skill_dir_triggers: None,
+            discovered_skill_names: None,
+            user_modified: false,
+            set_in_progress_tool_use_ids: Box::new(|_| ()),
+            set_has_interruptible_tool_in_progress: None,
+            set_response_length: Box::new(|_| {}),
+            push_api_metrics_entry: None,
+            set_stream_mode: None,
+            on_compact_progress: None,
+            set_sdk_status: None,
+            open_message_selector: None,
+            update_file_history_state: Box::new(|_| ()),
+            update_attribution_state: Box::new(|_| ()),
+            set_conversation_id: None,
+            agent_id: None,
+            agent_type: None,
+            require_can_use_tool: false,
+            messages: Vec::<Message>::new(),
+            file_reading_limits: None,
+            glob_limits: None,
+            tool_decisions: None,
+            query_tracking: None,
+            request_prompt: None,
+            tool_use_id: None,
+            critical_system_reminder_experimental: None,
+            preserve_tool_use_results: false,
+            local_denial_tracking: None,
+            content_replacement_state: None,
+            rendered_system_prompt: None,
+        }
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct FileReadingLimits {
     #[serde(skip_serializing_if = "Option::is_none")]

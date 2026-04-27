@@ -793,6 +793,7 @@ fn create_file_restore_attachment(path: &str, content: &str) -> Message {
         tool_calls: None,
         is_error: None,
         is_meta: Some(true),
+            uuid: None,
     }
 }
 
@@ -833,6 +834,7 @@ fn create_skill_restore_attachment(name: &str, content: &str) -> Message {
         tool_calls: None,
         is_error: None,
         is_meta: Some(true),
+            uuid: None,
     }
 }
 
@@ -901,6 +903,7 @@ mod post_compact_tests {
             }]),
             is_error: None,
             is_meta: None,
+            uuid: None,
         }];
         let paths = collect_read_tool_file_paths(&messages);
         assert!(paths.contains("/foo/bar.txt"));
@@ -921,6 +924,7 @@ mod post_compact_tests {
             }]),
             is_error: None,
             is_meta: None,
+            uuid: None,
         }];
         let paths = collect_read_tool_file_paths(&messages);
         assert!(paths.is_empty());

@@ -230,6 +230,22 @@ pub fn calculate_cost(model: &str, usage: &TokenUsage) -> f64 {
     costs.total_cost(usage)
 }
 
+/// Calculate cost from raw token counts (avoids TokenUsage struct conversion)
+pub fn calculate_cost_for_tokens(
+    model: &str,
+    input_tokens: u32,
+    output_tokens: u32,
+    cache_read_input_tokens: u32,
+    cache_creation_input_tokens: u32,
+) -> f64 {
+    let registry = ModelCostRegistry::new();
+    let costs = registry.get(model);
+    costs.input_cost(input_tokens)
+        + costs.output_cost(output_tokens)
+        + costs.cache_read_cost(cache_read_input_tokens)
+        + costs.cache_write_cost(cache_creation_input_tokens)
+}
+
 /// Get list of available models with their display names and descriptions
 pub fn get_available_models() -> Vec<ModelInfo> {
     vec![
@@ -359,10 +375,46 @@ pub fn get_stored_session_costs(session_id: &str) -> Option<StoredCostState> {
 /// Restores cost state from project config when resuming a session.
 /// Only restores if the session ID matches the last saved session.
 /// Returns true if cost state was restored, false otherwise.
-pub fn restore_cost_state_for_session(_session_id: &str) -> bool {
-    // This would need to integrate with the session state management
-    // For now, return false - the session state restoration is handled elsewhere
-    false
+pub fn restore_cost_state_for_session(session_id: &str) -> bool {
+    let stored = get_stored_session_costs(session_id);
+    let Some(stored) = stored else {
+        return false;
+    };
+
+    update_global_cost_state(|state| {
+        state.total_cost_usd = stored.total_cost_usd;
+        state.total_api_duration = stored.total_api_duration;
+        state.total_api_duration_without_retries = stored.total_api_duration_without_retries;
+        state.total_tool_duration = stored.total_tool_duration;
+        state.total_lines_added = stored.total_lines_added;
+        state.total_lines_removed = stored.total_lines_removed;
+        state.last_duration = stored.last_duration;
+        state.model_usage = stored
+            .model_usage
+            .map(|mu| {
+                mu.into_iter()
+                    .map(|(k, v)| {
+                        (
+                            k,
+                            ModelUsageInfo {
+                                input_tokens: v.input_tokens,
+                                output_tokens: v.output_tokens,
+                                cache_read_input_tokens: v.cache_read_input_tokens,
+                                cache_creation_input_tokens: v.cache_creation_input_tokens,
+                                web_search_requests: v.web_search_requests,
+                                cost_usd: v.cost_usd,
+                                context_window: 0,
+                                max_output_tokens: 0,
+                            },
+                        )
+                    })
+                    .collect()
+            })
+            .unwrap_or_default();
+        state.session_id = session_id.to_string();
+    });
+
+    true
 }
 
 /// Saves the current session's costs to project config.
@@ -582,13 +634,37 @@ pub struct GlobalCostState {
     pub model_usage: std::collections::HashMap<String, ModelUsageInfo>,
     pub has_unknown_model_cost: bool,
     pub session_id: String,
+    /// Per-turn tool metrics (TS: turnToolDurationMs, turnToolCount)
+    pub turn_tool_duration_ms: u64,
+    pub turn_tool_count: u32,
+    /// Turn-level token budget tracking (TS: outputTokensAtTurnStart, currentTurnTokenBudget)
+    pub output_tokens_at_turn_start: u64,
+    pub current_turn_token_budget: Option<u64>,
+    pub budget_continuation_count: u32,
+}
+
+/// Global cost state singleton - thread-safe, persisted across calls
+static GLOBAL_COST_STATE: once_cell::sync::Lazy<std::sync::Mutex<GlobalCostState>> =
+    once_cell::sync::Lazy::new(|| std::sync::Mutex::new(GlobalCostState::default()));
+
+/// Initialize cost tracking for a new session
+pub fn init_cost_state(session_id: &str) {
+    let mut state = GLOBAL_COST_STATE.lock().unwrap();
+    *state = GlobalCostState {
+        session_id: session_id.to_string(),
+        ..Default::default()
+    };
 }
 
 /// Get the global cost state (singleton)
 fn get_global_cost_state() -> GlobalCostState {
-    // In a real implementation, this would be a static or thread-local
-    // For now, return a default state
-    GlobalCostState::default()
+    GLOBAL_COST_STATE.lock().unwrap().clone()
+}
+
+/// Update the global cost state with a mutation closure
+pub fn update_global_cost_state<F: FnOnce(&mut GlobalCostState)>(f: F) {
+    let mut state = GLOBAL_COST_STATE.lock().unwrap();
+    f(&mut state);
 }
 
 /// Add to total model usage
@@ -601,39 +677,41 @@ pub fn add_to_total_model_usage(
     web_search_requests: u32,
     model: &str,
 ) -> ModelUsageInfo {
-    let mut cost_state = get_global_cost_state();
+    update_global_cost_state(|cost_state| {
+        let model_usage = cost_state
+            .model_usage
+            .entry(model.to_string())
+            .or_insert_with(|| ModelUsageInfo {
+                input_tokens: 0,
+                output_tokens: 0,
+                cache_read_input_tokens: 0,
+                cache_creation_input_tokens: 0,
+                web_search_requests: 0,
+                cost_usd: 0.0,
+                context_window: 0,
+                max_output_tokens: 0,
+            });
 
-    let model_usage = cost_state
+        model_usage.input_tokens += input_tokens;
+        model_usage.output_tokens += output_tokens;
+        model_usage.cache_read_input_tokens += cache_read_input_tokens;
+        model_usage.cache_creation_input_tokens += cache_creation_input_tokens;
+        model_usage.web_search_requests += web_search_requests;
+        model_usage.cost_usd += cost;
+
+        cost_state.total_cost_usd += cost;
+        cost_state.total_input_tokens += input_tokens;
+        cost_state.total_output_tokens += output_tokens;
+        cost_state.total_cache_creation_input_tokens += cache_creation_input_tokens;
+        cost_state.total_cache_read_input_tokens += cache_read_input_tokens;
+        cost_state.total_web_search_requests += web_search_requests;
+    });
+
+    get_global_cost_state()
         .model_usage
-        .entry(model.to_string())
-        .or_insert_with(|| ModelUsageInfo {
-            input_tokens: 0,
-            output_tokens: 0,
-            cache_read_input_tokens: 0,
-            cache_creation_input_tokens: 0,
-            web_search_requests: 0,
-            cost_usd: 0.0,
-            context_window: 0,
-            max_output_tokens: 0,
-        });
-
-    model_usage.input_tokens += input_tokens;
-    model_usage.output_tokens += output_tokens;
-    model_usage.cache_read_input_tokens += cache_read_input_tokens;
-    model_usage.cache_creation_input_tokens += cache_creation_input_tokens;
-    model_usage.web_search_requests += web_search_requests;
-    model_usage.cost_usd += cost;
-
-    ModelUsageInfo {
-        input_tokens: model_usage.input_tokens,
-        output_tokens: model_usage.output_tokens,
-        cache_read_input_tokens: model_usage.cache_read_input_tokens,
-        cache_creation_input_tokens: model_usage.cache_creation_input_tokens,
-        web_search_requests: model_usage.web_search_requests,
-        cost_usd: model_usage.cost_usd,
-        context_window: model_usage.context_window,
-        max_output_tokens: model_usage.max_output_tokens,
-    }
+        .get(model)
+        .cloned()
+        .unwrap_or_default()
 }
 
 /// Add to total session cost
@@ -657,6 +735,29 @@ pub fn add_to_total_session_cost(
     );
 
     cost
+}
+
+/// Reset per-turn metrics at the start of a new turn
+pub fn reset_turn_metrics() {
+    update_global_cost_state(|state| {
+        state.turn_tool_duration_ms = 0;
+        state.turn_tool_count = 0;
+        state.output_tokens_at_turn_start = state.total_output_tokens as u64;
+    });
+}
+
+/// Record tool execution duration for the current turn
+pub fn record_turn_tool_duration(duration_ms: u64) {
+    update_global_cost_state(|state| {
+        state.turn_tool_duration_ms += duration_ms;
+        state.turn_tool_count += 1;
+    });
+}
+
+/// Get current turn metrics
+pub fn get_turn_metrics() -> (u64, u32) {
+    let state = get_global_cost_state();
+    (state.turn_tool_duration_ms, state.turn_tool_count)
 }
 
 #[cfg(test)]

@@ -35,11 +35,12 @@ pub fn init_bundled_skills() {
     stuck::register_stuck_skill();
     loop_skill::register_loop_skill();
 
-    // Feature-gated skills (would be enabled based on feature flags in real implementation)
-    // dream::register_dream_skill();
-    // hunter::register_hunter_skill();
-    // schedule_remote_agents::register_schedule_remote_agents_skill();
-    // claude_api::register_claude_api_skill();
-    // claude_in_chrome::register_claude_in_chrome_skill();
-    // run_skill_generator::register_run_skill_generator_skill();
+    // Feature-gated in TypeScript (KAIROS, REVIEW_ARTIFACT, AGENT_TRIGGERS,
+    // BUILDING_CLAUDE_APPS, RUN_SKILL_GENERATOR) — always enabled in Rust per SDK policy
+    dream::register_dream_skill();
+    hunter::register_hunter_skill();
+    schedule_remote_agents::register_schedule_remote_agents_skill();
+    claude_api::register_claude_api_skill();
+    claude_in_chrome::register_claude_in_chrome_skill();
+    run_skill_generator::register_run_skill_generator_skill();
 }
